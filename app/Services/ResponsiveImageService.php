@@ -57,18 +57,21 @@ class ResponsiveImageService
 
     protected function parseSize(string $size): array
     {
-        if (Str::endsWith($size, 'px')) {
-            return ['type' => 'px', 'value' => (int) $size];
+        if (Str::contains($size, 'calc') || Str::contains($size, '-')) {
+            $pattern = '/(?:calc\()?(\d+)vw\s*-\s*(\d+)px(?:\))?/';
+            if (preg_match($pattern, $size, $matches)) {
+                return [
+                    'type' => 'calc',
+                    'vw' => (int) $matches[1],
+                    'px' => (int) $matches[2]
+                ];
+            }
         } elseif (Str::endsWith($size, 'vw')) {
             return ['type' => 'vw', 'value' => (int) $size];
-        } elseif (Str::contains($size, '-')) {
-            $parts = explode('-', $size);
-            return [
-                'type' => 'calc',
-                'vw' => (int) $parts[0],
-                'px' => (int) trim($parts[1])
-            ];
+        } elseif (Str::endsWith($size, 'px')) {
+            return ['type' => 'px', 'value' => (int) $size];
         }
+
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 

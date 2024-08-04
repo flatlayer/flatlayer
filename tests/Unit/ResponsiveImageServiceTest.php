@@ -33,8 +33,6 @@ class ResponsiveImageServiceTest extends TestCase
 
         $result = $method->invoke($this->service, $sizes);
 
-        dd($result);
-
         $expected = [
             0 => ['type' => 'vw', 'value' => 100],
             768 => ['type' => 'vw', 'value' => 75],
