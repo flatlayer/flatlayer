@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,11 +12,12 @@ return new class extends Migration
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
             $table->string('slug')->unique();
-
             $table->string('title');
             $table->text('content');
             $table->text('excerpt')->nullable();
-            $table->vector('embedding', 1536)->nullable(); // For PG Vector
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                $table->vector('embedding', 1536)->nullable();
+            }
             $table->timestamp('published_at')->nullable();
             $table->boolean('is_published')->default(false);
             $table->timestamps();

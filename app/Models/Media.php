@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Services\ResponsiveImageService;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
 class Media extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'model_type',
         'model_id',
