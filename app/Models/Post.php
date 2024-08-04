@@ -2,17 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\Tags\HasTags;
 use App\Traits\Searchable;
 
-class Post extends Model implements HasMedia
+class Post extends Model
 {
-    use HasFactory, InteractsWithMedia, HasTags, Searchable;
+    use HasFactory, HasMedia, HasTags, Searchable;
 
     protected $fillable = [
         'title',

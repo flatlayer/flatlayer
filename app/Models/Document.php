@@ -5,15 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\Searchable;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 use Spatie\Tags\HasTags;
 
-class Document extends Model implements HasMedia
+class Document extends Model
 {
-    use HasFactory, InteractsWithMedia, HasTags, Searchable, HasSlug;
+    use HasFactory, HasTags, Searchable, HasSlug;
 
     protected $fillable = [
         'title',

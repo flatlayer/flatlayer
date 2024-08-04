@@ -13,10 +13,10 @@
         "league/commonmark": "^2.5",
         "openai-php/laravel": "^0.10.1",
         "pgvector/pgvector": "^0.2.0",
-        "spatie/laravel-medialibrary": "^11.8",
         "spatie/laravel-sluggable": "^3.6",
         "spatie/laravel-tags": "^4.6",
-        "webuni/front-matter": "^2.0"
+        "webuni/front-matter": "^2.0",
+        "ext-fileinfo": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
