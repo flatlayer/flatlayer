@@ -40,8 +40,8 @@ class ResponsiveImageService
         ];
 
         if ($displaySize) {
-            $defaultAttributes['width'] = $displaySize['width'];
-            $defaultAttributes['height'] = $displaySize['height'];
+            $defaultAttributes['width'] = $displaySize[0];
+            $defaultAttributes['height'] = $displaySize[1];
         }
 
         $mergedAttributes = array_merge($defaultAttributes, $attributes);
@@ -95,8 +95,8 @@ class ResponsiveImageService
 
         if ($displaySize) {
             // Case 1: Display size is provided
-            $baseWidth = $displaySize['width'];
-            $baseHeight = $displaySize['height'];
+            $baseWidth = $displaySize[0];
+            $baseHeight = $displaySize[1];
             $aspectRatio = $baseHeight / $baseWidth;
 
             if ($isFluid) {
@@ -202,6 +202,6 @@ class ResponsiveImageService
         if (!$displaySize) {
             return [];
         }
-        return ['w' => $displaySize['width'], 'h' => $displaySize['height']];
+        return ['w' => $displaySize[0], 'h' => $displaySize[1]];
     }
 }

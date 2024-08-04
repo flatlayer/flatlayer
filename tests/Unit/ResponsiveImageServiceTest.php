@@ -82,10 +82,7 @@ class ResponsiveImageServiceTest extends TestCase
         $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSrcset');
         $method->setAccessible(true);
 
-        $result = $method->invoke($this->service, $this->thumbnail, false, [
-            'width' => 300,
-            'height' => 300,
-        ]);
+        $result = $method->invoke($this->service, $this->thumbnail, false, [300, 300]);
 
         $this->assertStringContainsString('300w', $result);
         $this->assertStringContainsString('600w', $result);
@@ -224,7 +221,7 @@ class ResponsiveImageServiceTest extends TestCase
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
-        $displaySize = ['width' => 150, 'height' => 150];
+        $displaySize = [150, 150];
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], false, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
@@ -254,7 +251,7 @@ class ResponsiveImageServiceTest extends TestCase
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
-        $displaySize = ['width' => 1200, 'height' => 400];
+        $displaySize = [1200, 400];
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
@@ -284,7 +281,7 @@ class ResponsiveImageServiceTest extends TestCase
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
-        $displaySize = ['width' => 150, 'height' => 150];
+        $displaySize = [150, 150];
         $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
