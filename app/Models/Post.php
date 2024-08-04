@@ -28,6 +28,8 @@ class Post extends Model implements HasMedia
         'is_published' => 'boolean',
     ];
 
+    public static $allowedFilters = ['tags'];
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('main_image')

@@ -26,7 +26,8 @@ class SearchRequest extends FormRequest
             'query' => 'required|string|max:255',
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
-            'filters' => 'sometimes|json',
+            'filters' => 'sometimes|array',
+            'filters.*' => 'string|array',
         ];
     }
 
@@ -37,9 +38,33 @@ class SearchRequest extends FormRequest
     {
         if ($this->filled('filters')) {
             $this->merge([
-                'filters' => json_decode($this->filters, true)
+                'filters' => $this->parseFilters($this->filters)
             ]);
         }
+    }
+
+    /**
+     * Parse the filters from the request.
+     *
+     * @param array $filters
+     * @return array
+     */
+    protected function parseFilters(array $filters): array
+    {
+        $parsedFilters = [];
+
+        foreach ($filters as $key => $value) {
+            if (Str::startsWith($key, 'tag:')) {
+                $tagType = Str::after($key, 'tag:');
+                $parsedFilters['tags'][$tagType] = $value;
+            } elseif ($key === 'tag') {
+                $parsedFilters['tags']['default'] = is_array($value) ? $value : [$value];
+            } else {
+                $parsedFilters[$key] = $value;
+            }
+        }
+
+        return $parsedFilters;
     }
 
     /**
@@ -59,14 +84,6 @@ class SearchRequest extends FormRequest
      */
     public function filters(): array
     {
-        $modelClass = $this->getModelClass();
-        if (!$modelClass || !property_exists($modelClass, 'allowedFilters')) {
-            return [];
-        }
-
-        $allowedFilters = $modelClass::$allowedFilters;
-        $requestedFilters = $this->input('filters', []);
-
-        return array_intersect_key($requestedFilters, array_flip($allowedFilters));
+        return $this->validated('filters', []);
     }
 }
