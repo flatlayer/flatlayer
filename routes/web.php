@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GitHubWebhookController;
+use App\Http\Controllers\ImageController;
 use App\Http\Controllers\ListController;
 use App\Http\Controllers\SingleModelController;
 use Illuminate\Support\Facades\Route;
@@ -14,3 +15,7 @@ Route::get('/{modelSlug}/show/{slug}', [SingleModelController::class, 'show'])->
 
 // The update webhook
 Route::post('/{modelSlug}/webhook', [GitHubWebhookController::class, 'handle']);
+
+Route::get('/media/{id}.{extension}', [ImageController::class, 'transform'])
+    ->name('media.transform')
+    ->middleware('signed');
