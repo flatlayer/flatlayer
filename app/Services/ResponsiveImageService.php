@@ -26,18 +26,23 @@ class ResponsiveImageService
         $this->defaultTransforms = $defaultTransforms;
     }
 
-    public function generateImgTag(Media $media, array $sizes, array $attributes = [], bool $isFluid = true): string
+    public function generateImgTag(Media $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {
         $parsedSizes = $this->parseSizes($sizes);
-        $srcset = $this->generateSrcset($media, $isFluid);
+        $srcset = $this->generateSrcset($media, $isFluid, $displaySize);
         $sizesAttribute = $this->generateSizesAttribute($parsedSizes);
 
         $defaultAttributes = [
-            'src' => $media->getUrl($this->defaultTransforms),
+            'src' => $media->getUrl(array_merge($this->defaultTransforms, $this->getBaseTransforms($displaySize))),
             'alt' => $media->custom_properties['alt'] ?? '',
             'sizes' => $sizesAttribute,
             'srcset' => $srcset,
         ];
+
+        if ($displaySize) {
+            $defaultAttributes['width'] = $displaySize['width'];
+            $defaultAttributes['height'] = $displaySize['height'];
+        }
 
         $mergedAttributes = array_merge($defaultAttributes, $attributes);
 
@@ -83,38 +88,71 @@ class ResponsiveImageService
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 
-    protected function generateSrcset(Media $media, bool $isFluid): string
+    protected function generateSrcset(Media $media, bool $isFluid, ?array $displaySize = null): string
     {
         $maxWidth = $media->getWidth();
         $srcset = [];
 
-        if ($isFluid) {
-            $currentWidth = $maxWidth;
-            while ($currentWidth > self::MIN_SIZE) {
-                $srcset[] = $this->formatSrcsetEntry($media, $currentWidth);
-                $currentWidth = max(self::MIN_SIZE, intval($currentWidth * self::DECREMENT));
+        if ($displaySize) {
+            // Case 1: Display size is provided
+            $baseWidth = $displaySize['width'];
+            $baseHeight = $displaySize['height'];
+            $aspectRatio = $baseHeight / $baseWidth;
 
-                // Break the loop if we've reached or gone below MIN_SIZE
-                if ($currentWidth <= self::MIN_SIZE) {
-                    $srcset[] = $this->formatSrcsetEntry($media, self::MIN_SIZE);
-                    break;
+            if ($isFluid) {
+                $currentWidth = min($baseWidth * 2, $maxWidth);
+                $minWidth = max(self::MIN_SIZE, intval($baseWidth * 0.25));
+
+                while ($currentWidth >= $minWidth) {
+                    $currentHeight = round($currentWidth * $aspectRatio);
+                    $srcset[] = $this->formatSrcsetEntry($media, $currentWidth, $currentHeight);
+                    $currentWidth = max($minWidth, intval($currentWidth * self::DECREMENT));
+
+                    if($currentWidth == $minWidth) {
+                        break;
+                    }
+                }
+
+                // Ensure baseWidth is included if it's not already
+                if (!in_array($baseWidth, array_column($srcset, 'width'))) {
+                    $srcset[] = $this->formatSrcsetEntry($media, $baseWidth, $baseHeight);
+                }
+            } else {
+                // Fixed size: base size and 2x if possible
+                $srcset[] = $this->formatSrcsetEntry($media, $baseWidth, $baseHeight);
+                $retinaWidth = min($baseWidth * 2, $maxWidth);
+                if ($retinaWidth > $baseWidth) {
+                    $retinaHeight = round($retinaWidth * $aspectRatio);
+                    $srcset[] = $this->formatSrcsetEntry($media, $retinaWidth, $retinaHeight);
                 }
             }
         } else {
-            // Fixed size: original and 2x
-            $srcset[] = $this->formatSrcsetEntry($media, $maxWidth);
-            $retinaWidth = min($maxWidth * 2, self::MAX_SIZE);
-            if ($retinaWidth > $maxWidth) {
-                $srcset[] = $this->formatSrcsetEntry($media, $retinaWidth);
+            // Case 2: No display size provided, use original aspect ratio
+            if ($isFluid) {
+                $currentWidth = $maxWidth;
+                while ($currentWidth >= self::MIN_SIZE) {
+                    $srcset[] = $this->formatSrcsetEntry($media, $currentWidth);
+                    $currentWidth = max(self::MIN_SIZE, intval($currentWidth * self::DECREMENT));
+
+                    if($currentWidth == self::MIN_SIZE) {
+                        break;
+                    }
+                }
+            } else {
+                // Fixed size: original size only
+                $srcset[] = $this->formatSrcsetEntry($media, $maxWidth);
             }
         }
 
         return implode(', ', array_unique($srcset));
     }
 
-    protected function formatSrcsetEntry(Media $media, int $width): string
+    protected function formatSrcsetEntry(Media $media, int $width, ?int $height = null): string
     {
         $transforms = array_merge($this->defaultTransforms, ['w' => $width]);
+        if ($height !== null) {
+            $transforms['h'] = $height;
+        }
         return $media->getUrl($transforms) . " {$width}w";
     }
 
@@ -152,5 +190,18 @@ class ResponsiveImageService
             $attributeString .= " {$key}=\"" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "\"";
         }
         return "<img{$attributeString}>";
+    }
+
+    protected function calculateProportionalHeight(int $width, int $baseWidth, int $baseHeight): int
+    {
+        return intval(($width / $baseWidth) * $baseHeight);
+    }
+
+    protected function getBaseTransforms(?array $displaySize): array
+    {
+        if (!$displaySize) {
+            return [];
+        }
+        return ['w' => $displaySize['width'], 'h' => $displaySize['height']];
     }
 }

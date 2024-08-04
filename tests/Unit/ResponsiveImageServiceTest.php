@@ -19,13 +19,13 @@ class ResponsiveImageServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ResponsiveImageService(['q' => 80]); // Default transform
+        $this->service = new ResponsiveImageService(['q' => 80]);
         $this->media = Media::factory()->create([
             'dimensions' => ['width' => 1600, 'height' => 900],
             'path' => 'path/to/image.jpg',
         ]);
         $this->thumbnail = Media::factory()->create([
-            'dimensions' => ['width' => 300, 'height' => 300],
+            'dimensions' => ['width' => 600, 'height' => 600],
             'path' => 'path/to/thumbnail.jpg',
         ]);
     }
@@ -68,13 +68,13 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('1600w', $result);
         $this->assertStringContainsString('1440w', $result);
         $this->assertStringContainsString('1296w', $result);
-        $this->assertStringContainsString('100w', $result);
+        $this->assertStringContainsString('110w', $result);
 
         // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('1601w', $result);
 
         // Check the order of sizes (should be descending)
-        $this->assertMatchesRegularExpression('/1600w.*1440w.*1296w.*100w/', $result);
+        $this->assertMatchesRegularExpression('/1600w.*1440w.*1296w.*110w/', $result);
     }
 
     public function test_generate_srcset_for_fixed_image()
@@ -82,7 +82,10 @@ class ResponsiveImageServiceTest extends TestCase
         $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSrcset');
         $method->setAccessible(true);
 
-        $result = $method->invoke($this->service, $this->thumbnail, false);
+        $result = $method->invoke($this->service, $this->thumbnail, false, [
+            'width' => 300,
+            'height' => 300,
+        ]);
 
         $this->assertStringContainsString('300w', $result);
         $this->assertStringContainsString('600w', $result);
@@ -152,7 +155,10 @@ class ResponsiveImageServiceTest extends TestCase
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
-        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false);
+        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, [
+            'width' => 300,
+            'height' => 300,
+        ]);
 
         $this->assertStringContainsString('<img', $result);
         $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL
@@ -205,5 +211,80 @@ class ResponsiveImageServiceTest extends TestCase
 
         // Use a more flexible assertion that works for both route and signedRoute
         $this->assertMatchesRegularExpression('/^https:\/\/example\.com\/(url|signed-url)(\?.*)?&w=800 800w$/', $result);
+    }
+
+    public function test_generate_img_tag_with_display_size_fixed()
+    {
+        URL::shouldReceive('signedRoute')
+            ->andReturn('https://example.com/signed-url');
+
+        $sizes = ['100vw'];
+        $displaySize = ['width' => 150, 'height' => 150];
+        $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], false, $displaySize);
+
+        $this->assertStringContainsString('<img', $result);
+        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('width="150"', $result);
+        $this->assertStringContainsString('height="150"', $result);
+        $this->assertStringContainsString('sizes="100vw"', $result);
+        $this->assertStringContainsString('srcset="', $result);
+        $this->assertStringContainsString('class="my-image"', $result);
+
+        // Check for both 1x and 2x versions
+        $this->assertStringContainsString('150w', $result);
+        $this->assertStringContainsString('300w', $result);
+
+        // Ensure no larger sizes are generated
+        $this->assertStringNotContainsString('301w', $result);
+    }
+
+    public function test_generate_img_tag_with_display_size_fluid()
+    {
+        URL::shouldReceive('signedRoute')
+            ->andReturn('https://example.com/signed-url');
+
+        $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
+        $displaySize = ['width' => 1200, 'height' => 400];
+        $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true, $displaySize);
+
+        $this->assertStringContainsString('<img', $result);
+        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('width="1200"', $result);
+        $this->assertStringContainsString('height="400"', $result);
+        $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $result);
+        $this->assertStringContainsString('srcset="', $result);
+        $this->assertStringContainsString('class="my-image"', $result);
+
+        // Check for various sizes
+        $this->assertStringContainsString('1600w', $result);
+        $this->assertStringContainsString('1200w', $result);
+
+        // Ensure no larger sizes are generated
+        $this->assertStringNotContainsString('1601w', $result);
+    }
+
+    public function test_generate_img_tag_with_small_display_size()
+    {
+        URL::shouldReceive('signedRoute')
+            ->andReturn('https://example.com/signed-url');
+
+        $sizes = ['100vw'];
+        $displaySize = ['width' => 150, 'height' => 150];
+        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, $displaySize);
+
+        $this->assertStringContainsString('<img', $result);
+        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('width="150"', $result);
+        $this->assertStringContainsString('height="150"', $result);
+        $this->assertStringContainsString('sizes="100vw"', $result);
+        $this->assertStringContainsString('srcset="', $result);
+        $this->assertStringContainsString('class="my-thumbnail"', $result);
+
+        // Check for both 1x and 2x versions
+        $this->assertStringContainsString('150w', $result);
+        $this->assertStringContainsString('300w', $result);
+
+        // Ensure no larger sizes are generated
+        $this->assertStringNotContainsString('301w', $result);
     }
 }
