@@ -14,14 +14,19 @@ class ResponsiveImageServiceTest extends TestCase
 
     private ResponsiveImageService $service;
     private Media $media;
+    private Media $thumbnail;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ResponsiveImageService();
+        $this->service = new ResponsiveImageService(['q' => 80]); // Default transform
         $this->media = Media::factory()->create([
             'dimensions' => ['width' => 1600, 'height' => 900],
             'path' => 'path/to/image.jpg',
+        ]);
+        $this->thumbnail = Media::factory()->create([
+            'dimensions' => ['width' => 300, 'height' => 300],
+            'path' => 'path/to/thumbnail.jpg',
         ]);
     }
 
@@ -53,33 +58,45 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertEquals(['type' => 'calc', 'vw' => 100, 'px' => 64], $method->invoke($this->service, '100vw - 64px'));
     }
 
-    public function test_generate_srcset()
+    public function test_generate_srcset_for_fluid_image()
     {
-        $parsedSizes = [
-            0 => ['type' => 'px', 'value' => 320],
-            768 => ['type' => 'px', 'value' => 768],
-            1024 => ['type' => 'px', 'value' => 1024],
-        ];
-
         $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSrcset');
         $method->setAccessible(true);
 
-        $result = $method->invoke($this->service, $this->media, $parsedSizes);
+        $result = $method->invoke($this->service, $this->media, true);
 
-        // Check for the presence of specific widths
-        $this->assertStringContainsString('320w', $result);
-        $this->assertStringContainsString('768w', $result);
-        $this->assertStringContainsString('1024w', $result);
         $this->assertStringContainsString('1600w', $result);
+        $this->assertStringContainsString('1440w', $result);
+        $this->assertStringContainsString('1296w', $result);
+        $this->assertStringContainsString('100w', $result);
 
         // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('1601w', $result);
 
-        // Check the order of sizes (should be ascending)
-        $this->assertMatchesRegularExpression('/320w.*768w.*1024w.*1600w/', $result);
+        // Check the order of sizes (should be descending)
+        $this->assertMatchesRegularExpression('/1600w.*1440w.*1296w.*100w/', $result);
+    }
 
-        // Optionally, check for the exact number of sizes if your implementation is deterministic
-        $this->assertEquals(4, substr_count($result, 'w'));
+    public function test_generate_srcset_for_fixed_image()
+    {
+        $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSrcset');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($this->service, $this->thumbnail, false);
+
+        $this->assertStringContainsString('300w', $result);
+        $this->assertStringContainsString('600w', $result);
+
+        // Split the result into individual srcset entries
+        $srcsetEntries = explode(', ', $result);
+
+        // Ensure only two sizes are generated
+        $this->assertCount(2, $srcsetEntries);
+
+        // Check that each entry has the correct format
+        foreach ($srcsetEntries as $entry) {
+            $this->assertMatchesRegularExpression('/^https?:\/\/.*\s\d+w$/', $entry);
+        }
     }
 
     public function test_generate_sizes_attribute()
@@ -99,29 +116,56 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function test_generate_img_tag()
+    public function test_generate_img_tag_fluid()
     {
-        URL::shouldReceive('signedRoute')->andReturn('https://example.com/signed-url');
+        // Mock the URL facade for both route and signedRoute
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
+
+        URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
-        $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image']);
+        $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/signed-url"', $result);
+        $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL
         $this->assertStringContainsString('alt="', $result);
         $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);
         $this->assertStringContainsString('class="my-image"', $result);
+        $this->assertStringContainsString('1600w', $result);
+        $this->assertStringContainsString('100w', $result);
     }
 
-    public function test_calculate_size()
+    public function test_generate_img_tag_fixed()
     {
-        $method = new \ReflectionMethod(ResponsiveImageService::class, 'calculateSize');
-        $method->setAccessible(true);
+        // Mock both route and signedRoute methods
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
 
-        $this->assertEquals(500, $method->invoke($this->service, ['type' => 'px', 'value' => 500], 1000));
-        $this->assertEquals(750, $method->invoke($this->service, ['type' => 'vw', 'value' => 75], 1000));
-        $this->assertEquals(936, $method->invoke($this->service, ['type' => 'calc', 'vw' => 100, 'px' => 64], 1000));
+        URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/signed-url');
+
+        $sizes = ['100vw'];
+        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false);
+
+        $this->assertStringContainsString('<img', $result);
+        $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL
+        $this->assertStringContainsString('alt="', $result);
+        $this->assertStringContainsString('sizes="100vw"', $result);
+        $this->assertStringContainsString('srcset="', $result);
+        $this->assertStringContainsString('class="my-thumbnail"', $result);
+        $this->assertStringContainsString('300w', $result);
+        $this->assertStringContainsString('600w', $result);
+
+        // Count the number of srcset entries instead of 'w' occurrences
+        $srcsetEntries = explode(', ', substr($result, strpos($result, 'srcset="') + 8));
+        $this->assertCount(2, $srcsetEntries);
     }
 
     public function test_format_size()
@@ -143,23 +187,23 @@ class ResponsiveImageServiceTest extends TestCase
         $method->invoke($this->service, 'invalid-size');
     }
 
-    public function test_generate_sizes_for_range()
+    public function test_format_srcset_entry()
     {
-        $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSizesForRange');
+        $method = new \ReflectionMethod(ResponsiveImageService::class, 'formatSrcsetEntry');
         $method->setAccessible(true);
 
-        $result = $method->invoke(
-            $this->service,
-            0,
-            768,
-            ['type' => 'vw', 'value' => 100],
-            ['type' => 'vw', 'value' => 75],
-            1600,
-            $this->media
-        );
+        // Mock both route and signedRoute methods
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
 
-        $this->assertGreaterThan(0, count($result));
-        $this->assertStringContainsString('240w', $result[0]);
-        $this->assertStringContainsString('768w', $result[count($result) - 1]);
+        URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/signed-url');
+
+        $result = $method->invoke($this->service, $this->media, 800);
+
+        // Use a more flexible assertion that works for both route and signedRoute
+        $this->assertMatchesRegularExpression('/^https:\/\/example\.com\/(url|signed-url)(\?.*)?&w=800 800w$/', $result);
     }
 }

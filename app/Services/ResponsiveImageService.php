@@ -7,9 +7,9 @@ use Illuminate\Support\Str;
 
 class ResponsiveImageService
 {
-    const DECREMENT = 0.9;
-    const MIN_SIZE = 240;
-    const THUMBNAIL_THRESHOLD = 300;
+    const DECREMENT = 0.9; // 10% decrement
+    const MIN_SIZE = 100;
+    const MAX_SIZE = 8192;
 
     protected array $breakpoints = [
         'sm' => 640,
@@ -19,14 +19,21 @@ class ResponsiveImageService
         '2xl' => 1536,
     ];
 
-    public function generateImgTag(Media $media, array $sizes, array $attributes = []): string
+    protected array $defaultTransforms;
+
+    public function __construct(array $defaultTransforms = [])
+    {
+        $this->defaultTransforms = $defaultTransforms;
+    }
+
+    public function generateImgTag(Media $media, array $sizes, array $attributes = [], bool $isFluid = true): string
     {
         $parsedSizes = $this->parseSizes($sizes);
-        $srcset = $this->generateSrcset($media);
+        $srcset = $this->generateSrcset($media, $isFluid);
         $sizesAttribute = $this->generateSizesAttribute($parsedSizes);
 
         $defaultAttributes = [
-            'src' => $media->getUrl(),
+            'src' => $media->getUrl($this->defaultTransforms),
             'alt' => $media->custom_properties['alt'] ?? '',
             'sizes' => $sizesAttribute,
             'srcset' => $srcset,
@@ -76,24 +83,29 @@ class ResponsiveImageService
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 
-    protected function generateSrcset(Media $media): string
+    protected function generateSrcset(Media $media, bool $isFluid): string
     {
         $maxWidth = $media->getWidth();
         $srcset = [];
 
-        if ($maxWidth <= self::THUMBNAIL_THRESHOLD) {
-            // For thumbnails, generate original and @2x if possible
-            $srcset[] = $this->formatSrcsetEntry($media, $maxWidth);
-            $retinaWidth = min($maxWidth * 2, $media->getWidth());
-            if ($retinaWidth > $maxWidth) {
-                $srcset[] = $this->formatSrcsetEntry($media, $retinaWidth);
-            }
-        } else {
-            // For larger images, generate a range of sizes
+        if ($isFluid) {
             $currentWidth = $maxWidth;
-            while ($currentWidth >= self::MIN_SIZE) {
+            while ($currentWidth > self::MIN_SIZE) {
                 $srcset[] = $this->formatSrcsetEntry($media, $currentWidth);
                 $currentWidth = max(self::MIN_SIZE, intval($currentWidth * self::DECREMENT));
+
+                // Break the loop if we've reached or gone below MIN_SIZE
+                if ($currentWidth <= self::MIN_SIZE) {
+                    $srcset[] = $this->formatSrcsetEntry($media, self::MIN_SIZE);
+                    break;
+                }
+            }
+        } else {
+            // Fixed size: original and 2x
+            $srcset[] = $this->formatSrcsetEntry($media, $maxWidth);
+            $retinaWidth = min($maxWidth * 2, self::MAX_SIZE);
+            if ($retinaWidth > $maxWidth) {
+                $srcset[] = $this->formatSrcsetEntry($media, $retinaWidth);
             }
         }
 
@@ -102,7 +114,8 @@ class ResponsiveImageService
 
     protected function formatSrcsetEntry(Media $media, int $width): string
     {
-        return $media->getUrl(['w' => $width]) . " {$width}w";
+        $transforms = array_merge($this->defaultTransforms, ['w' => $width]);
+        return $media->getUrl($transforms) . " {$width}w";
     }
 
     protected function generateSizesAttribute(array $parsedSizes): string
