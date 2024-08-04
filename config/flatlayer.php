@@ -13,13 +13,18 @@ return [
     ],
     'models' => [
         Post::class => [
-            'source' => '/foo/bar/*.md',
+            'path' => '',
+            'source' => '*.md',
             'hook' => 'https://example.com/hook',
         ],
 
         Document::class => [
-            '/Users/gpriday/Sites/pixashot-website/static/content/docs/*.md',
-            'https://example.com/hook',
+            'path' => '/Users/gpriday/Sites/pixashot-website/static/content/docs/',
+            'source' => '*.md',
+            'hook' => 'https://example.com/hook',
         ]
+    ],
+    'github' => [
+        'webhook_secret' => env('GITHUB_WEBHOOK_SECRET'),
     ]
 ];
