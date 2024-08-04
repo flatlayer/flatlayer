@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ListRequest;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ListController extends Controller
 {
@@ -27,7 +28,29 @@ class ListController extends Controller
         $perPage = $request->input('per_page', 15);
         $results = $query->paginate($perPage);
 
-        return response()->json($results);
+        // Transform the items using toSummaryArray if it exists
+        $transformedItems = $this->transformItems($results->items());
+
+        // Create a new LengthAwarePaginator with the transformed items
+        $transformedResults = new LengthAwarePaginator(
+            $transformedItems,
+            $results->total(),
+            $results->perPage(),
+            $results->currentPage(),
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return response()->json($transformedResults);
+    }
+
+    protected function transformItems($items)
+    {
+        return array_map(function ($item) {
+            if (method_exists($item, 'toSummaryArray')) {
+                return $item->toSummaryArray();
+            }
+            return $item->toArray();
+        }, $items);
     }
 
     protected function applyFilters(Builder $query, array $filters, string $modelClass)
