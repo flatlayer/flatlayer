@@ -10,10 +10,11 @@ return new class extends Migration
     {
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
+            $table->string('slug')->unique();
+
             $table->string('title');
             $table->text('content');
             $table->text('excerpt')->nullable();
-            $table->string('slug')->unique();
             $table->vector('embedding', 1536)->nullable(); // For PG Vector
             $table->timestamp('published_at')->nullable();
             $table->boolean('is_published')->default(false);

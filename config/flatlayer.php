@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Post;
+use App\Models\Document;
 
 return [
     'search' => [
@@ -14,6 +15,11 @@ return [
         Post::class => [
             'source' => '/foo/bar/*.md',
             'hook' => 'https://example.com/hook',
+        ],
+
+        Document::class => [
+            '/Users/gpriday/Sites/pixashot-website/static/content/docs/*.md',
+            'https://example.com/hook',
         ]
     ]
 ];

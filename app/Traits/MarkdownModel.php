@@ -22,6 +22,15 @@ trait MarkdownModel
         $data = $document->getData();
         $markdownContent = $document->getContent();
 
+        // Extract title from the first line if it starts with #
+        $title = null;
+        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
+
+        // Use extracted title if available, otherwise use frontmatter title
+        if ($title) {
+            $data['title'] = $title;
+        }
+
         $model = new self();
 
         return static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
@@ -37,6 +46,15 @@ trait MarkdownModel
         $data = $document->getData();
         $markdownContent = $document->getContent();
 
+        // Extract title from the first line if it starts with #
+        $title = null;
+        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
+
+        // Use extracted title if available, otherwise use front matter title
+        if ($title) {
+            $data['title'] = $title;
+        }
+
         // Determine the slug value
         $slugValue = $data['slug'] ?? pathinfo($filename, PATHINFO_FILENAME);
 
@@ -50,6 +68,20 @@ trait MarkdownModel
         }
 
         return $model;
+    }
+
+    protected static function extractTitleFromContent(string $content, ?string &$title): string
+    {
+        $lines = explode("\n", $content);
+        $firstLine = trim($lines[0]);
+
+        if (str_starts_with($firstLine, '# ')) {
+            $title = trim(substr($firstLine, 2));
+            array_shift($lines);
+            return implode("\n", $lines);
+        }
+
+        return $content;
     }
 
     protected static function fillModelFromMarkdown(self $model, array $data, string $markdownContent, string $filename): self
