@@ -14,13 +14,14 @@ class Media extends Model
         'path',
         'mime_type',
         'size',
+        'dimensions',
         'custom_properties',
-        'filename',
     ];
 
     protected $casts = [
-        'custom_properties' => 'array',
         'size' => 'integer',
+        'dimensions' => 'array',
+        'custom_properties' => 'array',
     ];
 
     public function model()
@@ -33,35 +34,37 @@ class Media extends Model
         $filename = basename($path);
         $size = filesize($path);
         $mimeType = mime_content_type($path);
+        $dimensions = self::getImageDimensions($path);
 
         return $model->media()->create([
             'collection_name' => $collectionName,
             'path' => $path,
-            'filename' => $filename,
             'mime_type' => $mimeType,
             'size' => $size,
+            'dimensions' => $dimensions,
         ]);
     }
 
     public static function syncMedia($model, array $filenames, string $collectionName = 'default'): void
     {
-        $existingMedia = $model->getMedia($collectionName)->keyBy('filename');
-        $newFilenames = collect($filenames)->keyBy(function ($path) {
-            return basename($path);
-        });
+        $existingMedia = $model->getMedia($collectionName)->keyBy('path');
+        $newFilenames = collect($filenames);
 
         // Remove media that no longer exists in the new filenames
-        $existingMedia->whereNotIn('filename', $newFilenames->keys())->each->delete();
+        $existingMedia->whereNotIn('path', $newFilenames)->each->delete();
 
         // Add or update media
-        foreach ($newFilenames as $filename => $fullPath) {
+        foreach ($newFilenames as $fullPath) {
             $size = filesize($fullPath);
+            $dimensions = self::getImageDimensions($fullPath);
 
-            if ($existingMedia->has($filename)) {
-                $media = $existingMedia->get($filename);
-                if ($media->size !== $size || $media->path !== $fullPath) {
-                    $media->delete();
-                    self::addMediaToModel($model, $fullPath, $collectionName);
+            if ($existingMedia->has($fullPath)) {
+                $media = $existingMedia->get($fullPath);
+                if ($media->size !== $size || $media->dimensions !== $dimensions) {
+                    $media->update([
+                        'size' => $size,
+                        'dimensions' => $dimensions,
+                    ]);
                 }
             } else {
                 self::addMediaToModel($model, $fullPath, $collectionName);
@@ -71,16 +74,16 @@ class Media extends Model
 
     public static function updateOrCreateMedia($model, string $fullPath, string $collectionName = 'default'): self
     {
-        $filename = basename($fullPath);
         $size = filesize($fullPath);
-        $existingMedia = $model->getMedia($collectionName)->where('filename', $filename)->first();
-
-        if ($existingMedia && $existingMedia->size === $size && $existingMedia->path === $fullPath) {
-            return $existingMedia;
-        }
+        $dimensions = self::getImageDimensions($fullPath);
+        $existingMedia = $model->getMedia($collectionName)->where('path', $fullPath)->first();
 
         if ($existingMedia) {
-            $existingMedia->delete();
+            $existingMedia->update([
+                'size' => $size,
+                'dimensions' => $dimensions,
+            ]);
+            return $existingMedia;
         }
 
         return self::addMediaToModel($model, $fullPath, $collectionName);
@@ -88,7 +91,7 @@ class Media extends Model
 
     public function getSignedUrl(array $transforms = []): string
     {
-        $extension = pathinfo($this->filename, PATHINFO_EXTENSION);
+        $extension = pathinfo($this->path, PATHINFO_EXTENSION);
         $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
 
         if (!empty($transforms)) {
@@ -100,5 +103,32 @@ class Media extends Model
             ['id' => $this->id, 'extension' => $extension],
             $transforms
         ));
+    }
+
+    protected static function getImageDimensions(string $path): array
+    {
+        $imageSize = getimagesize($path);
+        return [
+            'width' => $imageSize[0] ?? null,
+            'height' => $imageSize[1] ?? null,
+        ];
+    }
+
+    public function getWidth(): ?int
+    {
+        return $this->dimensions['width'] ?? null;
+    }
+
+    public function getHeight(): ?int
+    {
+        return $this->dimensions['height'] ?? null;
+    }
+
+    public function getAspectRatio(): ?float
+    {
+        if ($this->getWidth() && $this->getHeight()) {
+            return $this->getWidth() / $this->getHeight();
+        }
+        return null;
     }
 }

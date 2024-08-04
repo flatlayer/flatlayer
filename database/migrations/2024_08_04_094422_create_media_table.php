@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('path');
             $table->string('mime_type')->nullable();
             $table->unsignedBigInteger('size');
+            $table->json('dimensions');
             $table->json('custom_properties')->nullable();
             $table->timestamps();
         });
