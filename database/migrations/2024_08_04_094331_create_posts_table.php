@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->text('body');
+            $table->text('content');
             $table->text('excerpt')->nullable();
             $table->string('slug')->unique();
             $table->vector('embedding', 1536)->nullable(); // For PG Vector
