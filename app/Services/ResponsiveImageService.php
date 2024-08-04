@@ -15,109 +15,152 @@ class ResponsiveImageService
         '2xl' => 1536,
     ];
 
-    public function generateImgTag(Media $media, string $sizes, array $attributes = [], ?array $initialSize = null): string
+    protected int $minWidth = 240;
+    protected float $increment = 0.1; // 10% increment
+
+    public function generateImgTag(Media $media, array $sizes, array $attributes = []): string
     {
         $parsedSizes = $this->parseSizes($sizes);
-        $srcset = $this->generateSrcset($media, $parsedSizes, $initialSize);
+        $srcset = $this->generateSrcset($media, $parsedSizes);
+        $sizesAttribute = $this->generateSizesAttribute($parsedSizes);
 
-        $defaultAttributes = $this->generateAttributes($media, $initialSize);
-        $defaultAttributes['sizes'] = $sizes;
-        $defaultAttributes['srcset'] = $srcset;
+        $defaultAttributes = [
+            'src' => $media->getSignedUrl(),
+            'alt' => $media->custom_properties['alt'] ?? '',
+            'sizes' => $sizesAttribute,
+            'srcset' => $srcset,
+        ];
 
         $mergedAttributes = array_merge($defaultAttributes, $attributes);
 
         return $this->buildImgTag($mergedAttributes);
     }
 
-    protected function parseSizes(string $sizes): array
+    protected function parseSizes(array $sizes): array
     {
         $parsed = [];
-        $parts = explode(',', $sizes);
-        foreach ($parts as $part) {
-            $part = trim($part);
-            if (Str::contains($part, '(')) {
-                [$condition, $size] = explode(')', $part);
-                $condition = trim($condition, '( ');
-                $size = trim($size);
+        foreach ($sizes as $size) {
+            if (Str::contains($size, ':')) {
+                [$breakpoint, $value] = explode(':', $size);
+                $breakpoint = trim($breakpoint);
+                $value = trim($value);
+                if (isset($this->breakpoints[$breakpoint])) {
+                    $parsed[$this->breakpoints[$breakpoint]] = $this->parseSize($value);
+                }
             } else {
-                $condition = 'default';
-                $size = $part;
+                $parsed[0] = $this->parseSize($size);
             }
-            $parsed[$condition] = $size;
         }
+        ksort($parsed);
         return $parsed;
     }
 
-    protected function generateSrcset(Media $media, array $parsedSizes, ?array $initialSize): string
+    protected function parseSize(string $size): array
+    {
+        if (Str::endsWith($size, 'px')) {
+            return ['type' => 'px', 'value' => (int) $size];
+        } elseif (Str::endsWith($size, 'vw')) {
+            return ['type' => 'vw', 'value' => (int) $size];
+        } elseif (Str::contains($size, '-')) {
+            $parts = explode('-', $size);
+            return [
+                'type' => 'calc',
+                'vw' => (int) $parts[0],
+                'px' => (int) trim($parts[1])
+            ];
+        }
+        throw new \InvalidArgumentException("Invalid size format: $size");
+    }
+
+    protected function generateSrcset(Media $media, array $parsedSizes): string
     {
         $srcset = [];
-        $originalWidth = $initialSize['width'] ?? $media->getWidth() ?? 1920; // Fallback to a default width
+        $maxWidth = $media->getWidth();
+        $breakpoints = array_keys($parsedSizes);
 
-        // Generate srcset based on breakpoints and parsed sizes
-        foreach ($this->breakpoints as $breakpoint => $width) {
-            if ($width <= $originalWidth) {
-                $relevantSize = $this->findRelevantSize($parsedSizes, $width);
-                $calculatedWidth = $this->calculateWidth($relevantSize, $width);
-                $srcset[] = $media->getSignedUrl(['w' => $calculatedWidth]) . " {$calculatedWidth}w";
-            }
+        for ($i = 0; $i < count($breakpoints) - 1; $i++) {
+            $currentBreakpoint = $breakpoints[$i];
+            $nextBreakpoint = $breakpoints[$i + 1];
+            $currentSize = $parsedSizes[$currentBreakpoint];
+            $nextSize = $parsedSizes[$nextBreakpoint];
+
+            $srcset = array_merge($srcset, $this->generateSizesForRange(
+                $currentBreakpoint,
+                $nextBreakpoint,
+                $currentSize,
+                $nextSize,
+                $maxWidth,
+                $media
+            ));
         }
 
-        // Add the original size
-        $srcset[] = $media->getSignedUrl() . " {$originalWidth}w";
+        // Add the largest size
+        $largestSize = $this->calculateSize(end($parsedSizes), max($this->breakpoints));
+        if ($largestSize <= $maxWidth) {
+            $srcset[] = $media->getSignedUrl(['w' => $largestSize]) . " {$largestSize}w";
+        }
+
+        // Add the original size if it's larger than the largest calculated size
+        if ($maxWidth > $largestSize) {
+            $srcset[] = $media->getSignedUrl() . " {$maxWidth}w";
+        }
 
         return implode(', ', array_unique($srcset));
     }
 
-    protected function findRelevantSize(array $parsedSizes, int $breakpointWidth): string
+    protected function generateSizesForRange(int $start, int $end, array $startSize, array $endSize, int $maxWidth, Media $media): array
     {
-        foreach ($parsedSizes as $condition => $size) {
-            if ($condition === 'default') continue;
+        $sizes = [];
+        $current = max($this->minWidth, $this->calculateSize($startSize, $start));
+        $target = min($maxWidth, $this->calculateSize($endSize, $end));
 
-            if (Str::contains($condition, 'min-width')) {
-                $minWidth = (int) filter_var($condition, FILTER_SANITIZE_NUMBER_INT);
-                if ($breakpointWidth >= $minWidth) {
-                    return $size;
-                }
-            }
+        while ($current < $target) {
+            $sizes[] = $media->getSignedUrl(['w' => $current]) . " {$current}w";
+            $current = min($target, $current + max(10, intval($current * $this->increment)));
         }
 
-        return $parsedSizes['default'] ?? '100vw';
+        return $sizes;
     }
 
-    protected function calculateWidth(string $size, int $breakpointWidth): int
+    protected function calculateSize(array $size, int $breakpoint): int
     {
-        if (Str::endsWith($size, 'vw')) {
-            $percentage = (int) $size;
-            return intval($breakpointWidth * $percentage / 100);
-        } elseif (Str::endsWith($size, 'px')) {
-            return (int) $size;
+        switch ($size['type']) {
+            case 'px':
+                return $size['value'];
+            case 'vw':
+                return intval($breakpoint * $size['value'] / 100);
+            case 'calc':
+                return intval($breakpoint * $size['vw'] / 100) - $size['px'];
+            default:
+                throw new \InvalidArgumentException("Invalid size type: {$size['type']}");
         }
-
-        return $breakpointWidth;
     }
 
-    protected function generateAttributes(Media $media, ?array $initialSize): array
+    protected function generateSizesAttribute(array $parsedSizes): string
     {
-        $attributes = [
-            'src' => $media->getSignedUrl(),
-            'alt' => $media->custom_properties['alt'] ?? '',
-        ];
-
-        if ($initialSize) {
-            $attributes['width'] = $initialSize['width'];
-            if (isset($initialSize['height'])) {
-                $attributes['height'] = $initialSize['height'];
-            }
-        } else {
-            $width = $media->getWidth();
-            $height = $media->getHeight();
-            if ($width && $height) {
-                $attributes['width'] = $width;
-                $attributes['height'] = $height;
+        $sizesAttribute = [];
+        foreach ($parsedSizes as $breakpoint => $size) {
+            if ($breakpoint === 0) {
+                $sizesAttribute[] = $this->formatSize($size);
+            } else {
+                $sizesAttribute[] = "(min-width: {$breakpoint}px) " . $this->formatSize($size);
             }
         }
+        return implode(', ', array_reverse($sizesAttribute));
+    }
 
-        return $attributes;
+    protected function formatSize(array $size): string
+    {
+        switch ($size['type']) {
+            case 'px':
+                return "{$size['value']}px";
+            case 'vw':
+                return "{$size['value']}vw";
+            case 'calc':
+                return "calc({$size['vw']}vw - {$size['px']}px)";
+            default:
+                throw new \InvalidArgumentException("Invalid size type: {$size['type']}");
+        }
     }
 
     protected function buildImgTag(array $attributes): string
