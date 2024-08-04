@@ -31,6 +31,8 @@ class Post extends Model implements HasMedia
     {
         $this->addMediaCollection('main_image')
             ->singleFile();
+        
+        $this->addMediaCollection('images');
     }
 
     public function toSearchableText(): string
