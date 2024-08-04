@@ -5,25 +5,17 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
-class SearchRequest extends FormRequest
+class ListRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\Rule|array|string>
-     */
     public function rules(): array
     {
         return [
-            'query' => 'required|string|max:255',
+            'query' => 'sometimes|string|max:255',
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'filters' => 'sometimes|array',
@@ -31,9 +23,6 @@ class SearchRequest extends FormRequest
         ];
     }
 
-    /**
-     * Prepare the data for validation.
-     */
     protected function prepareForValidation(): void
     {
         if ($this->filled('filters')) {
@@ -43,12 +32,6 @@ class SearchRequest extends FormRequest
         }
     }
 
-    /**
-     * Parse the filters from the request.
-     *
-     * @param array $filters
-     * @return array
-     */
     protected function parseFilters(array $filters): array
     {
         $parsedFilters = [];
@@ -67,9 +50,6 @@ class SearchRequest extends FormRequest
         return $parsedFilters;
     }
 
-    /**
-     * Get the model class for the search.
-     */
     public function getModelClass(): ?string
     {
         $modelSlug = $this->route('modelSlug');
@@ -79,9 +59,6 @@ class SearchRequest extends FormRequest
         return class_exists($modelClass) ? $modelClass : null;
     }
 
-    /**
-     * Get the validated filters.
-     */
     public function filters(): array
     {
         return $this->validated('filters', []);

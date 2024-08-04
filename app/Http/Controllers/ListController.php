@@ -2,28 +2,39 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\SearchRequest;
+use App\Http\Requests\ListRequest;
 use Illuminate\Database\Eloquent\Builder;
-use Spatie\Tags\Tag;
+use Illuminate\Support\Str;
 
-class SearchController extends Controller
+class ListController extends Controller
 {
-    public function search(SearchRequest $request)
+    public function index(ListRequest $request, $modelSlug)
     {
-        $modelClass = $request->getModelClass();
+        $modelClass = $this->resolveModelClass($modelSlug);
 
-        if (!$modelClass || !method_exists($modelClass, 'search')) {
-            return response()->json(['error' => 'Invalid model or model is not searchable'], 400);
+        if (!$modelClass || !class_exists($modelClass)) {
+            return response()->json(['error' => 'Invalid model'], 400);
         }
 
+        $query = $modelClass::query();
+
+        if ($request->has('query') && method_exists($modelClass, 'search')) {
+            $searchQuery = $modelClass::search($request->input('query'));
+            $query = $searchQuery->getQuery();
+        }
+
+        $this->applyFilters($query, $request->filters(), $modelClass);
+
         $perPage = $request->input('per_page', 15);
-        $searchQuery = $modelClass::search($request->input('query'));
-
-        $this->applyFilters($searchQuery, $request->filters(), $modelClass);
-
-        $results = $searchQuery->paginate($perPage);
+        $results = $query->paginate($perPage);
 
         return response()->json($results);
+    }
+
+    protected function resolveModelClass($modelSlug)
+    {
+        $modelName = Str::studly($modelSlug);
+        return "App\\Models\\{$modelName}";
     }
 
     protected function applyFilters(Builder $query, array $filters, string $modelClass)
