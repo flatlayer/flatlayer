@@ -33,4 +33,14 @@ trait HasMedia
         $this->media()->where('collection_name', $collectionName)->delete();
         return $this;
     }
+
+    public function syncMedia(array $filenames, string $collectionName = 'default'): void
+    {
+        Media::syncMedia($this, $filenames, $collectionName);
+    }
+
+    public function updateOrCreateMedia(string $fullPath, string $collectionName = 'default'): Media
+    {
+        return Media::updateOrCreateMedia($this, $fullPath, $collectionName);
+    }
 }
