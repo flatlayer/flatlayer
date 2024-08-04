@@ -6,7 +6,7 @@ use App\Services\MarkdownMediaService;
 use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
 use Illuminate\Support\Str;
-use Spatie\MediaLibrary\HasMedia;
+use App\Traits\HasMedia;
 use Spatie\Tags\HasTags;
 
 trait MarkdownModel
@@ -107,9 +107,9 @@ trait MarkdownModel
         $contentField = $model->getMarkdownContentField();
         $model->$contentField = $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
 
-        // Handle Spatie Media Library
-        if ($model instanceof HasMedia) {
-            $model->markdownMediaService->handleMediaLibrary($model, $data, $filename);
+        // Handle Media
+        if (in_array(HasMedia::class, class_uses_recursive($model))) {
+            $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
         }
 
         // Handle Spatie Tags

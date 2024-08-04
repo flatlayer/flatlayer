@@ -3,51 +3,29 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\File;
-use Spatie\MediaLibrary\HasMedia;
+use App\Traits\HasMedia;
+use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 
 class MarkdownMediaService
 {
-    public function handleMediaLibrary(HasMedia $model, array $data, string $filename): void
+    protected $imagePaths;
+
+    public function __construct()
     {
-        $mediaCollections = $model->getRegisteredMediaCollections();
-        foreach ($mediaCollections as $collection) {
-            $collectionName = $collection->name;
-            if (isset($data[$collectionName])) {
-                $mediaItems = is_array($data[$collectionName]) ? $data[$collectionName] : [$data[$collectionName]];
+        $this->imagePaths = new Collection();
+    }
 
-                $existingMedia = $model->getMedia($collectionName)->keyBy('file_name');
-                $newMediaItems = [];
-
-                foreach ($mediaItems as $mediaItem) {
-                    $mediaPath = $this->resolveMediaPath($mediaItem, $filename);
-                    $fileName = basename($mediaPath);
-
-                    if (isset($existingMedia[$fileName])) {
-                        // File already exists in the collection, keep it
-                        $newMediaItems[] = $existingMedia[$fileName];
-                        $existingMedia->forget($fileName);
-                    } else {
-                        // New file, add it to the collection
-                        if (filter_var($mediaItem, FILTER_VALIDATE_URL)) {
-                            $newMediaItems[] = $model->addMediaFromUrl($mediaItem)
-                                ->toMediaCollection($collectionName);
-                        } else {
-                            $newMediaItems[] = $model->addMedia($mediaPath)
-                                ->preservingOriginal()
-                                ->toMediaCollection($collectionName);
-                        }
-                    }
-                }
-
-                // Remove any media items that are no longer in the markdown
-                foreach ($existingMedia as $mediaItem) {
-                    $mediaItem->delete();
-                }
-
-                // Update the media order if necessary
-                $model->clearMediaCollection($collectionName);
-                foreach ($newMediaItems as $mediaItem) {
-                    $mediaItem->move($model, $collectionName);
+    public function handleMediaFromFrontMatter(HasMedia $model, array $data, string $filename): void
+    {
+        foreach ($data as $key => $value) {
+            if (str_starts_with($key, 'image_')) {
+                $collectionName = Str::after($key, 'image_');
+                $fullPath = $this->resolveMediaPath($value, $filename);
+                if ($collectionName === 'images') {
+                    $this->imagePaths->push($fullPath);
+                } else {
+                    $model->updateOrCreateMedia($fullPath, $collectionName);
                 }
             }
         }
@@ -56,7 +34,7 @@ class MarkdownMediaService
     public function processMarkdownImages(HasMedia $model, string $markdownContent, string $filename): string
     {
         $pattern = '/!\[(.*?)\]\((.*?)\)/';
-        return preg_replace_callback($pattern, function ($matches) use ($model, $filename) {
+        $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename) {
             $altText = $matches[1];
             $imagePath = $matches[2];
 
@@ -68,25 +46,28 @@ class MarkdownMediaService
             $fullImagePath = $this->resolveMediaPath($imagePath, $filename);
 
             if (File::exists($fullImagePath)) {
-                $media = $model->addMedia($fullImagePath)
-                    ->preservingOriginal()
-                    ->toMediaCollection('images');
-
-                return "![{$altText}]({$media->getUrl()})";
+                $this->imagePaths->push($fullImagePath);
+                return "![{$altText}]({$fullImagePath})";
             }
 
             // If the file doesn't exist, leave the original markdown as is
             return $matches[0];
         }, $markdownContent);
+
+        $this->syncImagesCollection($model);
+
+        return $processedContent;
     }
 
     protected function resolveMediaPath(string $mediaItem, string $markdownFilename): string
     {
-        if (filter_var($mediaItem, FILTER_VALIDATE_URL)) {
-            return $mediaItem;
-        }
-
         $fullPath = dirname($markdownFilename) . '/' . $mediaItem;
         return File::exists($fullPath) ? $fullPath : $mediaItem;
+    }
+
+    protected function syncImagesCollection(HasMedia $model): void
+    {
+        $model->syncMedia($this->imagePaths->toArray(), 'images');
+        $this->imagePaths = new Collection(); // Reset for next use
     }
 }
