@@ -2,15 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\MarkdownSyncJob;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
 class MarkdownSync extends Command
 {
-    protected $signature = 'flatlayer:markdown-sync {model}';
+    protected $signature = 'flatlayer:markdown-sync {model} {--dispatch : Dispatch the job to the queue}';
 
     protected $description = 'Sync files from source to models.';
 
@@ -30,51 +29,17 @@ class MarkdownSync extends Command
             return 1;
         }
 
-        $source = config("flatlayer.models.{$modelClass}.source");
-        if (!$source) {
-            $this->error("Source not configured for model {$modelClass}.");
-            return 1;
+        $job = new MarkdownSyncJob($modelClass);
+
+        if ($this->option('dispatch')) {
+            dispatch($job);
+            $this->info("MarkdownSync job for {$modelClass} has been dispatched to the queue.");
+        } else {
+            $job->handle();
+            $this->info("MarkdownSync for {$modelClass} completed successfully.");
         }
 
-        $files = File::glob($source);
-        $existingModels = $modelClass::all()->keyBy(function ($model) {
-            return $model->slug;
-        });
-
-        foreach ($files as $file) {
-            $slug = $this->getSlugFromFilename($file);
-            $content = File::get($file);
-
-            if ($existingModels->has($slug)) {
-                $model = $existingModels->get($slug);
-                $model->syncFromMarkdown($file);
-                $this->info("Updated: {$slug}");
-                $existingModels->forget($slug);
-            } else {
-                $newModel = $modelClass::fromMarkdown($file);
-                $newModel->save();
-                $this->info("Created: {$slug}");
-            }
-        }
-
-        foreach ($existingModels as $slug => $model) {
-            $model->delete();
-            $this->info("Deleted: {$slug}");
-        }
-
-        // Once we're done with the sync, make a request to the hook
-        $hook = config("flatlayer.models.{$modelClass}.hook");
-        if ($hook) {
-            $response = Http::post($hook);
-            $this->info("Hook response: {$response->status()}");
-        }
-
-        $this->info('File sync completed successfully.');
-    }
-
-    private function getSlugFromFilename($filename)
-    {
-        return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
+        return 0;
     }
 
     private function resolveModelClass($input)
