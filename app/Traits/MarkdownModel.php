@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
@@ -28,9 +29,6 @@ trait MarkdownModel
 
     public static function syncFromMarkdown(string $filename, bool $autoSave = false): self
     {
-        $slug = pathinfo($filename, PATHINFO_FILENAME);
-        $model = static::where('slug', $slug)->first() ?? new static();
-
         $content = file_get_contents($filename);
 
         $frontMatter = new FrontMatter();
@@ -38,6 +36,12 @@ trait MarkdownModel
 
         $data = $document->getData();
         $markdownContent = $document->getContent();
+
+        // Determine the slug value
+        $slugValue = $data['slug'] ?? pathinfo($filename, PATHINFO_FILENAME);
+
+        // Find existing model by slug or create a new one
+        $model = static::findBySlug($slugValue) ?? new static();
 
         $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
 
