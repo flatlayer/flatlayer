@@ -35,7 +35,7 @@ class Post extends Model implements HasMedia
 
     public function toSearchableText(): string
     {
-        return $this->title . ' ' . $this->excerpt . ' ' . $this->body;
+        return '# ' . $this->title . "\n\n" . $this->body;
     }
 
     public function scopePublished($query)

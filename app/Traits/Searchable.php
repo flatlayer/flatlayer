@@ -3,8 +3,7 @@
 namespace App\Traits;
 
 use OpenAI\Laravel\Facades\OpenAI;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use App\Services\JinaRerankService;
 use Illuminate\Support\Collection;
 
@@ -65,12 +64,13 @@ trait Searchable
 
     abstract public function toSearchableText(): string;
 
-    public static function search(string $query, int $limit = 40, bool $rerank = true): Collection
+    public static function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
     {
-        $model = new static;
         $embedding = static::getEmbedding($query);
 
-        $results = $model->newQuery()
+        $builder = $builder ?? static::query();
+
+        $results = $builder
             ->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
             ->orderBy('distance')
             ->limit($limit)
