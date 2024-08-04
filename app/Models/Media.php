@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
@@ -130,5 +131,18 @@ class Media extends Model
             return $this->getWidth() / $this->getHeight();
         }
         return null;
+    }
+
+    public function getImgTag(string $sizes, array $attributes = []): string
+    {
+        $service = app(ResponsiveImageService::class);
+
+        $defaultAttributes = [
+            'alt' => $this->custom_properties['alt'] ?? '',
+        ];
+
+        $attributes = array_merge($defaultAttributes, $attributes);
+
+        return $service->generateImgTag($this, $sizes, $attributes);
     }
 }
