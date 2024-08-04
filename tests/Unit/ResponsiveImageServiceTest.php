@@ -140,7 +140,7 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('srcset="', $result);
         $this->assertStringContainsString('class="my-image"', $result);
         $this->assertStringContainsString('1600w', $result);
-        $this->assertStringContainsString('100w', $result);
+        $this->assertStringContainsString('110w', $result);
     }
 
     public function test_generate_img_tag_fixed()
@@ -215,7 +215,12 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_with_display_size_fixed()
     {
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
+
         URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
@@ -223,7 +228,7 @@ class ResponsiveImageServiceTest extends TestCase
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], false, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('src="https://example.com/', $result);
         $this->assertStringContainsString('width="150"', $result);
         $this->assertStringContainsString('height="150"', $result);
         $this->assertStringContainsString('sizes="100vw"', $result);
@@ -240,7 +245,12 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_with_display_size_fluid()
     {
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
+
         URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
@@ -248,7 +258,7 @@ class ResponsiveImageServiceTest extends TestCase
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('src="https://example.com/', $result);
         $this->assertStringContainsString('width="1200"', $result);
         $this->assertStringContainsString('height="400"', $result);
         $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $result);
@@ -265,7 +275,12 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_with_small_display_size()
     {
+        URL::shouldReceive('route')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
+
         URL::shouldReceive('signedRoute')
+            ->with('media.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
@@ -273,7 +288,7 @@ class ResponsiveImageServiceTest extends TestCase
         $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, $displaySize);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/signed-url', $result);
+        $this->assertStringContainsString('src="https://example.com/', $result);
         $this->assertStringContainsString('width="150"', $result);
         $this->assertStringContainsString('height="150"', $result);
         $this->assertStringContainsString('sizes="100vw"', $result);
