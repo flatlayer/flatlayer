@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
@@ -59,6 +60,13 @@ class MarkdownSync extends Command
         foreach ($existingModels as $slug => $model) {
             $model->delete();
             $this->info("Deleted: {$slug}");
+        }
+
+        // Once we're done with the sync, make a request to the hook
+        $hook = config("flatlayer.models.{$modelClass}.hook");
+        if ($hook) {
+            $response = Http::post($hook);
+            $this->info("Hook response: {$response->status()}");
         }
 
         $this->info('File sync completed successfully.');

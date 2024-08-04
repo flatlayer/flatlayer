@@ -13,6 +13,7 @@ return [
     'models' => [
         Post::class => [
             'source' => '/foo/bar/*.md',
+            'hook' => 'https://example.com/hook',
         ]
     ]
 ];
