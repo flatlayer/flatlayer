@@ -68,7 +68,7 @@ trait Searchable
     {
         $embedding = static::getEmbedding($query);
 
-        $builder = $builder ?? static::query();
+        $builder = $builder ?? static::getDefaultSearchableQuery();
 
         $results = $builder
             ->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
@@ -81,6 +81,15 @@ trait Searchable
         }
 
         return $results;
+    }
+
+    public static function getDefaultSearchableQuery(): Builder
+    {
+        if (method_exists(static::class, 'defaultSearchableQuery')) {
+            return static::defaultSearchableQuery();
+        }
+
+        return static::query();
     }
 
     public function scopeSearchSimilar($query, $embedding)
