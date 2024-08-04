@@ -24,6 +24,14 @@ class ImageController extends Controller
     public function transform(ImageRequest $request, $id)
     {
         $media = Media::findOrFail($id);
+
+        $cacheKey = $this->generateCacheKey($id, $request->all());
+        $cachePath = $this->getCachePath($cacheKey);
+
+        if (Storage::exists($cachePath)) {
+            return $this->serveCachedImage($cachePath);
+        }
+
         $image = $this->manager->read($media->path);
 
         $width = $request->input('w');
@@ -55,13 +63,38 @@ class ImageController extends Controller
         $optimizedImage = file_get_contents($tempFile);
         unlink($tempFile);
 
-        $contentType = $this->getContentType($format);
+        // Cache the optimized image
+        Storage::put($cachePath, $optimizedImage);
 
-        return new Response($optimizedImage, 200, [
+        return $this->serveImage($optimizedImage, $format);
+    }
+
+    private function generateCacheKey($id, array $params): string
+    {
+        ksort($params); // Ensure consistent order of parameters
+        return md5($id . serialize($params));
+    }
+
+    private function getCachePath(string $cacheKey): string
+    {
+        return 'cache/images/' . $cacheKey;
+    }
+
+    private function serveCachedImage(string $cachePath): Response
+    {
+        $cachedImage = Storage::get($cachePath);
+        $format = pathinfo($cachePath, PATHINFO_EXTENSION);
+        return $this->serveImage($cachedImage, $format);
+    }
+
+    private function serveImage(string $imageData, string $format): Response
+    {
+        $contentType = $this->getContentType($format);
+        return new Response($imageData, 200, [
             'Content-Type' => $contentType,
-            'Content-Length' => strlen($optimizedImage),
+            'Content-Length' => strlen($imageData),
             'Cache-Control' => 'public, max-age=31536000',
-            'Etag' => md5($optimizedImage),
+            'Etag' => md5($imageData),
         ]);
     }
 
