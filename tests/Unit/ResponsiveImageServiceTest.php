@@ -55,11 +55,10 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_srcset()
     {
-        $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
         $parsedSizes = [
-            0 => ['type' => 'vw', 'value' => 100],
-            768 => ['type' => 'vw', 'value' => 75],
-            1024 => ['type' => 'vw', 'value' => 50],
+            0 => ['type' => 'px', 'value' => 320],
+            768 => ['type' => 'px', 'value' => 768],
+            1024 => ['type' => 'px', 'value' => 1024],
         ];
 
         $method = new \ReflectionMethod(ResponsiveImageService::class, 'generateSrcset');
@@ -67,10 +66,20 @@ class ResponsiveImageServiceTest extends TestCase
 
         $result = $method->invoke($this->service, $this->media, $parsedSizes);
 
-        $this->assertStringContainsString('240w', $result);
+        // Check for the presence of specific widths
+        $this->assertStringContainsString('320w', $result);
         $this->assertStringContainsString('768w', $result);
         $this->assertStringContainsString('1024w', $result);
         $this->assertStringContainsString('1600w', $result);
+
+        // Ensure no larger sizes are generated
+        $this->assertStringNotContainsString('1601w', $result);
+
+        // Check the order of sizes (should be ascending)
+        $this->assertMatchesRegularExpression('/320w.*768w.*1024w.*1600w/', $result);
+
+        // Optionally, check for the exact number of sizes if your implementation is deterministic
+        $this->assertEquals(4, substr_count($result, 'w'));
     }
 
     public function test_generate_sizes_attribute()

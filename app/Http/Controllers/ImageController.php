@@ -23,6 +23,11 @@ class ImageController extends Controller
 
     public function transform(ImageRequest $request, $id)
     {
+        // Check for a signature if required
+        if (config('flatlayer.media.use_signatures') && !$request->hasValidSignature()) {
+            abort(401);
+        }
+
         $media = Media::findOrFail($id);
 
         $cacheKey = $this->generateCacheKey($id, $request->all());

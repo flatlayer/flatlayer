@@ -93,7 +93,7 @@ class Media extends Model
         return self::addMediaToModel($model, $fullPath, $collectionName);
     }
 
-    public function getSignedUrl(array $transforms = []): string
+    public function getUrl(array $transforms = []): string
     {
         $extension = pathinfo($this->path, PATHINFO_EXTENSION);
         $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
@@ -103,10 +103,14 @@ class Media extends Model
             $route .= '?' . $queryString;
         }
 
-        return URL::signedRoute('media.transform', array_merge(
-            ['id' => $this->id, 'extension' => $extension],
-            $transforms
-        ));
+        if (config('flatlayer.media.use_signatures', true)) {
+            return URL::signedRoute('media.transform', array_merge(
+                ['id' => $this->id, 'extension' => $extension],
+                $transforms
+            ));
+        }
+
+        return $route;
     }
 
     protected static function getImageDimensions(string $path): array

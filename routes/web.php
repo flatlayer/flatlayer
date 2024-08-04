@@ -17,5 +17,4 @@ Route::get('/{modelSlug}/show/{slug}', [SingleModelController::class, 'show'])->
 Route::post('/{modelSlug}/webhook', [GitHubWebhookController::class, 'handle']);
 
 Route::get('/media/{id}.{extension}', [ImageController::class, 'transform'])
-    ->name('media.transform')
-    ->middleware('signed');
+    ->name('media.transform');

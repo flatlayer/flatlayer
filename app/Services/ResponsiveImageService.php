@@ -25,7 +25,7 @@ class ResponsiveImageService
         $sizesAttribute = $this->generateSizesAttribute($parsedSizes);
 
         $defaultAttributes = [
-            'src' => $media->getSignedUrl(),
+            'src' => $media->getUrl(),
             'alt' => $media->custom_properties['alt'] ?? '',
             'sizes' => $sizesAttribute,
             'srcset' => $srcset,
@@ -100,12 +100,12 @@ class ResponsiveImageService
         // Add the largest size
         $largestSize = $this->calculateSize(end($parsedSizes), max($this->breakpoints));
         if ($largestSize <= $maxWidth) {
-            $srcset[] = $media->getSignedUrl(['w' => $largestSize]) . " {$largestSize}w";
+            $srcset[] = $media->getUrl(['w' => $largestSize]) . " {$largestSize}w";
         }
 
         // Add the original size if it's larger than the largest calculated size
         if ($maxWidth > $largestSize) {
-            $srcset[] = $media->getSignedUrl() . " {$maxWidth}w";
+            $srcset[] = $media->getUrl() . " {$maxWidth}w";
         }
 
         return implode(', ', array_unique($srcset));
@@ -118,7 +118,7 @@ class ResponsiveImageService
         $target = min($maxWidth, $this->calculateSize($endSize, $end));
 
         while ($current < $target) {
-            $sizes[] = $media->getSignedUrl(['w' => $current]) . " {$current}w";
+            $sizes[] = $media->getUrl(['w' => $current]) . " {$current}w";
             $current = min($target, $current + max(10, intval($current * $this->increment)));
         }
 

@@ -24,6 +24,9 @@ return [
             'hook' => 'https://example.com/hook',
         ]
     ],
+    'media' => [
+        'use_signatures' => env('FLATLAYER_MEDIA_USE_SIGNATURES', false),
+    ],
     'github' => [
         'webhook_secret' => env('GITHUB_WEBHOOK_SECRET'),
     ]
