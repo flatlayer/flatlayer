@@ -4,15 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ListRequest;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 
 class ListController extends Controller
 {
     public function index(ListRequest $request, $modelSlug)
     {
-        $modelClass = $this->resolveModelClass($modelSlug);
+        $modelClass = $request->getModelClass();
 
-        if (!$modelClass || !class_exists($modelClass)) {
+        if (!$modelClass) {
             return response()->json(['error' => 'Invalid model'], 400);
         }
 
@@ -29,12 +28,6 @@ class ListController extends Controller
         $results = $query->paginate($perPage);
 
         return response()->json($results);
-    }
-
-    protected function resolveModelClass($modelSlug)
-    {
-        $modelName = Str::studly($modelSlug);
-        return "App\\Models\\{$modelName}";
     }
 
     protected function applyFilters(Builder $query, array $filters, string $modelClass)
