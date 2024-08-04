@@ -33,7 +33,7 @@ trait MarkdownModel
         $title = null;
         $markdownContent = static::extractTitleFromContent($markdownContent, $title);
 
-        // Use extracted title if available, otherwise use frontmatter title
+        // Use extracted title if available, otherwise use front matter title
         if ($title) {
             $data['title'] = $title;
         }

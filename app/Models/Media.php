@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\URL;
 
 class Media extends Model
 {
@@ -83,5 +84,21 @@ class Media extends Model
         }
 
         return self::addMediaToModel($model, $fullPath, $collectionName);
+    }
+
+    public function getSignedUrl(array $transforms = []): string
+    {
+        $extension = pathinfo($this->filename, PATHINFO_EXTENSION);
+        $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
+
+        if (!empty($transforms)) {
+            $queryString = http_build_query($transforms);
+            $route .= '?' . $queryString;
+        }
+
+        return URL::signedRoute('media.transform', array_merge(
+            ['id' => $this->id, 'extension' => $extension],
+            $transforms
+        ));
     }
 }
