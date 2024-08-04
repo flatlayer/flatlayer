@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use App\Traits\HasMedia;
 use Illuminate\Support\Str;
@@ -16,7 +17,7 @@ class MarkdownMediaService
         $this->imagePaths = new Collection();
     }
 
-    public function handleMediaFromFrontMatter(HasMedia $model, array $data, string $filename): void
+    public function handleMediaFromFrontMatter(Model $model, array $data, string $filename): void
     {
         foreach ($data as $key => $value) {
             if (str_starts_with($key, 'image_')) {
@@ -31,7 +32,7 @@ class MarkdownMediaService
         }
     }
 
-    public function processMarkdownImages(HasMedia $model, string $markdownContent, string $filename): string
+    public function processMarkdownImages(Model $model, string $markdownContent, string $filename): string
     {
         $pattern = '/!\[(.*?)\]\((.*?)\)/';
         $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename) {
@@ -65,7 +66,7 @@ class MarkdownMediaService
         return File::exists($fullPath) ? $fullPath : $mediaItem;
     }
 
-    protected function syncImagesCollection(HasMedia $model): void
+    protected function syncImagesCollection(Model $model): void
     {
         $model->syncMedia($this->imagePaths->toArray(), 'images');
         $this->imagePaths = new Collection(); // Reset for next use
