@@ -7,6 +7,10 @@ use Illuminate\Support\Str;
 
 class ResponsiveImageService
 {
+    const DECREMENT = 0.9;
+    const MIN_SIZE = 240;
+    const THUMBNAIL_THRESHOLD = 300;
+
     protected array $breakpoints = [
         'sm' => 640,
         'md' => 768,
@@ -15,13 +19,10 @@ class ResponsiveImageService
         '2xl' => 1536,
     ];
 
-    protected int $minWidth = 240;
-    protected float $increment = 0.1; // 10% increment
-
     public function generateImgTag(Media $media, array $sizes, array $attributes = []): string
     {
         $parsedSizes = $this->parseSizes($sizes);
-        $srcset = $this->generateSrcset($media, $parsedSizes);
+        $srcset = $this->generateSrcset($media);
         $sizesAttribute = $this->generateSizesAttribute($parsedSizes);
 
         $defaultAttributes = [
@@ -75,68 +76,33 @@ class ResponsiveImageService
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 
-    protected function generateSrcset(Media $media, array $parsedSizes): string
+    protected function generateSrcset(Media $media): string
     {
-        $srcset = [];
         $maxWidth = $media->getWidth();
-        $breakpoints = array_keys($parsedSizes);
+        $srcset = [];
 
-        for ($i = 0; $i < count($breakpoints) - 1; $i++) {
-            $currentBreakpoint = $breakpoints[$i];
-            $nextBreakpoint = $breakpoints[$i + 1];
-            $currentSize = $parsedSizes[$currentBreakpoint];
-            $nextSize = $parsedSizes[$nextBreakpoint];
-
-            $srcset = array_merge($srcset, $this->generateSizesForRange(
-                $currentBreakpoint,
-                $nextBreakpoint,
-                $currentSize,
-                $nextSize,
-                $maxWidth,
-                $media
-            ));
-        }
-
-        // Add the largest size
-        $largestSize = $this->calculateSize(end($parsedSizes), max($this->breakpoints));
-        if ($largestSize <= $maxWidth) {
-            $srcset[] = $media->getUrl(['w' => $largestSize]) . " {$largestSize}w";
-        }
-
-        // Add the original size if it's larger than the largest calculated size
-        if ($maxWidth > $largestSize) {
-            $srcset[] = $media->getUrl() . " {$maxWidth}w";
+        if ($maxWidth <= self::THUMBNAIL_THRESHOLD) {
+            // For thumbnails, generate original and @2x if possible
+            $srcset[] = $this->formatSrcsetEntry($media, $maxWidth);
+            $retinaWidth = min($maxWidth * 2, $media->getWidth());
+            if ($retinaWidth > $maxWidth) {
+                $srcset[] = $this->formatSrcsetEntry($media, $retinaWidth);
+            }
+        } else {
+            // For larger images, generate a range of sizes
+            $currentWidth = $maxWidth;
+            while ($currentWidth >= self::MIN_SIZE) {
+                $srcset[] = $this->formatSrcsetEntry($media, $currentWidth);
+                $currentWidth = max(self::MIN_SIZE, intval($currentWidth * self::DECREMENT));
+            }
         }
 
         return implode(', ', array_unique($srcset));
     }
 
-    protected function generateSizesForRange(int $start, int $end, array $startSize, array $endSize, int $maxWidth, Media $media): array
+    protected function formatSrcsetEntry(Media $media, int $width): string
     {
-        $sizes = [];
-        $current = max($this->minWidth, $this->calculateSize($startSize, $start));
-        $target = min($maxWidth, $this->calculateSize($endSize, $end));
-
-        while ($current < $target) {
-            $sizes[] = $media->getUrl(['w' => $current]) . " {$current}w";
-            $current = min($target, $current + max(10, intval($current * $this->increment)));
-        }
-
-        return $sizes;
-    }
-
-    protected function calculateSize(array $size, int $breakpoint): int
-    {
-        switch ($size['type']) {
-            case 'px':
-                return $size['value'];
-            case 'vw':
-                return intval($breakpoint * $size['value'] / 100);
-            case 'calc':
-                return intval($breakpoint * $size['vw'] / 100) - $size['px'];
-            default:
-                throw new \InvalidArgumentException("Invalid size type: {$size['type']}");
-        }
+        return $media->getUrl(['w' => $width]) . " {$width}w";
     }
 
     protected function generateSizesAttribute(array $parsedSizes): string
