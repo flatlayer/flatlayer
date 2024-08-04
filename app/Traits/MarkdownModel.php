@@ -103,14 +103,14 @@ trait MarkdownModel
             $model->$key = $value;
         }
 
-        // Set the main content
-        $contentField = $model->getMarkdownContentField();
-        $model->$contentField = $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
-
         // Handle Media
         if (in_array(HasMedia::class, class_uses_recursive($model))) {
             $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
         }
+
+        // Set the main content
+        $contentField = $model->getMarkdownContentField();
+        $model->$contentField = $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
 
         // Handle Spatie Tags
         if (in_array(HasTags::class, class_uses_recursive($model)) && isset($data['tags'])) {
