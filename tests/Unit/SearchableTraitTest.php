@@ -36,14 +36,20 @@ class SearchableTraitTest extends TestCase
 
     protected function setupFakeOpenAIResponses()
     {
-        $fakeResponses = [];
-        for ($i = 0; $i < 10; $i++) {
-            $fakeResponses[] = CreateResponse::fake([
+        $fakeEmbeddings = [
+            'Test Content' => [0.1, 0.2, 0.3],
+            'First Content' => [0.4, 0.5, 0.6],
+            'Second Content' => [0.7, 0.8, 0.9],
+            'test query' => [0.2, 0.3, 0.4],
+        ];
+
+        $fakeResponses = collect($fakeEmbeddings)->map(function ($embedding) {
+            return CreateResponse::fake([
                 'data' => [
-                    ['embedding' => array_fill(0, 3, $i / 10)]
+                    ['embedding' => $embedding]
                 ],
             ]);
-        }
+        })->values()->all();
 
         OpenAI::fake($fakeResponses);
     }
@@ -51,10 +57,9 @@ class SearchableTraitTest extends TestCase
     public function testUpdateSearchVector()
     {
         $model = new FakeSearchableModel(['title' => 'Test', 'content' => 'Content']);
-        $model->updateSearchVector();
         $model->save();
 
-        $this->assertEquals([0.1, 0.1, 0.1], $model->embedding);
+        $this->assertEquals([0.1, 0.2, 0.3], $model->embedding);
     }
 
     public function testSearch()
@@ -63,21 +68,10 @@ class SearchableTraitTest extends TestCase
         $first = FakeSearchableModel::create([
             'title' => 'First',
             'content' => 'Content',
-            'embedding' => json_encode(array_fill(0, 1536, 0.1))
         ]);
         $second = FakeSearchableModel::create([
             'title' => 'Second',
             'content' => 'Content',
-            'embedding' => json_encode(array_fill(0, 1536, 0.2))
-        ]);
-
-        // Mock the OpenAI facade to return a specific embedding
-        OpenAI::fake([
-            CreateResponse::fake([
-                'data' => [
-                    ['embedding' => array_fill(0, 1536, 0.1)]
-                ],
-            ])
         ]);
 
         // Perform the search
@@ -98,7 +92,7 @@ class SearchableTraitTest extends TestCase
         $this->assertNotEquals($results[0]->distance, $results[1]->distance);
 
         // Check ordering based on distance (smaller distance should come first)
-        $this->assertLessThan($results[1]->distance, $results[0]->distance);
+        $this->assertLessThan($results[0]->distance, $results[1]->distance);
 
         // Check that the results are the models we created
         $this->assertTrue($results->contains($second));

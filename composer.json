@@ -12,6 +12,7 @@
         "laravel/framework": "^11.9",
         "laravel/tinker": "^2.9",
         "league/commonmark": "^2.5",
+        "markrogoyski/math-php": "^2.10",
         "openai-php/laravel": "^0.10.1",
         "pgvector/pgvector": "^0.2.0",
         "spatie/image-optimizer": "^1.7",
