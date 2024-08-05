@@ -80,7 +80,31 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_tag_filters()
     {
-        $this->markTestSkipped('FakePost model does not support tags yet.');
+        $postA = FakePost::factory()->create(['title' => 'Post A']);
+        $postB = FakePost::factory()->create(['title' => 'Post B']);
+        $postC = FakePost::factory()->create(['title' => 'Post C']);
+
+        $postA->attachTag('tag1');
+        $postB->attachTag('tag2');
+        $postC->attachTag('tag1');
+
+        $response = $this->getJson('/fake-posts/list?filters[tags][]=tag1');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.title', 'Post A')
+            ->assertJsonPath('data.1.title', 'Post C');
+
+        $response = $this->getJson('/fake-posts/list?filters[tags][]=tag2');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Post B');
+
+        $response = $this->getJson('/fake-posts/list?filters[tags][]=non_existent_tag');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_index_applies_field_filters()

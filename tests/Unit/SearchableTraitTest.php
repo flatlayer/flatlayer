@@ -84,10 +84,6 @@ class SearchableTraitTest extends TestCase
         $this->assertTrue(isset($results[0]->distance), "First result should have a distance attribute");
         $this->assertTrue(isset($results[1]->distance), "Second result should have a distance attribute");
 
-        // Output actual distances for debugging
-        echo "First result distance: " . $results[0]->distance . "\n";
-        echo "Second result distance: " . $results[1]->distance . "\n";
-
         // Assert that the distances are different
         $this->assertNotEquals($results[0]->distance, $results[1]->distance);
 

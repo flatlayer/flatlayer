@@ -6,10 +6,11 @@ use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Tests\Fakes\Factories\FakePostFactory;
+use Spatie\Tags\HasTags;
 
 class FakePost extends Model
 {
-    use HasMedia, HasFactory;
+    use HasMedia, HasFactory, HasTags;
 
     protected $table = 'posts';
 
@@ -19,7 +20,7 @@ class FakePost extends Model
         'slug',
     ];
 
-    public static $allowedFilters = ['title'];
+    public static $allowedFilters = ['title', 'tags'];
 
     protected static function newFactory()
     {
@@ -32,6 +33,7 @@ class FakePost extends Model
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
+            'tags' => $this->tags->pluck('name')->toArray(),
         ];
     }
 

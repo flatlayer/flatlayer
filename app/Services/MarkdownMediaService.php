@@ -22,19 +22,17 @@ class MarkdownMediaService
             if (str_starts_with($key, 'image_')) {
                 $collectionName = Str::after($key, 'image_');
                 $fullPath = $this->resolveMediaPath($value, $filename);
-                if ($collectionName === 'images') {
-                    $this->imagePaths->push($fullPath);
-                } else {
-                    $this->addMediaToModel($model, $fullPath, $collectionName);
-                }
+                $this->addMediaToModel($model, $fullPath, $collectionName);
             }
         }
     }
 
-    public function processMarkdownImages(Model $model, string $markdownContent, string $filename): string
+    public function processMarkdownImages(Model $model, string $markdownContent, string $filename, string $collectionName = 'images'): string
     {
         $pattern = '/!\[(.*?)\]\((.*?)\)/';
-        $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename) {
+        $imagePaths = new Collection();
+
+        $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename, &$imagePaths) {
             $altText = $matches[1];
             $imagePath = $matches[2];
 
@@ -46,7 +44,7 @@ class MarkdownMediaService
             $fullImagePath = $this->resolveMediaPath($imagePath, $filename);
 
             if (File::exists($fullImagePath)) {
-                $this->imagePaths->push($fullImagePath);
+                $imagePaths->push($fullImagePath);
                 return "![{$altText}]({$fullImagePath})";
             }
 
@@ -54,7 +52,7 @@ class MarkdownMediaService
             return $matches[0];
         }, $markdownContent);
 
-        $this->syncImagesCollection($model);
+        $this->syncImagesCollection($model, $imagePaths, $collectionName);
 
         return $processedContent;
     }
@@ -65,12 +63,22 @@ class MarkdownMediaService
         return File::exists($fullPath) ? $fullPath : $mediaItem;
     }
 
-    protected function syncImagesCollection(Model $model): void
+    protected function syncImagesCollection(Model $model, Collection $newImagePaths, string $collectionName): void
     {
-        foreach ($this->imagePaths as $imagePath) {
-            $this->addMediaToModel($model, $imagePath, 'images');
+        $existingMedia = $model->getMedia($collectionName);
+        $existingPaths = $existingMedia->pluck('path');
+
+        // Determine which images to add, keep, and remove
+        $pathsToAdd = $newImagePaths->diff($existingPaths);
+        $pathsToRemove = $existingPaths->diff($newImagePaths);
+
+        // Add new images
+        foreach ($pathsToAdd as $path) {
+            $this->addMediaToModel($model, $path, $collectionName);
         }
-        $this->imagePaths = new Collection(); // Reset for next use
+
+        // Remove images that are no longer present
+        $existingMedia->whereIn('path', $pathsToRemove)->each->delete();
     }
 
     protected function addMediaToModel(Model $model, string $path, string $collectionName): void

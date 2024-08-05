@@ -14,7 +14,7 @@ class MediaFactory extends Factory
         return [
             'model_type' => $this->faker->word,
             'model_id' => $this->faker->randomNumber(),
-            'collection_name' => $this->faker->word,
+            'collection' => $this->faker->word,
             'path' => $this->faker->filePath(),
             'mime_type' => $this->faker->mimeType(),
             'size' => $this->faker->numberBetween(1000, 10000000),

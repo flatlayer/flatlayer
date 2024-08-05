@@ -41,14 +41,14 @@ class MarkdownMediaServiceTest extends TestCase
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
-            'collection_name' => 'featured',
+            'collection' => 'featured',
             'path' => Storage::disk('local')->path('posts/featured.jpg'),
         ]);
 
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
-            'collection_name' => 'thumbnail',
+            'collection' => 'thumbnail',
             'path' => Storage::disk('local')->path('posts/thumbnail.png'),
         ]);
 
@@ -78,14 +78,14 @@ class MarkdownMediaServiceTest extends TestCase
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
-            'collection_name' => 'images',
+            'collection' => 'images',
             'path' => Storage::disk('local')->path('posts/image1.jpg'),
         ]);
 
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
-            'collection_name' => 'images',
+            'collection' => 'images',
             'path' => Storage::disk('local')->path('posts/image3.png'),
         ]);
     }

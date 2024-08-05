@@ -20,7 +20,7 @@ trait HasMedia
 
     public function getMedia(string $collectionName = 'default'): Collection
     {
-        return $this->media()->where('collection_name', $collectionName)->get();
+        return $this->media()->where('collection', $collectionName)->get();
     }
 
     public function getAllMedia(): Collection
@@ -30,7 +30,7 @@ trait HasMedia
 
     public function clearMediaCollection(string $collectionName = 'default'): self
     {
-        $this->media()->where('collection_name', $collectionName)->delete();
+        $this->media()->where('collection', $collectionName)->delete();
         return $this;
     }
 

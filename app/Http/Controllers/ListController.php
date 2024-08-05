@@ -25,13 +25,12 @@ class ListController extends Controller
         }
 
         $query = $modelClass::query();
+        $this->applyFilters($query, $request->filters(), $modelClass);
 
         if ($request->has('query') && method_exists($modelClass, 'search')) {
             $searchResults = $modelClass::search($request->input('query'));
             $query = $searchResults;
         }
-
-        $this->applyFilters($query, $request->filters(), $modelClass);
 
         $perPage = $request->input('per_page', 15);
         $results = $query->paginate($perPage);
@@ -76,10 +75,7 @@ class ListController extends Controller
     {
         foreach ($tags as $type => $values) {
             $values = (array) $values;
-            $query->whereHas('tags', function (Builder $query) use ($type, $values) {
-                $query->where('type', $type === 'default' ? null : $type)
-                    ->whereIn('slug', $values);
-            });
+            $query->withAnyTags($values);
         }
     }
 

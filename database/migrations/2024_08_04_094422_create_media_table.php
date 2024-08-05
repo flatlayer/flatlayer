@@ -11,7 +11,8 @@ return new class extends Migration
         Schema::create('media', function (Blueprint $table) {
             $table->id();
             $table->morphs('model');
-            $table->string('collection_name');
+            $table->string('collection');
+            $table->string('filename');
             $table->string('path');
             $table->string('mime_type')->nullable();
             $table->unsignedBigInteger('size');

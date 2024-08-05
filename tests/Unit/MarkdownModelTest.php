@@ -85,9 +85,9 @@ class MarkdownModelTest extends TestCase
     {
         $model = TestMarkdownModel::fromMarkdown(Storage::disk('local')->path('test_media.md'));
 
-        $this->assertCount(2, $model->media);
-        $this->assertTrue($model->media->contains('collection', 'featured'));
-        $this->assertTrue($model->media->contains('collection', 'thumbnail'));
+        $this->assertEquals(2, $model->media()->count());
+        $this->assertTrue($model->media()->get()->contains('collection', 'featured'));
+        $this->assertTrue($model->media()->get()->contains('collection', 'thumbnail'));
     }
 
     public function testProcessMarkdownImages()
@@ -98,7 +98,7 @@ class MarkdownModelTest extends TestCase
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
         $this->assertStringContainsString('![Alt Text 3](image3.png)', $model->content);
 
-        $this->assertCount(2, $model->media);
-        $this->assertTrue($model->media->contains('collection', 'images'));
+        $this->assertEquals(2, $model->media()->count());
+        $this->assertTrue($model->media()->get()->contains('collection', 'images'));
     }
 }

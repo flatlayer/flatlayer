@@ -14,7 +14,8 @@ class Media extends Model
     protected $fillable = [
         'model_type',
         'model_id',
-        'collection_name',
+        'collection',
+        'filename',
         'path',
         'mime_type',
         'size',
@@ -27,6 +28,17 @@ class Media extends Model
         'dimensions' => 'array',
         'custom_properties' => 'array',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($media) {
+            if (empty($media->filename) && !empty($media->path)) {
+                $media->filename = basename($media->path);
+            }
+        });
+    }
 
     public function model()
     {
@@ -41,7 +53,8 @@ class Media extends Model
         $dimensions = self::getImageDimensions($path);
 
         return $model->media()->create([
-            'collection_name' => $collectionName,
+            'collection' => $collectionName,
+            'filename' => $filename,
             'path' => $path,
             'mime_type' => $mimeType,
             'size' => $size,
