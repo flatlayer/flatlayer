@@ -43,11 +43,11 @@ trait MarkdownModel
         $data = $document->getData();
         $markdownContent = $document->getContent();
 
-        // Determine the slug value
-        $slugValue = $data['slug'] ?? pathinfo($filename, PATHINFO_FILENAME);
+        // Generate slug from filename
+        $slug = static::generateSlugFromFilename($filename);
 
         // Find existing model by slug or create a new one
-        $model = static::firstOrNew(['slug' => $slugValue]);
+        $model = static::firstOrNew(['slug' => $slug]);
         $model->initializeMarkdownModel();
 
         $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
@@ -61,6 +61,9 @@ trait MarkdownModel
 
     protected static function fillModelFromMarkdown(self $model, array $data, string $markdownContent, string $filename): self
     {
+        // Set slug from filename
+        $model->slug = static::generateSlugFromFilename($filename);
+
         // Extract title from the first line if it starts with #
         $title = null;
         $markdownContent = static::extractTitleFromContent($markdownContent, $title);
@@ -85,14 +88,6 @@ trait MarkdownModel
         // Set the main content
         $contentField = $model->getMarkdownContentField();
         $model->$contentField = $markdownContent;
-
-        // Handle slug
-        if (method_exists($model, 'getSlugOptions')) {
-            $slugField = $model->getSlugOptions()->slugField;
-            if (!isset($model->$slugField)) {
-                $model->$slugField = pathinfo($filename, PATHINFO_FILENAME);
-            }
-        }
 
         // Save the model before attaching relationships
         $model->save();
@@ -128,5 +123,10 @@ trait MarkdownModel
     protected function getMarkdownContentField(): string
     {
         return $this->markdownContentField ?? 'content';
+    }
+
+    protected static function generateSlugFromFilename(string $filename): string
+    {
+        return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
     }
 }

@@ -45,7 +45,7 @@ class MarkdownModelTest extends TestCase
 
         $this->assertEquals('Test Basic Markdown', $model->title);
         $this->assertEquals("This is the content of the basic markdown file.", trim($model->content));
-        $this->assertEquals('test-basic-markdown', $model->slug);
+        $this->assertEquals('test-basic', $model->slug);
         $this->assertEquals('2023-05-01 12:00:00', $model->published_at->format('Y-m-d H:i:s'));
         $this->assertTrue($model->is_published);
         $this->assertEquals(['tag1', 'tag2'], $model->tags->pluck('name')->toArray());
@@ -53,18 +53,32 @@ class MarkdownModelTest extends TestCase
 
     public function testSyncFromMarkdown()
     {
-        $model = TestMarkdownModel::syncFromMarkdown(Storage::disk('local')->path('test_sync.md'), true);
+        $originalPath = Storage::disk('local')->path('test_sync.md');
+        $updatedPath = Storage::disk('local')->path('test_sync_updated.md');
+
+        // First sync
+        $model = TestMarkdownModel::syncFromMarkdown($originalPath, true);
 
         $this->assertEquals('Initial Title', $model->title);
         $this->assertEquals('Initial content', trim($model->content));
+        $this->assertEquals('test-sync', $model->slug);
 
-        $updatedModel = TestMarkdownModel::syncFromMarkdown(Storage::disk('local')->path('test_sync_updated.md'), true);
+        // Store the initial ID
+        $initialId = $model->id;
 
-        $this->assertEquals($model->id, $updatedModel->id);
+        // Update the content of the original file
+        $updatedContent = file_get_contents($updatedPath);
+        file_put_contents($originalPath, $updatedContent);
+
+        // Second sync (update) using the same file
+        $updatedModel = TestMarkdownModel::syncFromMarkdown($originalPath, true);
+
+        $this->assertEquals($initialId, $updatedModel->id, "The updated model should have the same ID as the original");
         $this->assertEquals('Updated Title', $updatedModel->title);
         $this->assertEquals('Updated content', trim($updatedModel->content));
+        $this->assertEquals('test-sync', $updatedModel->slug, "The slug should not change during update");
 
-        $this->assertEquals(1, TestMarkdownModel::count());
+        $this->assertEquals(1, TestMarkdownModel::count(), "There should only be one model after sync");
     }
 
     public function testHandleMediaFromFrontMatter()

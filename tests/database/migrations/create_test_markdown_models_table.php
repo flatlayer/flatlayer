@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('test_markdown_models', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            $table->text('content');
+            $table->string('title')->nullable();
+            $table->text('content')->nullable();
             $table->string('slug')->unique();
             $table->timestamp('published_at')->nullable();
             $table->boolean('is_published')->default(false);

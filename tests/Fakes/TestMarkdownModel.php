@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 class TestMarkdownModel extends Model
 {
-    use MarkdownModel, HasSlug, HasTags;
+    use MarkdownModel, HasTags;
 
     protected $table = 'test_markdown_models';
 
@@ -35,13 +35,6 @@ class TestMarkdownModel extends Model
         parent::__construct($attributes);
         $this->media = new Collection();
         $this->initializeMarkdownModel();
-    }
-
-    public function getSlugOptions(): SlugOptions
-    {
-        return SlugOptions::create()
-            ->generateSlugsFrom('title')
-            ->saveSlugsTo('slug');
     }
 
     public function getMarkdownContentField(): string
