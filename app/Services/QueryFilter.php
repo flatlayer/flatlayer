@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 
 class QueryFilter
 {
-    protected Builder $builder;
+    protected Builder|Collection $builder;
     protected array $filters;
     protected ?string $search;
 
@@ -128,5 +128,10 @@ class QueryFilter
     {
         $model = $this->builder->getModel();
         return in_array(Searchable::class, class_uses_recursive($model));
+    }
+
+    public function isSearch(): bool
+    {
+        return $this->search !== null;
     }
 }
