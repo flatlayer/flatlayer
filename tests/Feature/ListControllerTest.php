@@ -71,7 +71,8 @@ class ListControllerTest extends TestCase
         FakePost::factory()->count(5)->create();
         $searchPost = FakePost::factory()->create(['title' => 'Unique Searchable Post']);
 
-        $response = $this->getJson('/fake-posts/list?query=Unique Searchable');
+        $filter = json_encode(['$search' => 'Unique Searchable']);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -88,20 +89,23 @@ class ListControllerTest extends TestCase
         $postB->attachTag('tag2');
         $postC->attachTag('tag1');
 
-        $response = $this->getJson('/fake-posts/list?filters[tags][]=tag1');
+        $filter = json_encode(['$tags' => ['tag1']]);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Post A')
             ->assertJsonPath('data.1.title', 'Post C');
 
-        $response = $this->getJson('/fake-posts/list?filters[tags][]=tag2');
+        $filter = json_encode(['$tags' => ['tag2']]);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Post B');
 
-        $response = $this->getJson('/fake-posts/list?filters[tags][]=non_existent_tag');
+        $filter = json_encode(['$tags' => ['non_existent_tag']]);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(0, 'data');
@@ -112,7 +116,8 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['title' => 'Post A']);
         FakePost::factory()->create(['title' => 'Post B']);
 
-        $response = $this->getJson('/fake-posts/list?filters[title][]=Post A');
+        $filter = json_encode(['title' => 'Post A']);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -125,7 +130,8 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['title' => 'BBB Post']);
         FakePost::factory()->create(['title' => 'CCC Post']);
 
-        $response = $this->getJson('/fake-posts/list?filters[title][0]=<&filters[title][1]=CCC Post');
+        $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -138,7 +144,8 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['content' => 'Filtered content']);
         FakePost::factory()->create(['content' => 'Other content']);
 
-        $response = $this->getJson('/fake-posts/list?filters[content][]=Filtered content');
+        $filter = json_encode(['content' => 'Filtered content']);
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');

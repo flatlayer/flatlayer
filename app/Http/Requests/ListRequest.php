@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Services\ModelResolverService;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ListRequest extends FormRequest
 {
@@ -23,40 +23,32 @@ class ListRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'query' => 'sometimes|string|max:255',
+            'search' => 'sometimes|string|max:255',
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
-            'filters' => 'sometimes|array',
-            'filters.*' => 'array',
-            'filters.*.*' => 'string',
+            'filter' => [
+                'sometimes',
+                Rule::when(is_string($this->input('filter')), 'json'),
+            ],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->filled('filters')) {
-            $this->merge([
-                'filters' => $this->parseFilters($this->filters)
-            ]);
+        if ($this->has('filter') && is_string($this->input('filter'))) {
+            $decodedFilter = json_decode($this->input('filter'), true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $this->merge(['filter' => $decodedFilter]);
+            }
+            // If JSON is invalid, we leave it as a string so that the 'json' rule can catch it
         }
     }
 
-    protected function parseFilters(array $filters): array
+    public function messages()
     {
-        $parsedFilters = [];
-
-        foreach ($filters as $key => $value) {
-            if (Str::startsWith($key, 'tag:')) {
-                $tagType = Str::after($key, 'tag:');
-                $parsedFilters['tags'][$tagType] = $value;
-            } elseif ($key === 'tag') {
-                $parsedFilters['tags']['default'] = is_array($value) ? $value : [$value];
-            } else {
-                $parsedFilters[$key] = $value;
-            }
-        }
-
-        return $parsedFilters;
+        return [
+            'filter.json' => 'The filter must be a valid JSON string.',
+        ];
     }
 
     public function getModelClass(): ?string
@@ -65,8 +57,12 @@ class ListRequest extends FormRequest
         return $this->modelResolver->resolve($modelSlug);
     }
 
-    public function filters(): array
+    public function getFilter(): array
     {
-        return $this->validated('filters', []);
+        $filter = $this->input('filter', []);
+        if ($this->has('search')) {
+            $filter['$search'] = $this->input('search');
+        }
+        return $filter;
     }
 }
