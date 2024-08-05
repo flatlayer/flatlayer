@@ -4,21 +4,23 @@ namespace App\Services;
 
 use Illuminate\Database\Eloquent\Builder;
 use App\Traits\Searchable;
+use Illuminate\Support\Collection;
 
 class QueryFilter
 {
-    protected $builder;
-    protected $filters;
-    protected $search;
+    protected Builder $builder;
+    protected array $filters;
+    protected ?string $search;
 
     public function __construct(Builder $builder, array $filters)
     {
         $this->builder = $builder;
         $this->filters = $filters;
         $this->search = $filters['$search'] ?? null;
+        unset($this->filters['$search']);
     }
 
-    public function apply(): Builder
+    public function apply(): Builder|Collection
     {
         $this->applyFilters($this->filters);
         $this->applySearch();
@@ -33,16 +35,22 @@ class QueryFilter
             foreach ($filters as $field => $value) {
                 if ($field === '$and') {
                     $query->where(function ($q) use ($value) {
-                        $this->applyFilters($value, 'and');
+                        foreach ($value as $andCondition) {
+                            $this->applyFilters($andCondition, 'and');
+                        }
                     });
                 } elseif ($field === '$or') {
-                    $query->where(function ($q) use ($value) {
-                        $this->applyFilters($value, 'or');
+                    $query->orWhere(function ($q) use ($value) {
+                        foreach ($value as $orCondition) {
+                            $this->applyFilters($orCondition, 'or');
+                        }
                     });
                 } elseif ($field === '$tags') {
                     $this->applyTagFilters($value);
-                } elseif ($field !== '$search' && $this->isFilterableField($field)) {
+                } elseif ($this->isFilterableField($field)) {
                     $this->applyFieldFilter($query, $field, $value);
+                } else {
+                    throw new \InvalidArgumentException("Filtering by field '$field' is not allowed.");
                 }
             }
         });
@@ -108,7 +116,11 @@ class QueryFilter
     {
         if ($this->search && $this->isSearchable()) {
             $modelClass = get_class($this->builder->getModel());
-            $this->builder = $modelClass::search($this->search, null, true, $this->builder);
+            $this->builder = $modelClass::search(
+                $this->search,
+                rerank: true,
+                builder: $this->builder
+            );
         }
     }
 

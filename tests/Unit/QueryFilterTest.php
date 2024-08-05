@@ -51,7 +51,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(1, $filteredQuery->count());
-        $this->assertTrue($filteredQuery->get()->contains('name', 'John'));
+        $this->assertTrue($filteredQuery->contains('name', 'John'));
     }
 
     public function testMultipleFilters()
@@ -64,7 +64,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(1, $filteredQuery->count());
-        $this->assertTrue($filteredQuery->get()->contains(function ($model) {
+        $this->assertTrue($filteredQuery->contains(function ($model) {
             return $model->name === 'John' && $model->age === 30;
         }));
     }
@@ -80,7 +80,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(2, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
+        $filteredQuery->each(function ($model) {
             $this->assertGreaterThan(25, $model->age);
             $this->assertLessThan(35, $model->age);
         });
@@ -97,7 +97,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(2, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
+        $filteredQuery->each(function ($model) {
             $this->assertContains($model->name, ['John', 'Jane']);
         });
     }
@@ -112,7 +112,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(1, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
+        $filteredQuery->each(function ($model) {
             $this->assertNotNull($model->description);
         });
     }
@@ -121,6 +121,7 @@ class QueryFilterTest extends TestCase
     {
         // Create a model that matches both conditions
         TestFilterModel::factory()->create(['age' => 30, 'is_active' => true]);
+        TestFilterModel::factory()->create(['age' => 30, 'is_active' => false]);
 
         $filters = [
             '$and' => [
@@ -132,7 +133,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(1, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
+        $filteredQuery->each(function ($model) {
             $this->assertGreaterThanOrEqual(25, $model->age);
             $this->assertTrue($model->is_active);
         });
@@ -154,7 +155,7 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(2, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
+        $filteredQuery->each(function ($model) {
             $this->assertTrue($model->age < 25 || $model->is_active === false);
         });
     }
@@ -169,11 +170,11 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(2, $filteredQuery->count());
-        $this->assertTrue($filteredQuery->get()->contains(function ($model) {
-            return $model->hasTag('important');
+        $this->assertTrue($filteredQuery->contains(function ($model) {
+            return $model->tags->pluck('name')->contains('important');
         }));
-        $this->assertTrue($filteredQuery->get()->contains(function ($model) {
-            return $model->hasTag('urgent');
+        $this->assertTrue($filteredQuery->contains(function ($model) {
+            return $model->tags->pluck('name')->contains('urgent');
         }));
     }
 
@@ -187,27 +188,28 @@ class QueryFilterTest extends TestCase
         $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertGreaterThanOrEqual(2, $filteredQuery->count());
-        $this->assertTrue($filteredQuery->get()->contains(function ($model) {
-            return $model->hasTag('red', 'colors');
+        $this->assertTrue($filteredQuery->contains(function ($model) {
+            return $model->tags->where('type', 'colors')->pluck('name')->contains('red');
         }));
-        $this->assertTrue($filteredQuery->get()->contains(function ($model) {
-            return $model->hasTag('blue', 'colors');
+        $this->assertTrue($filteredQuery->contains(function ($model) {
+            return $model->tags->where('type', 'colors')->pluck('name')->contains('blue');
         }));
     }
 
     public function testSearch()
     {
         // Create a model with 'John' in the name
-        TestFilterModel::factory()->create(['name' => 'John Doe']);
+        TestFilterModel::factory()->create([
+            'name' => 'John Doe',
+            'description' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.'
+        ]);
 
-        $filters = ['$search' => 'John'];
+        $filters = ['$search' => 'a man named John'];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filtered = (new QueryFilter($query, $filters))->apply();
 
-        $this->assertGreaterThanOrEqual(1, $filteredQuery->count());
-        $filteredQuery->get()->each(function ($model) {
-            $this->assertStringContainsString('John', $model->name);
-        });
+        $this->assertGreaterThanOrEqual(1, $filtered->count());
+        $this->assertStringContainsString('John', $filtered->first()->name);
     }
 
     public function testCombinedFilters()

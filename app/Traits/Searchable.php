@@ -134,6 +134,10 @@ trait Searchable
     protected static function rerankResults(string $query, Collection $results): Collection
     {
         $jinaService = app(JinaRerankService::class);
+        $results = $results->map(function($result){
+            $result->relevance_score = 0;
+            return $result;
+        })->values();
 
         $documents = $results->map(function ($result) {
             return $result->toSearchableText();
@@ -141,7 +145,7 @@ trait Searchable
 
         $rerankedResults = $jinaService->rerank($query, $documents);
 
-        return collect($rerankedResults)->map(function ($rerankedResult) use ($results) {
+        return collect($rerankedResults['results'])->map(function ($rerankedResult) use ($results) {
             $originalResult = $results[$rerankedResult['index']];
             $originalResult->relevance_score = $rerankedResult['relevance_score'];
             return $originalResult;

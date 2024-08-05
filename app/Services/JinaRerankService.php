@@ -15,7 +15,7 @@ class JinaRerankService
         $this->model = $model;
     }
 
-    public function rerank(string $query, array $documents, int $topN = 20): array
+    public function rerank(string $query, array $documents, int $topN = 40): array
     {
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
