@@ -2,16 +2,15 @@
 
 namespace Tests\Fakes;
 
+use App\Traits\HasMedia;
 use App\Traits\MarkdownModel;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Sluggable\HasSlug;
-use Spatie\Sluggable\SlugOptions;
 use Spatie\Tags\HasTags;
 use Illuminate\Support\Collection;
 
 class TestMarkdownModel extends Model
 {
-    use MarkdownModel, HasTags;
+    use MarkdownModel, HasTags, HasMedia;
 
     protected $table = 'test_markdown_models';
 
@@ -40,22 +39,5 @@ class TestMarkdownModel extends Model
     public function getMarkdownContentField(): string
     {
         return 'content';
-    }
-
-    public function addMedia($file)
-    {
-        return new class($this) {
-            protected $model;
-
-            public function __construct($model)
-            {
-                $this->model = $model;
-            }
-
-            public function toMediaCollection($collection)
-            {
-                $this->model->media->push(['collection' => $collection]);
-            }
-        };
     }
 }

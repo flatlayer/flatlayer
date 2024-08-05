@@ -152,10 +152,7 @@ class ResponsiveImageServiceTest extends TestCase
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
-        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, [
-            'width' => 300,
-            'height' => 300,
-        ]);
+        $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, [300, 300]);
 
         $this->assertStringContainsString('<img', $result);
         $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL

@@ -76,7 +76,7 @@ class MarkdownMediaService
     protected function addMediaToModel(Model $model, string $path, string $collectionName): void
     {
         if (method_exists($model, 'addMedia')) {
-            $model->addMedia($path)->toMediaCollection($collectionName);
+            $model->addMedia($path, $collectionName);
         }
     }
 }
