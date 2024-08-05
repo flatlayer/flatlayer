@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\ImageController;
 use App\Models\Media;
+use App\Services\ImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -19,13 +19,13 @@ class ImageControllerTest extends TestCase
     protected $fakeArticle;
     protected $media;
     protected $diskName = 'public';
-    protected $imageController;
+    protected $imageService;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->imageController = new ImageController();
+        $this->imageService = $this->app->make(ImageService::class);
 
         $this->clearImageCache();
 
@@ -90,11 +90,11 @@ class ImageControllerTest extends TestCase
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
 
-        $cacheKey = $this->imageController->generateCacheKey(
+        $cacheKey = $this->imageService->generateCacheKey(
             $this->media->id,
             ['w' => 500, 'h' => 300]
         );
-        $cachePath = $this->imageController->getCachePath($cacheKey, 'jpg');
+        $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
         $response = $this->get(route('media.transform', [
@@ -139,8 +139,8 @@ class ImageControllerTest extends TestCase
 
         $content1 = $response1->getContent();
 
-        $cacheKey = $this->imageController->generateCacheKey($this->media->id, ['w' => 500, 'h' => 300]);
-        $cachePath = $this->imageController->getCachePath($cacheKey, 'jpg');
+        $cacheKey = $this->imageService->generateCacheKey($this->media->id, ['w' => 500, 'h' => 300]);
+        $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
         $response2 = $this->get(route('media.transform', $params));
