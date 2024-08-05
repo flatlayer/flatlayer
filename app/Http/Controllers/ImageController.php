@@ -14,6 +14,7 @@ class ImageController extends Controller
 {
     protected ImageManager $manager;
     protected $optimizer;
+    protected $diskName = 'public'; // Make sure this matches the disk name in the test
 
     public function __construct()
     {
@@ -33,7 +34,7 @@ class ImageController extends Controller
         $cacheKey = $this->generateCacheKey($id, $request->all());
         $cachePath = $this->getCachePath($cacheKey);
 
-        if (Storage::exists($cachePath)) {
+        if (Storage::disk($this->diskName)->exists($cachePath)) {
             return $this->serveCachedImage($cachePath);
         }
 
@@ -50,7 +51,7 @@ class ImageController extends Controller
             $image->scale(height: $height);
         }
 
-        $quality = $request->input('q', 90);
+        $quality = (int) $request->input('q', 90);
         $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
 
         $encoded = match ($format) {
@@ -69,7 +70,7 @@ class ImageController extends Controller
         unlink($tempFile);
 
         // Cache the optimized image
-        Storage::put($cachePath, $optimizedImage);
+        Storage::disk($this->diskName)->put($cachePath, $optimizedImage);
 
         return $this->serveImage($optimizedImage, $format);
     }
@@ -87,7 +88,7 @@ class ImageController extends Controller
 
     private function serveCachedImage(string $cachePath): Response
     {
-        $cachedImage = Storage::get($cachePath);
+        $cachedImage = Storage::disk($this->diskName)->get($cachePath);
         $format = pathinfo($cachePath, PATHINFO_EXTENSION);
         return $this->serveImage($cachedImage, $format);
     }
