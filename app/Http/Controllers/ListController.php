@@ -27,8 +27,8 @@ class ListController extends Controller
         $query = $modelClass::query();
 
         if ($request->has('query') && method_exists($modelClass, 'search')) {
-            $searchQuery = $modelClass::search($request->input('query'));
-            $query = $searchQuery->getQuery();
+            $searchResults = $modelClass::search($request->input('query'));
+            $query = $searchResults;
         }
 
         $this->applyFilters($query, $request->filters(), $modelClass);
@@ -83,14 +83,17 @@ class ListController extends Controller
         }
     }
 
-    protected function applyFieldFilter(Builder $query, string $field, array $value)
+    protected function applyFieldFilter(Builder $query, string $field, $value)
     {
-        if (count($value) === 2 && is_numeric($value[0])) {
+        if (is_array($value) && count($value) === 2 && in_array($value[0], ['<', '>', '<=', '>=', '=', '!='])) {
             // Operator filter
             $query->where($field, $value[0], $value[1]);
-        } else {
+        } elseif (is_array($value)) {
             // Simple filter
             $query->whereIn($field, $value);
+        } else {
+            // Single value filter
+            $query->where($field, $value);
         }
     }
 

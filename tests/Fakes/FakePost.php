@@ -43,4 +43,10 @@ class FakePost extends Model
             'slug' => $this->slug,
         ];
     }
+
+    public static function search($query)
+    {
+        return static::where('title', 'like', "%{$query}%")
+            ->orWhere('content', 'like', "%{$query}%");
+    }
 }
