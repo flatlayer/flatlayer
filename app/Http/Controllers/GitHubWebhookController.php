@@ -3,12 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessGitHubWebhookJob;
+use App\Services\ModelResolverService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class GitHubWebhookController extends Controller
 {
+    protected $modelResolver;
+
+    public function __construct(ModelResolverService $modelResolver)
+    {
+        $this->modelResolver = $modelResolver;
+    }
+
     public function handle(Request $request, $modelSlug)
     {
         $payload = $request->all();
@@ -19,7 +26,7 @@ class GitHubWebhookController extends Controller
             return response('Invalid signature', 403);
         }
 
-        $modelClass = $this->getModelClass($modelSlug);
+        $modelClass = $this->modelResolver->resolve($modelSlug);
         if (!$modelClass) {
             Log::warning("Invalid model slug: $modelSlug");
             return response('Invalid model slug', 400);
@@ -35,17 +42,5 @@ class GitHubWebhookController extends Controller
         $secret = config('flatlayer.github.webhook_secret');
         $computedSignature = 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
         return hash_equals($computedSignature, $signature);
-    }
-
-    private function getModelClass($modelSlug)
-    {
-        $modelName = Str::studly($modelSlug);
-        $modelClass = "App\\Models\\{$modelName}";
-
-        if (class_exists($modelClass) && isset(config("flatlayer.models")[$modelClass])) {
-            return $modelClass;
-        }
-
-        return null;
     }
 }
