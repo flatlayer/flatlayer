@@ -40,8 +40,8 @@ class ImageController extends Controller
 
         $image = $this->manager->read($media->path);
 
-        $width = $request->input('w');
-        $height = $request->input('h');
+        $width = (int) $request->input('w');
+        $height = (int) $request->input('h');
 
         if ($width && $height) {
             $image->cover($width, $height);
@@ -75,13 +75,14 @@ class ImageController extends Controller
         return $this->serveImage($optimizedImage, $format);
     }
 
-    private function generateCacheKey($id, array $params): string
+    public function generateCacheKey($id, array $params): string
     {
         ksort($params); // Ensure consistent order of parameters
+        $params = array_map(fn($value) => is_numeric($value) ? (int) $value : $value, $params);
         return md5($id . serialize($params));
     }
 
-    private function getCachePath(string $cacheKey): string
+    public function getCachePath(string $cacheKey): string
     {
         return 'cache/images/' . $cacheKey;
     }

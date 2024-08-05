@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\ImageController;
 use App\Models\Media;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +23,8 @@ class ImageControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->imageController = new ImageController();
 
         // Clear the image cache
         $this->clearImageCache();
@@ -98,6 +101,14 @@ class ImageControllerTest extends TestCase
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
 
+        // Test caching
+        $cacheKey = $this->imageController->generateCacheKey(
+            $this->media->id,
+            ['w' => 500, 'h' => 300]
+        );
+        $cachePath = $this->imageController->getCachePath($cacheKey);
+        $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
+
         // Test format conversion
         $response = $this->get(route('media.transform', [
             'id' => $this->media->id,
@@ -118,11 +129,6 @@ class ImageControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/jpeg');
         $this->assertLessThan(filesize($this->tempImagePath), strlen($response->getContent()));
-
-        // Test caching
-        $cacheKey = md5($this->media->id . serialize(['w' => 500, 'h' => 300]));
-        $cachePath = 'cache/images/' . $cacheKey;
-        $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
         // Test invalid media id
         $response = $this->get(route('media.transform', [
@@ -150,8 +156,8 @@ class ImageControllerTest extends TestCase
         $content1 = $response1->getContent();
 
         // Check if the image is cached
-        $cacheKey = md5($this->media->id . serialize(['w' => 500, 'h' => 300]));
-        $cachePath = 'cache/images/' . $cacheKey;
+        $cacheKey = $this->imageController->generateCacheKey($this->media->id, ['w' => 500, 'h' => 300]);
+        $cachePath = $this->imageController->getCachePath($cacheKey);
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
         // Second request (should be served from cache)
