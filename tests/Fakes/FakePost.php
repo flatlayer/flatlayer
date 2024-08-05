@@ -21,6 +21,8 @@ class FakePost extends Model
         'slug',
     ];
 
+    public static $allowedFilters = ['title'];
+
     protected static function newFactory()
     {
         return FakePostFactory::new();
@@ -31,5 +33,14 @@ class FakePost extends Model
         return SlugOptions::create()
             ->generateSlugsFrom('title')
             ->saveSlugsTo('slug');
+    }
+
+    public function toSummaryArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'slug' => $this->slug,
+        ];
     }
 }

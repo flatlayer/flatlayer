@@ -3,14 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ListRequest;
+use App\Services\ModelResolverService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ListController extends Controller
 {
+    protected $modelResolver;
+
+    public function __construct(ModelResolverService $modelResolver)
+    {
+        $this->modelResolver = $modelResolver;
+    }
+
     public function index(ListRequest $request, $modelSlug)
     {
-        $modelClass = $request->getModelClass();
+        $modelClass = $this->modelResolver->resolve($modelSlug);
 
         if (!$modelClass) {
             return response()->json(['error' => 'Invalid model'], 400);
