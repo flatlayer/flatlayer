@@ -6,6 +6,7 @@ use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\JinaRerankService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 trait Searchable
 {
@@ -70,17 +71,63 @@ trait Searchable
 
         $builder = $builder ?? static::getDefaultSearchableQuery();
 
-        $results = $builder
-            ->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
-            ->orderBy('distance')
-            ->limit($limit)
-            ->get();
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $results = static::pgVectorSearch($builder, $embedding, $limit);
+        } else {
+            $results = static::fallbackSearch($builder, $embedding, $limit);
+        }
 
         if ($rerank) {
             return static::rerankResults($query, $results);
         }
 
         return $results;
+    }
+
+    protected static function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
+    {
+        return $builder
+            ->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
+            ->orderBy('distance')
+            ->limit($limit)
+            ->get();
+    }
+
+    protected static function fallbackSearch(Builder $builder, array $embedding, int $limit): Collection
+    {
+        $allResults = $builder->get();
+
+        $scoredResults = $allResults->map(function ($item) use ($embedding) {
+            $itemEmbedding = $item->embedding;
+            $distance = static::cosineSimilarity($embedding, $itemEmbedding);
+            $item->distance = $distance;
+            return $item;
+        });
+
+        return $scoredResults->sortBy('distance')->take($limit);
+    }
+
+    protected static function cosineSimilarity(array $a, array $b): float
+    {
+        $dotProduct = 0;
+        $magnitudeA = 0;
+        $magnitudeB = 0;
+
+        foreach ($a as $i => $valueA) {
+            $valueB = $b[$i] ?? 0;
+            $dotProduct += $valueA * $valueB;
+            $magnitudeA += $valueA * $valueA;
+            $magnitudeB += $valueB * $valueB;
+        }
+
+        $magnitudeA = sqrt($magnitudeA);
+        $magnitudeB = sqrt($magnitudeB);
+
+        if ($magnitudeA == 0 || $magnitudeB == 0) {
+            return 0;
+        }
+
+        return $dotProduct / ($magnitudeA * $magnitudeB);
     }
 
     public static function getDefaultSearchableQuery(): Builder
