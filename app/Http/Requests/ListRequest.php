@@ -2,11 +2,19 @@
 
 namespace App\Http\Requests;
 
+use App\Services\ModelResolverService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 
 class ListRequest extends FormRequest
 {
+    protected $modelResolver;
+
+    public function __construct(ModelResolverService $modelResolver)
+    {
+        $this->modelResolver = $modelResolver;
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -19,7 +27,8 @@ class ListRequest extends FormRequest
             'page' => 'sometimes|integer|min:1',
             'per_page' => 'sometimes|integer|min:1|max:100',
             'filters' => 'sometimes|array',
-            'filters.*' => 'string|array',
+            'filters.*' => 'array',
+            'filters.*.*' => 'string',
         ];
     }
 
@@ -53,10 +62,7 @@ class ListRequest extends FormRequest
     public function getModelClass(): ?string
     {
         $modelSlug = $this->route('modelSlug');
-        $modelName = Str::studly($modelSlug);
-        $modelClass = "App\\Models\\{$modelName}";
-
-        return class_exists($modelClass) ? $modelClass : null;
+        return $this->modelResolver->resolve($modelSlug);
     }
 
     public function filters(): array
