@@ -27,6 +27,13 @@ class ModelResolverService
             if (class_exists($modelClass)) {
                 return $modelClass;
             }
+
+            // Check for case-insensitive match
+            foreach (get_declared_classes() as $declaredClass) {
+                if (strcasecmp($modelClass, $declaredClass) === 0) {
+                    return $declaredClass;
+                }
+            }
         }
 
         return null;
