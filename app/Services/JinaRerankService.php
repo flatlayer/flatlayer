@@ -15,7 +15,7 @@ class JinaRerankService
         $this->model = $model;
     }
 
-    public function rerank(string $query, array $documents, int $topN = 40): array
+    public function rerank(string $query, array $documents, int $topN = 20): array
     {
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
@@ -28,7 +28,7 @@ class JinaRerankService
         ]);
 
         if ($response->successful()) {
-            return $response->json()['results'];
+            return $response->json() ?? [];
         }
 
         throw new \Exception('Jina API request failed: ' . $response->body());
