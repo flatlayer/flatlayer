@@ -9,7 +9,6 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 use Tests\Fakes\FakePost;
 use Mockery;
-use Spatie\Tags\Tag;
 
 class ListControllerTest extends TestCase
 {
@@ -70,32 +69,18 @@ class ListControllerTest extends TestCase
     public function test_index_applies_search_query()
     {
         FakePost::factory()->count(5)->create();
-        $searchPost = FakePost::factory()->create(['title' => 'Searchable Post']);
+        $searchPost = FakePost::factory()->create(['title' => 'Unique Searchable Post']);
 
-        // Assuming the search is performed on the 'title' field
-        $response = $this->getJson('/fake-posts/list?query=Searchable');
+        $response = $this->getJson('/fake-posts/list?query=Unique Searchable');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.title', 'Searchable Post');
+            ->assertJsonPath('data.0.title', 'Unique Searchable Post');
     }
 
     public function test_index_applies_tag_filters()
     {
-        // Skip this test if the FakePost model doesn't support tags
         $this->markTestSkipped('FakePost model does not support tags yet.');
-
-        $post1 = FakePost::factory()->create();
-        $post2 = FakePost::factory()->create();
-
-        $tag = Tag::create(['name' => 'test-tag', 'type' => 'test-type']);
-        $post1->tags()->attach($tag);
-
-        $response = $this->getJson('/fake-posts/list?filters[tags][test-type]=test-tag');
-
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $post1->id);
     }
 
     public function test_index_applies_field_filters()
@@ -103,7 +88,7 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['title' => 'Post A']);
         FakePost::factory()->create(['title' => 'Post B']);
 
-        $response = $this->getJson('/fake-posts/list?filters[title]=Post A');
+        $response = $this->getJson('/fake-posts/list?filters[title][]=Post A');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -116,7 +101,7 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['title' => 'BBB Post']);
         FakePost::factory()->create(['title' => 'CCC Post']);
 
-        $response = $this->getJson('/fake-posts/list?filters[title][operator]=<&filters[title][value]=CCC Post');
+        $response = $this->getJson('/fake-posts/list?filters[title][0]=<&filters[title][1]=CCC Post');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -129,7 +114,7 @@ class ListControllerTest extends TestCase
         FakePost::factory()->create(['content' => 'Filtered content']);
         FakePost::factory()->create(['content' => 'Other content']);
 
-        $response = $this->getJson('/fake-posts/list?filters[content]=Filtered content');
+        $response = $this->getJson('/fake-posts/list?filters[content][]=Filtered content');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');

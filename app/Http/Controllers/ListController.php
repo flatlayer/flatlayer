@@ -83,14 +83,14 @@ class ListController extends Controller
         }
     }
 
-    protected function applyFieldFilter(Builder $query, string $field, $value)
+    protected function applyFieldFilter(Builder $query, string $field, array $value)
     {
-        if (is_array($value) && count($value) === 2) {
-            $operator = $value[0];
-            $filterValue = $value[1];
-            $query->where($field, $operator, $filterValue);
+        if (count($value) === 2 && is_numeric($value[0])) {
+            // Operator filter
+            $query->where($field, $value[0], $value[1]);
         } else {
-            $query->where($field, $value);
+            // Simple filter
+            $query->whereIn($field, $value);
         }
     }
 
