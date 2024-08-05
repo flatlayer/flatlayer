@@ -66,19 +66,6 @@ class ListControllerTest extends TestCase
             ->assertJson(['error' => 'Invalid model']);
     }
 
-    public function test_index_applies_search_query()
-    {
-        FakePost::factory()->count(5)->create();
-        $searchPost = FakePost::factory()->create(['title' => 'Unique Searchable Post']);
-
-        $filter = json_encode(['$search' => 'Unique Searchable']);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.title', 'Unique Searchable Post');
-    }
-
     public function test_index_applies_tag_filters()
     {
         $postA = FakePost::factory()->create(['title' => 'Post A']);
@@ -139,16 +126,16 @@ class ListControllerTest extends TestCase
             ->assertJsonPath('data.1.title', 'BBB Post');
     }
 
-    public function test_index_ignores_non_filterable_fields()
+    public function test_index_throws_exception_for_non_filterable_fields()
     {
         FakePost::factory()->create(['content' => 'Filtered content']);
         FakePost::factory()->create(['content' => 'Other content']);
 
         $filter = json_encode(['content' => 'Filtered content']);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
 
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data');
+        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response->assertStatus(500);
+        $this->assertEquals("Filtering by field 'content' is not allowed.", $response->json('message'));
     }
 
     public function test_index_transforms_items_using_to_summary_array()

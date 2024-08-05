@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Database\Eloquent\Builder;
 use App\Traits\Searchable;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 class QueryFilter
 {
@@ -50,7 +51,7 @@ class QueryFilter
                 } elseif ($this->isFilterableField($field)) {
                     $this->applyFieldFilter($query, $field, $value);
                 } else {
-                    throw new \InvalidArgumentException("Filtering by field '$field' is not allowed.");
+                    throw new InvalidArgumentException("Filtering by field '$field' is not allowed.");
                 }
             }
         });
