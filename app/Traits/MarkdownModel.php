@@ -103,19 +103,9 @@ trait MarkdownModel
             $model->$key = $value;
         }
 
-        // Handle Media
-        if (in_array(HasMedia::class, class_uses_recursive($model))) {
-            $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
-        }
-
         // Set the main content
         $contentField = $model->getMarkdownContentField();
-        $model->$contentField = $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
-
-        // Handle Spatie Tags
-        if (in_array(HasTags::class, class_uses_recursive($model)) && isset($data['tags'])) {
-            $model->syncTags($data['tags']);
-        }
+        $model->$contentField = $markdownContent;
 
         // Handle slug
         if (method_exists($model, 'getSlugOptions')) {
@@ -123,6 +113,20 @@ trait MarkdownModel
             if (!isset($model->$slugField)) {
                 $model->$slugField = pathinfo($filename, PATHINFO_FILENAME);
             }
+        }
+
+        // Save the model before attaching relationships
+        $model->save();
+
+        // Handle Media
+        if (in_array(HasMedia::class, class_uses_recursive($model))) {
+            $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
+            $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
+        }
+
+        // Handle Spatie Tags
+        if (in_array(HasTags::class, class_uses_recursive($model)) && isset($data['tags'])) {
+            $model->syncTags($data['tags']);
         }
 
         return $model;
