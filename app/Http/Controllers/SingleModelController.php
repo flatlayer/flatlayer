@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ModelResolverService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class SingleModelController extends Controller
 {
+    protected $modelResolver;
+
+    public function __construct(ModelResolverService $modelResolver)
+    {
+        $this->modelResolver = $modelResolver;
+    }
+
     public function show(Request $request, $modelSlug, $slug)
     {
-        $modelName = Str::studly($modelSlug);
-        $modelClass = "App\\Models\\{$modelName}";
+        $modelClass = $this->modelResolver->resolve($modelSlug);
 
-        if (!class_exists($modelClass)) {
+        if (!$modelClass) {
             return response()->json(['error' => 'Invalid model'], 400);
         }
 

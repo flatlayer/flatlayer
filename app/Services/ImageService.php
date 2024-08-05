@@ -25,7 +25,7 @@ class ImageService
         $image = $this->manager->read($imagePath);
 
         $width = isset($params['w']) ? (int)$params['w'] : null;
-        $height = isset($params['h']) ? (int)$params['h'] : null;
+        $height = t($params['h']) ? (int)$params['h'] : null;
 
         if ($width && $height) {
             $image->cover($width, $height);
