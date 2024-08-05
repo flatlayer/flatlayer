@@ -14,7 +14,7 @@ class ImageController extends Controller
 {
     protected ImageManager $manager;
     protected $optimizer;
-    protected $diskName = 'public'; // Make sure this matches the disk name in the test
+    protected $diskName = 'public';
 
     public function __construct()
     {
@@ -24,15 +24,15 @@ class ImageController extends Controller
 
     public function transform(ImageRequest $request, $id)
     {
-        // Check for a signature if required
         if (config('flatlayer.media.use_signatures') && !$request->hasValidSignature()) {
             abort(401);
         }
 
         $media = Media::findOrFail($id);
 
+        $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
         $cacheKey = $this->generateCacheKey($id, $request->all());
-        $cachePath = $this->getCachePath($cacheKey);
+        $cachePath = $this->getCachePath($cacheKey, $format);
 
         if (Storage::disk($this->diskName)->exists($cachePath)) {
             return $this->serveCachedImage($cachePath);
@@ -52,7 +52,6 @@ class ImageController extends Controller
         }
 
         $quality = (int) $request->input('q', 90);
-        $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
 
         $encoded = match ($format) {
             'jpg', 'jpeg' => $image->toJpeg($quality),
@@ -62,14 +61,12 @@ class ImageController extends Controller
             default => $image->encode(),
         };
 
-        // Optimize the image
         $tempFile = tempnam(sys_get_temp_dir(), 'optimized_image');
         file_put_contents($tempFile, $encoded);
         $this->optimizer->optimize($tempFile);
         $optimizedImage = file_get_contents($tempFile);
         unlink($tempFile);
 
-        // Cache the optimized image
         Storage::disk($this->diskName)->put($cachePath, $optimizedImage);
 
         return $this->serveImage($optimizedImage, $format);
@@ -77,14 +74,14 @@ class ImageController extends Controller
 
     public function generateCacheKey($id, array $params): string
     {
-        ksort($params); // Ensure consistent order of parameters
+        ksort($params);
         $params = array_map(fn($value) => is_numeric($value) ? (int) $value : $value, $params);
         return md5($id . serialize($params));
     }
 
-    public function getCachePath(string $cacheKey): string
+    public function getCachePath(string $cacheKey, string $format): string
     {
-        return 'cache/images/' . $cacheKey;
+        return 'cache/images/' . $cacheKey . '.' . $format;
     }
 
     private function serveCachedImage(string $cachePath): Response
