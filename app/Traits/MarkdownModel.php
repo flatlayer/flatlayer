@@ -6,21 +6,22 @@ use App\Services\MarkdownMediaService;
 use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
 use Illuminate\Support\Str;
-use App\Traits\HasMedia;
 use Spatie\Tags\HasTags;
 
 trait MarkdownModel
 {
     protected $markdownMediaService;
 
-    public function __construct(array $attributes = [])
+    public function initializeMarkdownModel()
     {
-        parent::__construct($attributes);
         $this->markdownMediaService = app(MarkdownMediaService::class);
     }
 
     public static function fromMarkdown(string $filename): self
     {
+        $model = new static();
+        $model->initializeMarkdownModel();
+
         $content = file_get_contents($filename);
 
         $frontMatter = new FrontMatter();
@@ -28,17 +29,6 @@ trait MarkdownModel
 
         $data = $document->getData();
         $markdownContent = $document->getContent();
-
-        // Extract title from the first line if it starts with #
-        $title = null;
-        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
-
-        // Use extracted title if available, otherwise use front matter title
-        if ($title) {
-            $data['title'] = $title;
-        }
-
-        $model = new self();
 
         return static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
     }
@@ -53,20 +43,12 @@ trait MarkdownModel
         $data = $document->getData();
         $markdownContent = $document->getContent();
 
-        // Extract title from the first line if it starts with #
-        $title = null;
-        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
-
-        // Use extracted title if available, otherwise use front matter title
-        if ($title) {
-            $data['title'] = $title;
-        }
-
         // Determine the slug value
         $slugValue = $data['slug'] ?? pathinfo($filename, PATHINFO_FILENAME);
 
         // Find existing model by slug or create a new one
-        $model = static::findBySlug($slugValue) ?? new static();
+        $model = static::firstOrNew(['slug' => $slugValue]);
+        $model->initializeMarkdownModel();
 
         $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
 
@@ -77,30 +59,27 @@ trait MarkdownModel
         return $model;
     }
 
-    protected static function extractTitleFromContent(string $content, ?string &$title): string
-    {
-        $lines = explode("\n", $content);
-        $firstLine = trim($lines[0]);
-
-        if (str_starts_with($firstLine, '# ')) {
-            $title = trim(substr($firstLine, 2));
-            array_shift($lines);
-            return implode("\n", $lines);
-        }
-
-        return $content;
-    }
-
     protected static function fillModelFromMarkdown(self $model, array $data, string $markdownContent, string $filename): self
     {
+        // Extract title from the first line if it starts with #
+        $title = null;
+        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
+
+        // Use extracted title if available, otherwise use front matter title
+        if ($title && !isset($data['title'])) {
+            $data['title'] = $title;
+        }
+
         // Handle front matter data
         foreach ($data as $key => $value) {
-            if ($model->hasCast($key)) {
-                $value = $model->castAttribute($key, $value);
-            } elseif (is_string($value) && in_array(strtolower($value), ['true', 'false'])) {
-                $value = strtolower($value) === 'true';
+            if ($model->isFillable($key)) {
+                if ($model->hasCast($key)) {
+                    $value = $model->castAttribute($key, $value);
+                } elseif (is_string($value) && in_array(strtolower($value), ['true', 'false'])) {
+                    $value = strtolower($value) === 'true';
+                }
+                $model->$key = $value;
             }
-            $model->$key = $value;
         }
 
         // Set the main content
@@ -119,7 +98,7 @@ trait MarkdownModel
         $model->save();
 
         // Handle Media
-        if (in_array(HasMedia::class, class_uses_recursive($model))) {
+        if (method_exists($model, 'addMedia')) {
             $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
             $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
         }
@@ -130,6 +109,20 @@ trait MarkdownModel
         }
 
         return $model;
+    }
+
+    protected static function extractTitleFromContent(string $content, ?string &$title): string
+    {
+        $lines = explode("\n", $content);
+        $firstLine = trim($lines[0]);
+
+        if (str_starts_with($firstLine, '# ')) {
+            $title = trim(substr($firstLine, 2));
+            array_shift($lines);
+            return implode("\n", $lines);
+        }
+
+        return $content;
     }
 
     protected function getMarkdownContentField(): string

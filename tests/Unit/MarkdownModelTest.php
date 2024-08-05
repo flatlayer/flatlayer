@@ -16,7 +16,6 @@ class MarkdownModelTest extends TestCase
     {
         parent::setUp();
 
-        // Load and run the test migration
         $migrationFile = require base_path('tests/database/migrations/create_test_markdown_models_table.php');
         (new $migrationFile)->up();
 
@@ -36,9 +35,7 @@ class MarkdownModelTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Drop the test table after each test
         Schema::dropIfExists('test_markdown_models');
-
         parent::tearDown();
     }
 
@@ -47,7 +44,7 @@ class MarkdownModelTest extends TestCase
         $model = TestMarkdownModel::fromMarkdown(Storage::disk('local')->path('test_basic.md'));
 
         $this->assertEquals('Test Basic Markdown', $model->title);
-        $this->assertEquals("# Markdown Title\n\nThis is the content of the basic markdown file.", trim($model->content));
+        $this->assertEquals("This is the content of the basic markdown file.", trim($model->content));
         $this->assertEquals('test-basic-markdown', $model->slug);
         $this->assertEquals('2023-05-01 12:00:00', $model->published_at->format('Y-m-d H:i:s'));
         $this->assertTrue($model->is_published);
@@ -66,6 +63,8 @@ class MarkdownModelTest extends TestCase
         $this->assertEquals($model->id, $updatedModel->id);
         $this->assertEquals('Updated Title', $updatedModel->title);
         $this->assertEquals('Updated content', trim($updatedModel->content));
+
+        $this->assertEquals(1, TestMarkdownModel::count());
     }
 
     public function testHandleMediaFromFrontMatter()
@@ -73,8 +72,8 @@ class MarkdownModelTest extends TestCase
         $model = TestMarkdownModel::fromMarkdown(Storage::disk('local')->path('test_media.md'));
 
         $this->assertCount(2, $model->media);
-        $this->assertTrue($model->media->contains('collection_name', 'featured'));
-        $this->assertTrue($model->media->contains('collection_name', 'thumbnail'));
+        $this->assertTrue($model->media->contains('collection', 'featured'));
+        $this->assertTrue($model->media->contains('collection', 'thumbnail'));
     }
 
     public function testProcessMarkdownImages()
@@ -86,6 +85,6 @@ class MarkdownModelTest extends TestCase
         $this->assertStringContainsString('![Alt Text 3](image3.png)', $model->content);
 
         $this->assertCount(2, $model->media);
-        $this->assertTrue($model->media->contains('collection_name', 'images'));
+        $this->assertTrue($model->media->contains('collection', 'images'));
     }
 }

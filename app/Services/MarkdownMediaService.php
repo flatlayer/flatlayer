@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
-use App\Traits\HasMedia;
 use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 
@@ -26,7 +25,7 @@ class MarkdownMediaService
                 if ($collectionName === 'images') {
                     $this->imagePaths->push($fullPath);
                 } else {
-                    $model->updateOrCreateMedia($fullPath, $collectionName);
+                    $this->addMediaToModel($model, $fullPath, $collectionName);
                 }
             }
         }
@@ -68,7 +67,16 @@ class MarkdownMediaService
 
     protected function syncImagesCollection(Model $model): void
     {
-        $model->syncMedia($this->imagePaths->toArray(), 'images');
+        foreach ($this->imagePaths as $imagePath) {
+            $this->addMediaToModel($model, $imagePath, 'images');
+        }
         $this->imagePaths = new Collection(); // Reset for next use
+    }
+
+    protected function addMediaToModel(Model $model, string $path, string $collectionName): void
+    {
+        if (method_exists($model, 'addMedia')) {
+            $model->addMedia($path)->toMediaCollection($collectionName);
+        }
     }
 }
