@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class JinaRerankService
 {
     protected string $apiKey;
     protected string $model;
+    private const MAX_CHARS = 8600;
 
     public function __construct(string $apiKey, string $model)
     {
@@ -23,7 +25,8 @@ class JinaRerankService
         ])->post('https://api.jina.ai/v1/rerank', [
             'model' => $this->model,
             'query' => $query,
-            'documents' => $documents,
+            // Use cropped versions as the documents
+            'documents' => array_map([$this, 'cropDocument'], $documents),
             'top_n' => $topN,
         ]);
 
@@ -32,5 +35,10 @@ class JinaRerankService
         }
 
         throw new \Exception('Jina API request failed: ' . $response->body());
+    }
+
+    protected function cropDocument(string $document): string
+    {
+        return Str::limit($document, self::MAX_CHARS, '');
     }
 }
