@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace App\Filter;
 
-use Illuminate\Database\Eloquent\Builder;
 use App\Traits\Searchable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 

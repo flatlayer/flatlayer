@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Filter\QueryFilter;
 use App\Http\Requests\ListRequest;
 use App\Services\ModelResolverService;
-use App\Services\QueryFilter;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class ListController extends Controller

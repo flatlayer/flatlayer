@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\QueryFilter;
+use App\Filter\QueryFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
