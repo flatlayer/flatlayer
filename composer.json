@@ -1,12 +1,13 @@
 {
-    "name": "laravel/laravel",
+    "name": "flatlayer/flatlayer",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "A Laravel-based flat-file CMS with powerful query capabilities for GitHub-hosted documentation.",
+    "keywords": ["laravel", "cms", "flat-file", "documentation", "github", "markdown"],
     "license": "MIT",
     "require": {
         "php": "^8.2",
         "ext-fileinfo": "*",
+        "ext-json": "*",
         "czproject/git-php": "^4.2",
         "intervention/image": "^3.7",
         "laravel/framework": "^11.9",
@@ -20,6 +21,7 @@
         "webuni/front-matter": "^2.0"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^2.13",
         "fakerphp/faker": "^1.23",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
@@ -54,7 +56,9 @@
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
             "@php artisan migrate --graceful --ansi"
-        ]
+        ],
+        "test": "@php artisan test",
+        "format": "@php ./vendor/bin/pint"
     },
     "extra": {
         "laravel": {
@@ -66,7 +70,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
             "php-http/discovery": true
         }
     },
