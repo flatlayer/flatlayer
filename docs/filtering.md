@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Filter Query Language (FQL) is a JSON-based query language designed for filtering and ordering data in API requests. It supports field filtering with various operations, tag filtering, full-text search queries, and result ordering.
+The Filter Query Language (FQL) is a JSON-based query language designed for filtering and ordering data in API requests. It's loosly based on MongoDB's query language. It supports field filtering with various operations, tag filtering, full-text search queries, and result ordering.
 
 ## Basic Structure
 
