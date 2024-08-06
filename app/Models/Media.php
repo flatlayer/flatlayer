@@ -10,6 +10,7 @@ use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
+use function Thumbhash\extract_size_and_pixels_with_imagick;
 
 class Media extends Model
 {
@@ -138,6 +139,27 @@ class Media extends Model
     }
 
     protected static function generateThumbhash(string $path): string
+    {
+        if (extension_loaded('imagick')) {
+            return self::generateThumbhashWithImagick($path);
+        } else {
+            return self::generateThumbhashWithGd($path);
+        }
+    }
+
+    protected static function generateThumbhashWithImagick(string $path): string
+    {
+        $imagick = new \Imagick($path);
+        $imagick->resizeImage(100, 0, \Imagick::FILTER_LANCZOS, 1);
+        $imagick->setImageFormat('png');
+        $blob = $imagick->getImageBlob();
+
+        [$width, $height, $pixels] = extract_size_and_pixels_with_imagick($blob);
+        $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
+        return Thumbhash::convertHashToString($hash);
+    }
+
+    protected static function generateThumbhashWithGd(string $path): string
     {
         $imageManager = new ImageManager(new Driver());
         $image = $imageManager->read($path);
