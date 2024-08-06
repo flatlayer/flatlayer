@@ -6,6 +6,10 @@ use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+use Thumbhash\Thumbhash;
+use function Thumbhash\extract_size_and_pixels_with_gd;
 
 class Media extends Model
 {
@@ -21,6 +25,7 @@ class Media extends Model
         'size',
         'dimensions',
         'custom_properties',
+        'thumbhash',
     ];
 
     protected $casts = [
@@ -45,20 +50,18 @@ class Media extends Model
         return $this->morphTo();
     }
 
-    public static function addMediaToModel($model, string $path, string $collectionName = 'default'): self
+    public static function addMediaToModel($model, string $path, string $collectionName = 'default', array $fileInfo = null): self
     {
-        $filename = basename($path);
-        $size = filesize($path);
-        $mimeType = mime_content_type($path);
-        $dimensions = self::getImageDimensions($path);
+        $fileInfo = $fileInfo ?? self::getFileInfo($path);
 
         return $model->media()->create([
             'collection' => $collectionName,
-            'filename' => $filename,
+            'filename' => basename($path),
             'path' => $path,
-            'mime_type' => $mimeType,
-            'size' => $size,
-            'dimensions' => $dimensions,
+            'mime_type' => $fileInfo['mime_type'],
+            'size' => $fileInfo['size'],
+            'dimensions' => $fileInfo['dimensions'],
+            'thumbhash' => $fileInfo['thumbhash'],
         ]);
     }
 
@@ -72,58 +75,57 @@ class Media extends Model
 
         // Add or update media
         foreach ($newFilenames as $fullPath) {
-            $size = filesize($fullPath);
-            $dimensions = self::getImageDimensions($fullPath);
+            $fileInfo = self::getFileInfo($fullPath);
 
             if ($existingMedia->has($fullPath)) {
                 $media = $existingMedia->get($fullPath);
-                if ($media->size !== $size || $media->dimensions !== $dimensions) {
+                if ($media->size !== $fileInfo['size'] || $media->dimensions !== $fileInfo['dimensions'] || $media->thumbhash !== $fileInfo['thumbhash']) {
                     $media->update([
-                        'size' => $size,
-                        'dimensions' => $dimensions,
+                        'size' => $fileInfo['size'],
+                        'dimensions' => $fileInfo['dimensions'],
+                        'thumbhash' => $fileInfo['thumbhash'],
                     ]);
                 }
             } else {
-                self::addMediaToModel($model, $fullPath, $collectionName);
+                self::addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
             }
         }
     }
 
     public static function updateOrCreateMedia($model, string $fullPath, string $collectionName = 'default'): self
     {
-        $size = filesize($fullPath);
-        $dimensions = self::getImageDimensions($fullPath);
-        $existingMedia = $model->getMedia($collectionName)->where('path', $fullPath)->first();
+        $fileInfo = self::getFileInfo($fullPath);
+        $existingMedia = $model->media()
+            ->where('collection', $collectionName)
+            ->where('path', $fullPath)
+            ->first();
 
         if ($existingMedia) {
             $existingMedia->update([
-                'size' => $size,
-                'dimensions' => $dimensions,
+                'size' => $fileInfo['size'],
+                'dimensions' => $fileInfo['dimensions'],
+                'thumbhash' => $fileInfo['thumbhash'],
+                'mime_type' => $fileInfo['mime_type'],
             ]);
             return $existingMedia;
         }
 
-        return self::addMediaToModel($model, $fullPath, $collectionName);
+        return self::addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
-    public function getUrl(array $transforms = []): string
+    protected static function getFileInfo(string $path): array
     {
-        $extension = pathinfo($this->path, PATHINFO_EXTENSION);
-        $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
+        $size = filesize($path);
+        $mimeType = mime_content_type($path);
+        $dimensions = self::getImageDimensions($path);
+        $thumbhash = self::generateThumbhash($path);
 
-        if (!empty($transforms)) {
-            $queryString = http_build_query($transforms);
-            $route .= '?' . $queryString;
-        }
-
-        if (config('flatlayer.media.use_signatures', true)) {
-            return URL::signedRoute('media.transform', array_merge(
-                ['id' => $this->id, 'extension' => $extension],
-                $transforms
-            ));
-        }
-
-        return $route;
+        return [
+            'size' => $size,
+            'mime_type' => $mimeType,
+            'dimensions' => $dimensions,
+            'thumbhash' => $thumbhash,
+        ];
     }
 
     protected static function getImageDimensions(string $path): array
@@ -133,6 +135,18 @@ class Media extends Model
             'width' => $imageSize[0] ?? null,
             'height' => $imageSize[1] ?? null,
         ];
+    }
+
+    protected static function generateThumbhash(string $path): string
+    {
+        $imageManager = new ImageManager(new Driver());
+        $image = $imageManager->read($path);
+        $image->scale(width: 100);
+        $resizedImage = $image->toJpeg(quality: 85);
+
+        [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string)$resizedImage);
+        $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
+        return Thumbhash::convertHashToString($hash);
     }
 
     public function getWidth(): ?int
@@ -164,5 +178,25 @@ class Media extends Model
         $attributes = array_merge($defaultAttributes, $attributes);
 
         return $service->generateImgTag($this, $sizes, $attributes);
+    }
+
+    public function getUrl(array $transforms = []): string
+    {
+        $extension = pathinfo($this->path, PATHINFO_EXTENSION);
+        $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
+
+        if (!empty($transforms)) {
+            $queryString = http_build_query($transforms);
+            $route .= '?' . $queryString;
+        }
+
+        if (config('flatlayer.media.use_signatures', true)) {
+            return URL::signedRoute('media.transform', array_merge(
+                ['id' => $this->id, 'extension' => $extension],
+                $transforms
+            ));
+        }
+
+        return $route;
     }
 }
