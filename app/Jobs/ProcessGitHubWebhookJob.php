@@ -22,11 +22,12 @@ class ProcessGitHubWebhookJob implements ShouldQueue
     {
         $this->payload = $payload;
         $this->modelClass = $modelClass;
+        Log::info("ProcessGitHubWebhookJob constructed for {$this->modelClass}");
     }
 
     public function handle()
     {
-        Log::info("Starting ProcessGitHubWebhookJob for {$this->modelClass}");
+        Log::info("Starting ProcessGitHubWebhookJob handle() for {$this->modelClass}");
 
         $config = config("flatlayer.models.{$this->modelClass}");
 
@@ -36,7 +37,6 @@ class ProcessGitHubWebhookJob implements ShouldQueue
         }
 
         Log::info("Configuration found for model: {$this->modelClass}");
-        Log::info("Processing webhook for model: {$this->modelClass}");
 
         try {
             $this->processModelRepository($config);
@@ -45,7 +45,7 @@ class ProcessGitHubWebhookJob implements ShouldQueue
             throw $e;
         }
 
-        Log::info("Finished ProcessGitHubWebhookJob for {$this->modelClass}");
+        Log::info("Finished ProcessGitHubWebhookJob handle() for {$this->modelClass}");
     }
 
     protected function processModelRepository($modelConfig)
@@ -53,37 +53,32 @@ class ProcessGitHubWebhookJob implements ShouldQueue
         $path = $modelConfig['path'];
         Log::info("Repository path: {$path}");
 
-        $git = app()->make('CzProject\GitPhp\Git');
-        Log::info("Git instance created");
-
         try {
+            $git = app()->make('CzProject\GitPhp\Git');
+            Log::info("Git instance created");
+
             $repo = $git->open($path);
             Log::info("Opened Git repository");
-        } catch (\Exception $e) {
-            Log::error("Failed to open Git repository: " . $e->getMessage());
-            throw $e;
-        }
 
-        $beforeHash = $repo->getCurrentBranchName();
-        Log::info("Current branch before pull: {$beforeHash}");
+            $beforeHash = $repo->getCurrentBranchName();
+            Log::info("Current branch before pull: {$beforeHash}");
 
-        try {
             $repo->pull();
             Log::info("Pull completed successfully");
+
+            $afterHash = $repo->getCurrentBranchName();
+            Log::info("Current branch after pull: {$afterHash}");
+
+            if ($beforeHash !== $afterHash) {
+                Log::info("Changes detected for {$this->modelClass}, running MarkdownSync");
+                Artisan::call('flatlayer:markdown-sync', ['model' => $this->modelClass]);
+                Log::info("MarkdownSync command called");
+            } else {
+                Log::info("No changes detected for {$this->modelClass}");
+            }
         } catch (\Exception $e) {
-            Log::error("Failed to pull repository for {$this->modelClass}: " . $e->getMessage());
+            Log::error("Exception in Git operations: " . $e->getMessage());
             throw $e;
-        }
-
-        $afterHash = $repo->getCurrentBranchName();
-        Log::info("Current branch after pull: {$afterHash}");
-
-        if ($beforeHash !== $afterHash) {
-            Log::info("Changes detected for {$this->modelClass}, running MarkdownSync");
-            Artisan::call('flatlayer:markdown-sync', ['model' => $this->modelClass]);
-            Log::info("MarkdownSync command called");
-        } else {
-            Log::info("No changes detected for {$this->modelClass}");
         }
     }
 
