@@ -39,7 +39,7 @@ class MarkdownSync extends Command
             $this->info("MarkdownSync for {$modelClass} completed successfully.");
         }
 
-        return 0;
+        return Command::SUCCESS;
     }
 
     private function resolveModelClass($input)
