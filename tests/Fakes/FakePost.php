@@ -3,6 +3,7 @@
 namespace Tests\Fakes;
 
 use App\Traits\HasMedia;
+use App\Traits\MarkdownModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Tests\Fakes\Factories\FakePostFactory;
@@ -10,7 +11,7 @@ use Spatie\Tags\HasTags;
 
 class FakePost extends Model
 {
-    use HasMedia, HasFactory, HasTags;
+    use HasMedia, HasFactory, HasTags, MarkdownModel;
 
     protected $table = 'posts';
 

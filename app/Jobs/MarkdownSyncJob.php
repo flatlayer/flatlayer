@@ -15,6 +15,8 @@ class MarkdownSyncJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    const CHUNK_SIZE = 100;
+
     protected $modelClass;
 
     public function __construct($modelClass)
@@ -26,36 +28,45 @@ class MarkdownSyncJob implements ShouldQueue
     {
         $modelClass = $this->modelClass;
 
-        $source = config("flatlayer.models.{$modelClass}.source");
-        if (!$source) {
-            throw new \Exception("Source not configured for model {$modelClass}.");
+        $config = config("flatlayer.models.{$modelClass}");
+        if (!isset($config['path']) || !isset($config['source'])) {
+            throw new \Exception("Path or source not configured for model {$modelClass}.");
         }
 
-        $files = File::glob($source);
-        $existingModels = $modelClass::all()->keyBy(function ($model) {
-            return $model->slug;
-        });
+        $path = $config['path'];
+        $source = $config['source'];
+        $fullPattern = $path . '/' . $source;
+
+        $files = File::glob($fullPattern);
+
+        // Get only the slugs of existing models
+        $existingSlugs = $modelClass::pluck('slug')->flip();
+
+        $processedSlugs = [];
 
         foreach ($files as $file) {
             $slug = $this->getSlugFromFilename($file);
-            $content = File::get($file);
+            $processedSlugs[] = $slug;
 
-            if ($existingModels->has($slug)) {
-                $model = $existingModels->get($slug);
+            if ($existingSlugs->has($slug)) {
+                // Update existing model
+                $model = $modelClass::where('slug', $slug)->first();
                 $model->syncFromMarkdown($file);
-                $existingModels->forget($slug);
             } else {
+                // Create new model
                 $newModel = $modelClass::fromMarkdown($file);
                 $newModel->save();
             }
         }
 
-        foreach ($existingModels as $slug => $model) {
-            $model->delete();
-        }
+        // Delete models that no longer have corresponding files
+        $slugsToDelete = $existingSlugs->diffKeys(array_flip($processedSlugs));
+        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) use ($modelClass) {
+            $modelClass::whereIn('slug', $chunk->keys())->delete();
+        });
 
         // Make a request to the hook (possibly to trigger a build)
-        $hook = config("flatlayer.models.{$modelClass}.hook");
+        $hook = $config['hook'] ?? null;
         if ($hook) {
             Http::post($hook);
         }
