@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Filter Query Language (FQL) is a JSON-based query language designed for filtering data in API requests. It supports field filtering with various operations, tag filtering, and full-text search queries.
+The Filter Query Language (FQL) is a JSON-based query language designed for filtering and ordering data in API requests. It supports field filtering with various operations, tag filtering, full-text search queries, and result ordering.
 
 ## Basic Structure
 
-The filter is a single JSON object where keys represent fields or special operators, and values represent the filtering criteria.
+The filter is a single JSON object where keys represent fields or special operators, and values represent the filtering criteria or ordering instructions.
 
 ```json
 {
@@ -15,7 +15,8 @@ The filter is a single JSON object where keys represent fields or special operat
     "$and": [<expression>, <expression>, ...],
     "$or": [<expression>, <expression>, ...],
     "$search": <search expression>,
-    "$tags": <tags expression>
+    "$tags": <tags expression>,
+    "$orderBy": <ordering expression>
 }
 ```
 
@@ -112,28 +113,43 @@ To perform a full-text search across searchable fields:
 
 ## Tag Filtering
 
-To filter by tags:
+[The content for tag filtering remains the same as in the original document]
+
+## Result Ordering
+
+To specify the order of the results, use the `$orderBy` operator:
 
 ```json
 {
-  "$tags": {
-    "type": "category",
-    "values": ["technology", "science"]
-  }
+  "$orderBy": [
+    ["field1", "asc"],
+    ["field2", "desc"]
+  ]
 }
 ```
 
-Or for default tag type:
+The `$orderBy` value is an array of arrays, where each inner array contains two elements:
+1. The field name to sort by
+2. The sort direction: "asc" for ascending order or "desc" for descending order
 
+You can specify multiple fields for sorting. The results will be sorted by the first field, then by the second field for any results that have the same value for the first field, and so on.
+
+Example:
 ```json
 {
-  "$tags": ["technology", "science"]
+  "status": "active",
+  "$orderBy": [
+    ["last_name", "asc"],
+    ["first_name", "asc"]
+  ]
 }
 ```
 
-## Combining Filters
+This filter would find all active users and sort them first by last name in ascending order, then by first name in ascending order for users with the same last name.
 
-You can combine various filters:
+## Combining Filters and Ordering
+
+You can combine various filters with ordering:
 
 ```json
 {
@@ -144,21 +160,26 @@ You can combine various filters:
   "$or": [
     { "country": "USA" },
     { "country": "Canada" }
+  ],
+  "$orderBy": [
+    ["join_date", "desc"],
+    ["last_name", "asc"]
   ]
 }
 ```
 
-This filter would first apply all non-search filters:
+This filter would:
 1. Find active users
 2. Filter for users aged 18 or older
 3. Filter for users tagged with "technology"
 4. Filter for users in either the USA or Canada
-
-Then, it would perform a full-text search for "developer" on this filtered subset of users.
+5. Perform a full-text search for "developer" on this filtered subset of users
+6. Order the results first by join date (most recent first), then by last name (alphabetically) for users who joined on the same date
 
 ## Filter Application Order
 
 1. All non-search filters are applied first (field filters, logical operators, tag filters).
 2. The resulting dataset is then searched using the `$search` operator, if present.
+3. Finally, the results are ordered according to the `$orderBy` specification.
 
-This order of operations ensures that the potentially more expensive text search is performed on a pre-filtered dataset, which can lead to better performance and more relevant results.
+This order of operations ensures that the potentially more expensive text search is performed on a pre-filtered dataset, which can lead to better performance and more relevant results. The ordering is applied last to ensure all filtering and searching is complete before sorting the final result set.

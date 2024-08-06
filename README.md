@@ -169,7 +169,9 @@ FlatLayer provides a powerful query language for filtering and searching content
 GET /api/posts/list?filter={"title":{"$contains":"Laravel"},"tags":["tutorial"]}&search=eloquent
 ```
 
-This example filters posts with "Laravel" in the title, tagged as "tutorial", and searches for the term "eloquent".
+This example filters posts with "Laravel" in the title, tagged as "tutorial", and searches for the term "eloquent" using vectorized search.
+
+For detailed information on the filtering and query language capabilities, please refer to our [Filtering Documentation](./docs/filtering.md).
 
 ### Image Processing
 
