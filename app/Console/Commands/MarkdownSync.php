@@ -24,8 +24,8 @@ class MarkdownSync extends Command
         }
 
         $model = new $modelClass;
-        if (!$model instanceof Model || !method_exists($model, 'getSlugOptions')) {
-            $this->error("The provided class must be a sluggable Eloquent model.");
+        if (!$model instanceof Model) {
+            $this->error("The provided class must be an Eloquent model.");
             return 1;
         }
 
@@ -50,7 +50,7 @@ class MarkdownSync extends Command
         }
 
         // Convert kebab-case to StudlyCase and prepend the namespace
-        $studlyName = Str::studly($input);
+        $studlyName = Str::studly(Str::singular($input));
         $fullClassName = "App\\Models\\{$studlyName}";
 
         return class_exists($fullClassName) ? $fullClassName : null;

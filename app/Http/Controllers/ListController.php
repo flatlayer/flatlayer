@@ -6,6 +6,8 @@ use App\Http\Requests\ListRequest;
 use App\Services\ModelResolverService;
 use App\Services\QueryFilter;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class ListController extends Controller
 {
@@ -30,20 +32,31 @@ class ListController extends Controller
             : $modelClass::query();
 
         $filter = new QueryFilter($query, $request->getFilter());
-        $filteredQuery = $filter->apply();
+        $filteredResult = $filter->apply();
 
         $perPage = $request->input('per_page', 15);
-        $results = $filteredQuery->paginate($perPage);
+
+        if ($filteredResult instanceof Builder) {
+            $results = $filteredResult->paginate($perPage);
+            $items = $results->items();
+            $total = $results->total();
+        } elseif ($filteredResult instanceof Collection) {
+            $page = $request->input('page', 1);
+            $items = $filteredResult->forPage($page, $perPage)->values();
+            $total = $filteredResult->count();
+        } else {
+            return response()->json(['error' => 'Unexpected query result type'], 500);
+        }
 
         // Transform the items using toSummaryArray if it exists
-        $transformedItems = $this->transformItems($results->items());
+        $transformedItems = $this->transformItems($items);
 
         // Create a new LengthAwarePaginator with the transformed items
         $transformedResults = new LengthAwarePaginator(
             $transformedItems,
-            $results->total(),
-            $results->perPage(),
-            $results->currentPage(),
+            $total,
+            $perPage,
+            LengthAwarePaginator::resolveCurrentPage(),
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
@@ -52,11 +65,8 @@ class ListController extends Controller
 
     protected function transformItems($items)
     {
-        return array_map(function ($item) {
-            if (method_exists($item, 'toSummaryArray')) {
-                return $item->toSummaryArray();
-            }
-            return $item->toArray();
-        }, $items);
+        return collect($items)->map(
+            fn($item) => method_exists($item, 'toSummaryArray') ? $item->toSummaryArray() : $item->toArray()
+        )->all();
     }
 }

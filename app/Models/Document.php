@@ -2,19 +2,25 @@
 
 namespace App\Models;
 
+use App\Traits\HasMedia;
+use App\Traits\MarkdownModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\Searchable;
-use Spatie\Tags\HasTags;
+use Pgvector\Laravel\Vector;
 
 class Document extends Model
 {
-    use HasFactory, HasTags, Searchable;
+    use HasFactory, HasMedia, Searchable, MarkdownModel;
 
     protected $fillable = [
         'title',
         'content',
         'slug',
+    ];
+
+    protected $casts = [
+        'embedding' => Vector::class
     ];
 
     public function getRouteKeyName()
@@ -24,6 +30,6 @@ class Document extends Model
 
     public function toSearchableText(): string
     {
-        return $this->title . "\n\n" . $this->content;
+        return '# ' . $this->title . "\n\n" . $this->content;
     }
 }

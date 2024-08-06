@@ -3,15 +3,17 @@
 namespace App\Models;
 
 use App\Traits\HasMedia;
+use App\Traits\MarkdownModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Pgvector\Laravel\Vector;
 use Spatie\Tags\HasTags;
 use App\Traits\Searchable;
 
 class Post extends Model
 {
-    use HasFactory, HasMedia, HasTags, Searchable;
+    use HasFactory, HasMedia, HasTags, Searchable, MarkdownModel;
 
     protected $fillable = [
         'title',
@@ -25,6 +27,7 @@ class Post extends Model
     protected $casts = [
         'published_at' => 'datetime',
         'is_published' => 'boolean',
+        'embedding' => Vector::class
     ];
 
     public static $allowedFilters = ['tags'];

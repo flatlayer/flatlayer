@@ -21,7 +21,10 @@ trait Searchable
 
     public function updateSearchVectorIfNeeded(): void
     {
-        if ($this->isNewSearchableRecord() || $this->hasSearchableChanges()) {
+        if (
+            ($this->isNewSearchableRecord() && empty($this->embedding)) ||
+            $this->hasSearchableChanges())
+        {
             $this->updateSearchVector();
         }
     }
@@ -33,10 +36,6 @@ trait Searchable
 
     protected function hasSearchableChanges(): bool
     {
-        if ($this->isNewSearchableRecord()) {
-            return true;
-        }
-
         $originalModel = $this->getOriginalSearchableModel();
         $originalSearchableText = $originalModel->toSearchableText();
         $newSearchableText = $this->toSearchableText();
@@ -88,8 +87,9 @@ trait Searchable
 
     protected static function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
     {
+        $vector = new \Pgvector\Vector($embedding);
         return $builder
-            ->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
+            ->selectRaw('*, (embedding <=> ?) as distance', [$vector])
             ->orderBy('distance')
             ->limit($limit)
             ->get();

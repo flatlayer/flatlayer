@@ -65,8 +65,7 @@ trait MarkdownModel
         $model->slug = static::generateSlugFromFilename($filename);
 
         // Extract title from the first line if it starts with #
-        $title = null;
-        $markdownContent = static::extractTitleFromContent($markdownContent, $title);
+        [$title, $markdownContent] = static::extractTitleFromContent($markdownContent);
 
         // Use extracted title if available, otherwise use front matter title
         if ($title && !isset($data['title'])) {
@@ -106,7 +105,7 @@ trait MarkdownModel
         return $model;
     }
 
-    protected static function extractTitleFromContent(string $content, ?string &$title): string
+    protected static function extractTitleFromContent(string $content): array
     {
         $lines = explode("\n", $content);
         $firstLine = trim($lines[0]);
@@ -114,10 +113,10 @@ trait MarkdownModel
         if (str_starts_with($firstLine, '# ')) {
             $title = trim(substr($firstLine, 2));
             array_shift($lines);
-            return implode("\n", $lines);
+            return [$title, trim(implode("\n", $lines))];
         }
 
-        return $content;
+        return [null, $content];
     }
 
     protected function getMarkdownContentField(): string

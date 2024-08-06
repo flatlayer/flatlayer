@@ -14,13 +14,13 @@ return [
     'models' => [
         Post::class => [
             'path' => env('FLATLAYER_POST_PATH', ''),
-            'source' => env('FLATLAYER_POST_SOURCE', '**/*.md'),
+            'source' => env('FLATLAYER_POST_SOURCE', '*.md'),
             'hook' => env('FLATLAYER_POST_HOOK', 'https://example.com/hook'),
         ],
 
         Document::class => [
             'path' => env('FLATLAYER_DOCUMENT_PATH', ''),
-            'source' => env('FLATLAYER_DOCUMENT_SOURCE', '**/*.md'),
+            'source' => env('FLATLAYER_DOCUMENT_SOURCE', '*.md'),
             'hook' => env('FLATLAYER_DOCUMENT_HOOK', 'https://example.com/hook'),
         ]
     ],
