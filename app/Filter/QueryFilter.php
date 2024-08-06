@@ -25,6 +25,7 @@ class QueryFilter
     {
         $this->applyFilters($this->filters);
         $this->applySearch();
+        $this->applyOrder();
         return $this->builder;
     }
 
@@ -122,6 +123,19 @@ class QueryFilter
                 rerank: true,
                 builder: $this->builder
             );
+        }
+    }
+
+    protected function applyOrder(): void
+    {
+        if (!$this->isSearch() && !empty($this->order)) {
+            foreach ($this->order as $field => $direction) {
+                if ($this->isFilterableField($field)) {
+                    $this->builder->orderBy($field, $direction);
+                } else {
+                    throw new InvalidArgumentException("Ordering by field '$field' is not allowed.");
+                }
+            }
         }
     }
 
