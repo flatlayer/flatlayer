@@ -15,7 +15,11 @@ class CustomMarkdownRenderer
 
     public function __construct(protected Model $model)
     {
-        $this->environment = new Environment();
+        $config = [
+            'allow_unsafe_links' => false,
+        ];
+
+        $this->environment = new Environment($config);
         $this->environment->addExtension(new CommonMarkCoreExtension());
         $this->environment->addRenderer(Image::class, new EnhancedMarkdownRenderer($this->model));
         $this->converter = new MarkdownConverter($this->environment);

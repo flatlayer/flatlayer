@@ -111,8 +111,13 @@ class MediaFile extends Model
 
     public function getUrl(array $transforms = []): string
     {
-        $extension = pathinfo($this->path, PATHINFO_EXTENSION);
-        $route = route('media.transform', ['id' => $this->id, 'extension' => $extension]);
+        // Prioritize the 'fm' (format) transform if it exists
+        $extension = $transforms['fm'] ?? pathinfo($this->path, PATHINFO_EXTENSION);
+
+        $route = route('media.transform', [
+            'id' => $this->id,
+            'extension' => !empty($extension) ? $extension : 'jpg'
+        ]);
 
         if (!empty($transforms)) {
             $queryString = http_build_query($transforms);
