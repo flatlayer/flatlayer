@@ -32,14 +32,6 @@ class Post extends Model
 
     public static $allowedFilters = ['tags'];
 
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('main_image')
-            ->singleFile();
-
-        $this->addMediaCollection('images');
-    }
-
     public function toSearchableText(): string
     {
         return '# ' . $this->title . "\n\n" . $this->content;
