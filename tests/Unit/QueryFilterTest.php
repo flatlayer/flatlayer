@@ -62,25 +62,25 @@ class QueryFilterTest extends TestCase
 
     public function testSearch()
     {
-        TestFilterModel::factory()->create([
-            'name' => 'John Doe',
-            'description' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.',
-            'embedding' => json_encode(array_fill(0, 768, 0.1))
-        ]);
-
-        $this->jinaService->shouldReceive('embed')
+        $this->jinaService->shouldReceive('rerank')
             ->once()
-            ->with(['a man named John'])
-            ->andReturn([['embedding' => array_fill(0, 768, 0.2)]]);
+            ->andReturn([
+                'results' => [
+                    [
+                        'index' => 0,
+                        'relevance_score' => 0.9,
+                        'document' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.'
+                    ]
+                ]
+            ]);
 
         $filters = ['$search' => 'a man named John'];
         $query = TestFilterModel::query();
         $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
-
         $this->assertGreaterThanOrEqual(1, $filtered->count());
-        $this->assertStringContainsString('John', $filtered->first()->name);
+        $this->assertEquals(0.9, $filtered->first()->relevance_score);
     }
 
     public function testCombinedFilters()
@@ -103,10 +103,22 @@ class QueryFilterTest extends TestCase
         ]);
         $youngerJohn->attachTag('important');
 
-        $this->jinaService->shouldReceive('embed')
+        $this->jinaService->shouldReceive('rerank')
             ->once()
-            ->with(['John'])
-            ->andReturn([['embedding' => array_fill(0, 768, 0.3)]]);
+            ->andReturn([
+                'results' => [
+                    [
+                        'index' => 1,
+                        'relevance_score' => 0.9,
+                        'document' => 'John Smith, age 30'
+                    ],
+                    [
+                        'index' => 0,
+                        'relevance_score' => 0.8,
+                        'document' => 'John Smith, age 50'
+                    ],
+                ]
+            ]);
 
         $filters = [
             'age' => ['$gte' => 25, '$lt' => 40],  // This should only match the younger John
@@ -114,10 +126,12 @@ class QueryFilterTest extends TestCase
             '$tags' => ['important'],
             '$search' => 'John'
         ];
-        $query = TestFilterModel::query();
-        $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
+
+        // Then apply the filters
+        $filtered = (new AdvancedQueryFilter(TestFilterModel::query(), $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
+        $this->assertCount(1, $filtered);
 
         $model = $filtered->first();
         $this->assertGreaterThanOrEqual(25, $model->age);

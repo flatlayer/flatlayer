@@ -11,8 +11,11 @@ class AdvancedQueryFilter
 {
     protected ?string $search;
 
-    public function __construct(protected Builder|Collection $builder, protected array $filters)
+    protected Collection|Builder $builder;
+
+    public function __construct(Builder $builder, protected array $filters)
     {
+        $this->builder = $builder;
         $this->search = $filters['$search'] ?? null;
         unset($this->filters['$search']);
     }
@@ -45,10 +48,8 @@ class AdvancedQueryFilter
                     });
                 } elseif ($field === '$tags') {
                     $this->applyTagFilters($value);
-                } elseif ($this->isFilterableField($field)) {
-                    $this->applyFieldFilter($query, $field, $value);
                 } else {
-                    throw new InvalidArgumentException("Filtering by field '$field' is not allowed.");
+                    $this->applyFieldFilter($query, $field, $value);
                 }
             }
         });
@@ -104,12 +105,6 @@ class AdvancedQueryFilter
         }
     }
 
-    protected function isFilterableField(string $field): bool
-    {
-        $model = $this->builder->getModel();
-        return in_array($field, $model::$allowedFilters ?? []);
-    }
-
     protected function applySearch(): void
     {
         if ($this->search && $this->isSearchable()) {
@@ -126,11 +121,7 @@ class AdvancedQueryFilter
     {
         if (!$this->isSearch() && !empty($this->order)) {
             foreach ($this->order as $field => $direction) {
-                if ($this->isFilterableField($field)) {
-                    $this->builder->orderBy($field, $direction);
-                } else {
-                    throw new InvalidArgumentException("Ordering by field '$field' is not allowed.");
-                }
+                $this->builder->orderBy($field, $direction);
             }
         }
     }

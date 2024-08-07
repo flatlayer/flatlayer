@@ -27,6 +27,6 @@ class TestFilterModelFactory extends Factory
      */
     protected function generateEmbedding(): array
     {
-        return array_map(fn() => mt_rand() / mt_getrandmax(), array_fill(0, 1536, 0));
+        return array_map(fn() => mt_rand() / mt_getrandmax(), array_fill(0, 768, 0));
     }
 }

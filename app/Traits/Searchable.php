@@ -64,7 +64,8 @@ trait Searchable
 
     public static function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
     {
-        $embedding = static::getEmbedding($query);
+        $jinaService = app(JinaSearchService::class);
+        $embedding = $jinaService->embed([$query])[0]['embedding'];
 
         $builder = $builder ?? static::getDefaultSearchableQuery();
 
@@ -138,10 +139,17 @@ trait Searchable
 
         $rerankedResults = $jinaService->rerank($query, $documents);
 
+        if (!isset($rerankedResults['results']) || !is_array($rerankedResults['results'])) {
+            return $results;
+        }
+
         return collect($rerankedResults['results'])->map(function ($rerankedResult) use ($results) {
+            if (!isset($rerankedResult['index']) || !isset($results[$rerankedResult['index']])) {
+                return null;
+            }
             $originalResult = $results[$rerankedResult['index']];
-            $originalResult->relevance_score = $rerankedResult['relevance_score'];
+            $originalResult->relevance_score = $rerankedResult['relevance_score'] ?? 0;
             return $originalResult;
-        })->sortByDesc('relevance_score')->values();
+        })->filter()->sortByDesc('relevance_score')->values();
     }
 }
