@@ -4,46 +4,59 @@ namespace App\Models;
 
 use App\Traits\HasMedia;
 use App\Traits\MarkdownModel;
+use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Pgvector\Laravel\Vector;
 use Spatie\Tags\HasTags;
-use App\Traits\Searchable;
+use WendellAdriel\Lift\Attributes\Cast;
+use WendellAdriel\Lift\Attributes\Fillable;
+use WendellAdriel\Lift\Attributes\PrimaryKey;
+use WendellAdriel\Lift\Lift;
 
 class Post extends Model
 {
-    use HasFactory, HasMedia, HasTags, Searchable, MarkdownModel;
+    use HasFactory, HasMedia, HasTags, Searchable, MarkdownModel, Lift;
 
-    protected $fillable = [
-        'title',
-        'body',
-        'excerpt',
-        'slug',
-        'published_at',
-        'is_published',
-    ];
+    #[PrimaryKey]
+    public int $id;
 
-    protected $casts = [
-        'published_at' => 'datetime',
-        'is_published' => 'boolean',
-        'embedding' => Vector::class
-    ];
+    #[Fillable]
+    public string $slug;
 
-    public static $allowedFilters = ['tags'];
+    #[Fillable]
+    public string $title;
+
+    #[Fillable]
+    public string $content;
+
+    #[Fillable]
+    public ?string $excerpt;
+
+    #[Fillable]
+    #[Cast('datetime')]
+    public ?\DateTime $published_at;
+
+    #[Fillable]
+    #[Cast('boolean')]
+    public bool $is_published = false;
+
+    #[Cast('vector')]
+    public ?Vector $embedding;
 
     public function toSearchableText(): string
     {
         return '# ' . $this->title . "\n\n" . $this->content;
     }
 
-    public function scopePublished($query)
+    public function scopePublished($query): Builder
     {
         return $query->where('is_published', true)
             ->where('published_at', '<=', now());
     }
 
-    public function getRouteKeyName()
+    public function getRouteKeyName(): string
     {
         return 'slug';
     }
