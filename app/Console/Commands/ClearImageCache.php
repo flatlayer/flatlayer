@@ -7,11 +7,11 @@ use Illuminate\Console\Command;
 
 class ClearImageCache extends Command
 {
-    protected $signature = 'image:clear-cache {days : Number of days old to clear}';
+    protected $signature = 'image:clear-cache {days=30 : Number of days old to clear}';
 
     protected $description = 'Clear image cache files older than the specified number of days';
 
-    protected $imageService;
+    protected ImageService $imageService;
 
     public function __construct(ImageService $imageService)
     {
