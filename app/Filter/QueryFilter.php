@@ -5,7 +5,6 @@ namespace App\Filter;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
 
 class QueryFilter
 {
@@ -49,10 +48,8 @@ class QueryFilter
                     });
                 } elseif ($field === '$tags') {
                     $this->applyTagFilters($value);
-                } elseif ($this->isFilterableField($field)) {
-                    $this->applyFieldFilter($query, $field, $value);
                 } else {
-                    throw new InvalidArgumentException("Filtering by field '$field' is not allowed.");
+                    $this->applyFieldFilter($query, $field, $value);
                 }
             }
         });
@@ -108,12 +105,6 @@ class QueryFilter
         }
     }
 
-    protected function isFilterableField(string $field): bool
-    {
-        $model = $this->builder->getModel();
-        return in_array($field, $model::$allowedFilters ?? []);
-    }
-
     protected function applySearch(): void
     {
         if ($this->search && $this->isSearchable()) {
@@ -130,11 +121,7 @@ class QueryFilter
     {
         if (!$this->isSearch() && !empty($this->order)) {
             foreach ($this->order as $field => $direction) {
-                if ($this->isFilterableField($field)) {
-                    $this->builder->orderBy($field, $direction);
-                } else {
-                    throw new InvalidArgumentException("Ordering by field '$field' is not allowed.");
-                }
+                $this->builder->orderBy($field, $direction);
             }
         }
     }
