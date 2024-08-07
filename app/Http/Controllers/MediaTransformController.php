@@ -8,12 +8,9 @@ use App\Services\ImageTransformationService;
 
 class MediaTransformController extends Controller
 {
-    protected $imageService;
-
-    public function __construct(ImageTransformationService $imageService)
-    {
-        $this->imageService = $imageService;
-    }
+    public function __construct(
+        protected ImageTransformationService $imageService
+    ) {}
 
     public function transform(MediaTransformRequest $request, $id)
     {

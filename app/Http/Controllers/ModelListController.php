@@ -11,12 +11,9 @@ use Illuminate\Support\Collection;
 
 class ModelListController extends Controller
 {
-    protected $modelResolver;
-
-    public function __construct(ModelResolverService $modelResolver)
-    {
-        $this->modelResolver = $modelResolver;
-    }
+    public function __construct(
+        protected ModelResolverService $modelResolver
+    ) {}
 
     public function index(ListRequest $request, $modelSlug)
     {

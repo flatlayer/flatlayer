@@ -19,12 +19,10 @@ class ResponsiveImageService
         '2xl' => 1536,
     ];
 
-    protected array $defaultTransforms;
 
-    public function __construct(array $defaultTransforms = [])
-    {
-        $this->defaultTransforms = $defaultTransforms;
-    }
+    public function __construct(
+        protected array $defaultTransforms = []
+    ) {}
 
     public function generateImgTag(MediaFile $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {

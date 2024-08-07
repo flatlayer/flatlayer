@@ -7,12 +7,9 @@ use Illuminate\Http\Request;
 
 class ModelDetailController extends Controller
 {
-    protected $modelResolver;
-
-    public function __construct(ModelResolverService $modelResolver)
-    {
-        $this->modelResolver = $modelResolver;
-    }
+    public function __construct(
+        protected ModelResolverService $modelResolver
+    ) {}
 
     public function show(Request $request, $modelSlug, $slug)
     {

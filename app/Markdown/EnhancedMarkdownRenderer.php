@@ -3,6 +3,7 @@
 namespace App\Markdown;
 
 use App\Models\MediaFile;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Extension\CommonMark\Renderer\Inline\ImageRenderer;
@@ -12,12 +13,9 @@ use League\CommonMark\Util\HtmlElement;
 
 class EnhancedMarkdownRenderer implements NodeRendererInterface
 {
-    protected $model;
-
-    public function __construct($model)
-    {
-        $this->model = $model;
-    }
+    public function __construct(
+        protected Model $model
+    ) {}
 
     public function render(Node $node, $inlineContext = null)
     {

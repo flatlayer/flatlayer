@@ -9,14 +9,10 @@ use InvalidArgumentException;
 
 class AdvancedQueryFilter
 {
-    protected Builder|Collection $builder;
-    protected array $filters;
     protected ?string $search;
 
-    public function __construct(Builder $builder, array $filters)
+    public function __construct(protected Builder|Collection $builder, protected array $filters)
     {
-        $this->builder = $builder;
-        $this->filters = $filters;
         $this->search = $filters['$search'] ?? null;
         unset($this->filters['$search']);
     }

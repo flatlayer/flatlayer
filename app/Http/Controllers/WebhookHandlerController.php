@@ -9,12 +9,9 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookHandlerController extends Controller
 {
-    protected $modelResolver;
-
-    public function __construct(ModelResolverService $modelResolver)
-    {
-        $this->modelResolver = $modelResolver;
-    }
+    public function __construct(
+        protected ModelResolverService $modelResolver
+    ) {}
 
     public function handle(Request $request, $modelSlug)
     {

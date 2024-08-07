@@ -7,15 +7,12 @@ use Illuminate\Support\Str;
 
 class SearchRerankingService
 {
-    protected string $apiKey;
-    protected string $model;
     private const MAX_CHARS = 8600;
 
-    public function __construct(string $apiKey, string $model)
-    {
-        $this->apiKey = $apiKey;
-        $this->model = $model;
-    }
+    public function __construct(
+        protected string $apiKey,
+        protected string $model
+    ) {}
 
     public function rerank(string $query, array $documents, int $topN = 40): array
     {

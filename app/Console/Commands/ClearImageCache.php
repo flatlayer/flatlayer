@@ -11,12 +11,9 @@ class ClearImageCache extends Command
 
     protected $description = 'Clear image cache files older than the specified number of days';
 
-    protected ImageTransformationService $imageService;
-
-    public function __construct(ImageTransformationService $imageService)
+    public function __construct(protected ImageTransformationService $imageService)
     {
         parent::__construct();
-        $this->imageService = $imageService;
     }
 
     public function handle()
