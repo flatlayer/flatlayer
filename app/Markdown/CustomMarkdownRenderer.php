@@ -17,6 +17,7 @@ class CustomMarkdownRenderer
     {
         $config = [
             'allow_unsafe_links' => false,
+            'max_nesting_level' => 100,
         ];
 
         $this->environment = new Environment($config);

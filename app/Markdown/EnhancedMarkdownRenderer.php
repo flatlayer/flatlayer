@@ -7,18 +7,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Extension\CommonMark\Renderer\Inline\ImageRenderer;
-use League\CommonMark\Renderer\NodeRendererInterface;
-use League\CommonMark\Node\Node;
-use League\CommonMark\Util\HtmlElement;
 use League\CommonMark\Node\Inline\Text;
+use League\CommonMark\Node\Node;
+use League\CommonMark\Renderer\ChildNodeRendererInterface;
+use League\CommonMark\Renderer\NodeRendererInterface;
+use League\CommonMark\Util\HtmlElement;
+use League\Config\ConfigurationAwareInterface;
+use League\Config\ConfigurationInterface;
+use League\Config\ReadOnlyConfiguration;
 
-class EnhancedMarkdownRenderer implements NodeRendererInterface
+class EnhancedMarkdownRenderer implements NodeRendererInterface, ConfigurationAwareInterface
 {
-    public function __construct(
-        protected Model $model
-    ) {}
+    private ImageRenderer $defaultRenderer;
+    private ReadOnlyConfiguration $config;
 
-    public function render(Node $node, $childRenderer = null)
+    public function __construct(protected Model $model)
+    {
+        $this->defaultRenderer = new ImageRenderer();
+    }
+
+    public function render(Node $node, ChildNodeRendererInterface $childRenderer = null)
     {
         if (!($node instanceof Image)) {
             throw new \InvalidArgumentException('Incompatible node type: ' . get_class($node));
@@ -41,8 +49,7 @@ class EnhancedMarkdownRenderer implements NodeRendererInterface
         }
 
         // If not a local file or media not found, fall back to default rendering
-        $defaultRenderer = new ImageRenderer();
-        return $defaultRenderer->render($node, $childRenderer);
+        return $this->defaultRenderer->render($node, $childRenderer);
     }
 
     protected function getNodeAlt(Node $node): ?string
@@ -55,5 +62,13 @@ class EnhancedMarkdownRenderer implements NodeRendererInterface
         }
 
         return null;
+    }
+
+    public function setConfiguration(ConfigurationInterface $configuration): void
+    {
+        $this->config = $configuration;
+        if ($this->defaultRenderer instanceof ConfigurationAwareInterface) {
+            $this->defaultRenderer->setConfiguration($configuration);
+        }
     }
 }
