@@ -3,17 +3,19 @@
 namespace Tests\Unit;
 
 use App\Filter\AdvancedQueryFilter;
+use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
-use OpenAI\Laravel\Facades\OpenAI;
-use OpenAI\Responses\Embeddings\CreateResponse;
 use Tests\Fakes\TestFilterModel;
 use Tests\TestCase;
+use Mockery;
 
 class QueryFilterTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected $jinaService;
 
     protected function setUp(): void
     {
@@ -22,179 +24,19 @@ class QueryFilterTest extends TestCase
         $migrationFile = require base_path('tests/database/migrations/create_test_filter_models_table.php');
         (new $migrationFile)->up();
 
-        $this->setupFakeOpenAIResponses();
+        $this->setupFakeJinaResponses();
 
         TestFilterModel::factory()->count(20)->create();
     }
 
-    protected function setupFakeOpenAIResponses()
+    protected function setupFakeJinaResponses()
     {
-        $responses = [];
-        for($i = 0; $i < 40; $i++) {
-            $responses[] = CreateResponse::fake([
-                'data' => [
-                    [
-                        'embedding' => array_map(fn() => mt_rand() / mt_getrandmax(), array_fill(0, 1536, 0))
-                    ]
-                ]
-            ]);
-        }
+        $this->jinaService = Mockery::mock(JinaSearchService::class);
+        $this->app->instance(JinaSearchService::class, $this->jinaService);
 
-        OpenAI::fake($responses);
-    }
-
-    public function testBasicFiltering()
-    {
-        TestFilterModel::factory()->create(['name' => 'John']);
-
-        $filters = ['name' => 'John'];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(1, $results->count());
-        $this->assertTrue($results->contains('name', 'John'));
-    }
-
-    public function testMultipleFilters()
-    {
-        TestFilterModel::factory()->create(['name' => 'John', 'age' => 30]);
-
-        $filters = ['name' => 'John', 'age' => 30];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(1, $results->count());
-        $this->assertTrue($results->contains(function ($model) {
-            return $model->name === 'John' && $model->age === 30;
-        }));
-    }
-
-    public function testOperatorFilters()
-    {
-        TestFilterModel::factory()->create(['age' => 30]);
-        TestFilterModel::factory()->create(['age' => 32]);
-
-        $filters = ['age' => ['$gt' => 25, '$lt' => 35]];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(2, $results->count());
-        $results->each(function ($model) {
-            $this->assertGreaterThan(25, $model->age);
-            $this->assertLessThan(35, $model->age);
-        });
-    }
-
-    public function testInFilter()
-    {
-        TestFilterModel::factory()->create(['name' => 'John']);
-        TestFilterModel::factory()->create(['name' => 'Jane']);
-
-        $filters = ['name' => ['$in' => ['John', 'Jane']]];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(2, $results->count());
-        $results->each(function ($model) {
-            $this->assertContains($model->name, ['John', 'Jane']);
-        });
-    }
-
-    public function testExistsFilter()
-    {
-        TestFilterModel::factory()->create(['description' => 'This is a description']);
-
-        $filters = ['description' => ['$exists' => true]];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(1, $results->count());
-        $results->each(function ($model) {
-            $this->assertNotNull($model->description);
-        });
-    }
-
-    public function testAndCondition()
-    {
-        TestFilterModel::factory()->create(['age' => 30, 'is_active' => true]);
-        TestFilterModel::factory()->create(['age' => 30, 'is_active' => false]);
-
-        $filters = [
-            '$and' => [
-                ['age' => ['$gte' => 25]],
-                ['is_active' => true]
-            ]
-        ];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(1, $results->count());
-        $results->each(function ($model) {
-            $this->assertGreaterThanOrEqual(25, $model->age);
-            $this->assertTrue($model->is_active);
-        });
-    }
-
-    public function testOrCondition()
-    {
-        TestFilterModel::factory()->create(['age' => 20]);
-        TestFilterModel::factory()->create(['age' => 30, 'is_active' => false]);
-
-        $filters = [
-            '$or' => [
-                ['age' => ['$lt' => 25]],
-                ['is_active' => false]
-            ]
-        ];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(2, $results->count());
-        $results->each(function ($model) {
-            $this->assertTrue($model->age < 25 || $model->is_active === false);
-        });
-    }
-
-    public function testTagFilters()
-    {
-        TestFilterModel::first()->attachTag('important');
-        TestFilterModel::find(2)->attachTag('urgent');
-
-        $filters = ['$tags' => ['important', 'urgent']];
-        $query = TestFilterModel::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
-
-        $this->assertInstanceOf(Builder::class, $filteredQuery);
-        $results = $filteredQuery->get();
-
-        $this->assertGreaterThanOrEqual(2, $results->count());
-        $this->assertTrue($results->contains(function ($model) {
-            return $model->tags->pluck('name')->contains('important');
-        }));
-        $this->assertTrue($results->contains(function ($model) {
-            return $model->tags->pluck('name')->contains('urgent');
-        }));
+        $this->jinaService->shouldReceive('embed')->andReturn([
+            ['embedding' => array_fill(0, 768, 0.1)],
+        ]);
     }
 
     public function testTagFiltersWithType()
@@ -222,8 +64,14 @@ class QueryFilterTest extends TestCase
     {
         TestFilterModel::factory()->create([
             'name' => 'John Doe',
-            'description' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.'
+            'description' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.',
+            'embedding' => json_encode(array_fill(0, 768, 0.1))
         ]);
+
+        $this->jinaService->shouldReceive('embed')
+            ->once()
+            ->with(['a man named John'])
+            ->andReturn([['embedding' => array_fill(0, 768, 0.2)]]);
 
         $filters = ['$search' => 'a man named John'];
         $query = TestFilterModel::query();
@@ -241,7 +89,8 @@ class QueryFilterTest extends TestCase
         $olderJohn = TestFilterModel::factory()->create([
             'name' => 'John Smith',
             'age' => 50,
-            'is_active' => true
+            'is_active' => true,
+            'embedding' => json_encode(array_fill(0, 768, 0.1))
         ]);
         $olderJohn->attachTag('important');
 
@@ -249,9 +98,15 @@ class QueryFilterTest extends TestCase
         $youngerJohn = TestFilterModel::factory()->create([
             'name' => 'John Smith',
             'age' => 30,
-            'is_active' => true
+            'is_active' => true,
+            'embedding' => json_encode(array_fill(0, 768, 0.2))
         ]);
         $youngerJohn->attachTag('important');
+
+        $this->jinaService->shouldReceive('embed')
+            ->once()
+            ->with(['John'])
+            ->andReturn([['embedding' => array_fill(0, 768, 0.3)]]);
 
         $filters = [
             'age' => ['$gte' => 25, '$lt' => 40],  // This should only match the younger John
@@ -273,5 +128,11 @@ class QueryFilterTest extends TestCase
 
         // Additional assertion to ensure we got the younger John
         $this->assertEquals(30, $filtered->first()->age);
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
     }
 }

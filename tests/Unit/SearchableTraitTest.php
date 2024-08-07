@@ -2,13 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Services\SearchRerankingService;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use OpenAI\Laravel\Facades\OpenAI;
-use OpenAI\Responses\Embeddings\CreateResponse;
 use Tests\Fakes\FakeSearchableModel;
 use Tests\TestCase;
 use Mockery;
@@ -16,6 +13,8 @@ use Mockery;
 class SearchableTraitTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected $jinaService;
 
     protected function setUp(): void
     {
@@ -29,37 +28,37 @@ class SearchableTraitTest extends TestCase
             $table->timestamps();
         });
 
-        Config::set('flatlayer.search.embedding_model', 'fake-model');
+        Config::set('flatlayer.search.embedding_model', 'jina-embeddings-v2-base-en');
 
-        $this->setupFakeOpenAIResponses();
+        $this->jinaService = Mockery::mock(JinaSearchService::class);
+        $this->app->instance(JinaSearchService::class, $this->jinaService);
+
+        $this->setupFakeJinaResponses();
     }
 
-    protected function setupFakeOpenAIResponses()
+    protected function setupFakeJinaResponses()
     {
-        $fakeEmbeddings = [
-            'Test Content' => [0.1, 0.2, 0.3],
-            'First Content' => [0.4, 0.5, 0.6],
-            'Second Content' => [0.7, 0.8, 0.9],
-            'test query' => [0.2, 0.3, 0.4],
-        ];
-
-        $fakeResponses = collect($fakeEmbeddings)->map(function ($embedding) {
-            return CreateResponse::fake([
-                'data' => [
-                    ['embedding' => $embedding]
-                ],
+        $this->jinaService->shouldReceive('embed')
+            ->andReturn([
+                ['embedding' => array_fill(0, 768, 0.1)],
+                ['embedding' => array_fill(0, 768, 0.2)],
+                ['embedding' => array_fill(0, 768, 0.3)],
+                ['embedding' => array_fill(0, 768, 0.4)],
             ]);
-        })->values()->all();
-
-        OpenAI::fake($fakeResponses);
     }
 
     public function testUpdateSearchVector()
     {
         $model = new FakeSearchableModel(['title' => 'Test', 'content' => 'Content']);
+
+        $this->jinaService->shouldReceive('embed')
+            ->once()
+            ->with(['Test Content'])
+            ->andReturn([['embedding' => array_fill(0, 768, 0.5)]]);
+
         $model->save();
 
-        $this->assertEquals([0.1, 0.2, 0.3], $model->embedding);
+        $this->assertEquals(array_fill(0, 768, 0.5), $model->embedding);
     }
 
     public function testSearch()
@@ -68,11 +67,18 @@ class SearchableTraitTest extends TestCase
         $first = FakeSearchableModel::create([
             'title' => 'First',
             'content' => 'Content',
+            'embedding' => json_encode(array_fill(0, 768, 0.1)),
         ]);
         $second = FakeSearchableModel::create([
             'title' => 'Second',
             'content' => 'Content',
+            'embedding' => json_encode(array_fill(0, 768, 0.2)),
         ]);
+
+        $this->jinaService->shouldReceive('embed')
+            ->once()
+            ->with(['test query'])
+            ->andReturn([['embedding' => array_fill(0, 768, 0.3)]]);
 
         // Perform the search
         $results = FakeSearchableModel::search('test query', 2, false);
@@ -91,8 +97,8 @@ class SearchableTraitTest extends TestCase
         $this->assertLessThan($results[0]->distance, $results[1]->distance);
 
         // Check that the results are the models we created
-        $this->assertTrue($results->contains($second));
         $this->assertTrue($results->contains($first));
+        $this->assertTrue($results->contains($second));
 
         // Check the order of results
         $this->assertEquals($first->id, $results[0]->id);
@@ -102,20 +108,15 @@ class SearchableTraitTest extends TestCase
     public function testSearchWithReranking()
     {
         // Create actual records in the database
-        FakeSearchableModel::create(['title' => 'First', 'content' => 'Content', 'embedding' => json_encode([0.4, 0.4, 0.4])]);
-        FakeSearchableModel::create(['title' => 'Second', 'content' => 'Content', 'embedding' => json_encode([0.5, 0.5, 0.5])]);
+        FakeSearchableModel::create(['title' => 'First', 'content' => 'Content', 'embedding' => json_encode(array_fill(0, 768, 0.1))]);
+        FakeSearchableModel::create(['title' => 'Second', 'content' => 'Content', 'embedding' => json_encode(array_fill(0, 768, 0.2))]);
 
-        // Mock the OpenAI facade to return a specific embedding
-        OpenAI::fake([
-            CreateResponse::fake([
-                'data' => [
-                    ['embedding' => [0.6, 0.6, 0.6]]
-                ],
-            ])
-        ]);
+        $this->jinaService->shouldReceive('embed')
+            ->once()
+            ->with(['test query'])
+            ->andReturn([['embedding' => array_fill(0, 768, 0.3)]]);
 
-        $jinaService = Mockery::mock(SearchRerankingService::class);
-        $jinaService->shouldReceive('rerank')
+        $this->jinaService->shouldReceive('rerank')
             ->once()
             ->andReturn([
                 'results' => [
@@ -124,13 +125,11 @@ class SearchableTraitTest extends TestCase
                 ]
             ]);
 
-        $this->app->instance(SearchRerankingService::class, $jinaService);
-
         $results = FakeSearchableModel::search('test query', 2, true);
 
         $this->assertEquals(2, $results->count());
-        $this->assertEquals(1, $results[0]->id);  // The model with higher relevance score
-        $this->assertEquals(2, $results[1]->id);  // The model with lower relevance score
+        $this->assertEquals(2, $results[0]->id);  // The model with higher relevance score
+        $this->assertEquals(1, $results[1]->id);  // The model with lower relevance score
         $this->assertEquals(0.9, $results[0]->relevance_score);
         $this->assertEquals(0.8, $results[1]->relevance_score);
     }

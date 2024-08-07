@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('excerpt', 1024)->nullable();
             $table->text('content')->nullable();
             if (DB::connection()->getDriverName() === 'pgsql') {
-                $table->vector('embedding', 1536)->nullable();
+                $table->vector('embedding', 768)->nullable();
             }
             $table->timestamps();
         });

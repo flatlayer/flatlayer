@@ -2,13 +2,11 @@
 
 namespace App\Traits;
 
-use MathPHP\LinearAlgebra\Vector;
-use MathPHP\Statistics\Distance;
-use OpenAI\Laravel\Facades\OpenAI;
+use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder;
-use App\Services\SearchRerankingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use MathPHP\Statistics\Distance;
 
 trait Searchable
 {
@@ -23,8 +21,8 @@ trait Searchable
     {
         if (
             ($this->isNewSearchableRecord() && empty($this->embedding)) ||
-            $this->hasSearchableChanges())
-        {
+            $this->hasSearchableChanges()
+        ) {
             $this->updateSearchVector();
         }
     }
@@ -56,12 +54,10 @@ trait Searchable
     public function updateSearchVector(): void
     {
         $text = $this->toSearchableText();
-        $response = OpenAI::embeddings()->create([
-            'model' => config('flatlayer.search.embedding_model'),
-            'input' => $text,
-        ]);
+        $jinaService = app(JinaSearchService::class);
+        $embeddings = $jinaService->embed([$text]);
 
-        $this->embedding = $response->embeddings[0]->embedding;
+        $this->embedding = $embeddings[0]['embedding'];
     }
 
     abstract public function toSearchableText(): string;
@@ -123,17 +119,14 @@ trait Searchable
 
     protected static function getEmbedding(string $text): array
     {
-        $response = OpenAI::embeddings()->create([
-            'model' => config('flatlayer.search.embedding_model'),
-            'input' => $text,
-        ]);
-
-        return $response->embeddings[0]->embedding;
+        $jinaService = app(JinaSearchService::class);
+        $embeddings = $jinaService->embed([$text]);
+        return $embeddings[0]['embedding'];
     }
 
     protected static function rerankResults(string $query, Collection $results): Collection
     {
-        $jinaService = app(SearchRerankingService::class);
+        $jinaService = app(JinaSearchService::class);
         $results = $results->map(function($result){
             $result->relevance_score = 0;
             return $result;
