@@ -16,9 +16,7 @@ class MediaProcessingService
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
-        $media = Media::castAndCreate([
-            'model_type' => get_class($model),
-            'model_id' => $model->getKey(),
+        return $model->media()->create([
             'collection' => $collectionName,
             'filename' => basename($path),
             'path' => $path,
@@ -27,9 +25,6 @@ class MediaProcessingService
             'dimensions' => $fileInfo['dimensions'],
             'thumbhash' => $fileInfo['thumbhash'],
         ]);
-        $media->save();
-
-        return $media;
     }
 
     public function syncMedia(Model $model, array $filenames, string $collectionName = 'default'): void
@@ -47,7 +42,7 @@ class MediaProcessingService
             if ($existingMedia->has($fullPath)) {
                 $media = $existingMedia->get($fullPath);
                 if ($media->size !== $fileInfo['size'] || $media->dimensions !== $fileInfo['dimensions'] || $media->thumbhash !== $fileInfo['thumbhash']) {
-                    $media->castAndUpdate([
+                    $media->update([
                         'size' => $fileInfo['size'],
                         'dimensions' => $fileInfo['dimensions'],
                         'thumbhash' => $fileInfo['thumbhash'],
@@ -68,7 +63,7 @@ class MediaProcessingService
             ->first();
 
         if ($existingMedia) {
-            $existingMedia->castAndUpdate([
+            $existingMedia->update([
                 'size' => $fileInfo['size'],
                 'dimensions' => $fileInfo['dimensions'],
                 'thumbhash' => $fileInfo['thumbhash'],
