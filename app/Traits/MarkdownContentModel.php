@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Markdown\CustomMarkdownRenderer;
 use App\Services\MarkdownContentProcessor;
 use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
@@ -127,5 +128,11 @@ trait MarkdownContentModel
     protected static function generateSlugFromFilename(string $filename): string
     {
         return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
+    }
+
+    public function getParsedContent(): string
+    {
+        $markdownRenderer = new CustomMarkdownRenderer($this);
+        return $markdownRenderer->convertToHtml($this->content)->getContent();
     }
 }

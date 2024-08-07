@@ -80,15 +80,13 @@ class Post extends Model
 
     public function toDetailArray(): array
     {
-        $markdownRenderer = new CustomMarkdownRenderer($this);
-        $parsedContent = $markdownRenderer->convertToHtml($this->content);
         $featuredImage = $this->getMedia('featured')->first();
 
         return [
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
-            'content' => $parsedContent->getContent(),
+            'content' => $this->getParsedContent(),
             'excerpt' => $this->excerpt,
             'published_at' => $this->published_at?->toDateTimeString(),
             'is_published' => $this->is_published,

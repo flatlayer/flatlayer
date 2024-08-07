@@ -13,8 +13,8 @@ return new class extends Migration
             $table->id();
             $table->string('slug')->unique();
             $table->string('title');
+            $table->string('excerpt', 1024)->nullable();
             $table->text('content');
-            $table->text('excerpt')->nullable();
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $table->vector('embedding', 1536)->nullable();
             }

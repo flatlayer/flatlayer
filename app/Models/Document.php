@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Markdown\CustomMarkdownRenderer;
 use App\Traits\HasMediaFiles;
 use App\Traits\MarkdownContentModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,6 +17,7 @@ class Document extends Model
     protected $fillable = [
         'title',
         'content',
+        'excerpt',
         'slug',
     ];
 
@@ -31,5 +33,25 @@ class Document extends Model
     public function toSearchableText(): string
     {
         return '# ' . $this->title . "\n\n" . $this->content;
+    }
+
+    public function toSummaryArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'excerpt' => $this->excerpt,
+        ];
+    }
+
+    public function toDetailArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'content' => $this->getParsedContent(),
+        ];
     }
 }
