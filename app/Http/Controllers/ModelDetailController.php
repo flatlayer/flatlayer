@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ModelResolverService;
 use Illuminate\Http\Request;
 
-class SingleModelController extends Controller
+class ModelDetailController extends Controller
 {
     protected $modelResolver;
 
@@ -24,6 +24,10 @@ class SingleModelController extends Controller
 
         $model = $modelClass::where('slug', $slug)->firstOrFail();
 
-        return response()->json($model->toArray());
+        return response()->json(
+            method_exists($model, 'toDetailArray') ?
+                $model->toDetailArray() :
+                $model->toArray()
+        );
     }
 }

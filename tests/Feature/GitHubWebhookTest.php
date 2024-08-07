@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\GitHubWebhookController;
+use App\Http\Controllers\WebhookHandlerController;
 use App\Jobs\ProcessGitHubWebhookJob;
 use App\Services\ModelResolverService;
 use Illuminate\Foundation\Testing\RefreshDatabase;

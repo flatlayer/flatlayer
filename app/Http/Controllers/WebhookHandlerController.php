@@ -7,7 +7,7 @@ use App\Services\ModelResolverService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-class GitHubWebhookController extends Controller
+class WebhookHandlerController extends Controller
 {
     protected $modelResolver;
 
