@@ -20,7 +20,7 @@
         "spatie/laravel-tags": "^4.6",
         "srwiez/thumbhash": "^1.2",
         "webuni/front-matter": "^2.0",
-        "ext-imagick": "*"
+        "wendelladriel/laravel-lift": "^0.14.1"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.1",
