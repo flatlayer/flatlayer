@@ -116,6 +116,13 @@ class GitHubWebhookTest extends TestCase
             'source' => '*.md',
         ]);
 
+        // Mock the ModelResolverService
+        $modelResolverMock = Mockery::mock(ModelResolverService::class);
+        $modelResolverMock->shouldReceive('resolve')
+            ->with($modelClass)
+            ->andReturn($modelClass);
+        $this->app->instance(ModelResolverService::class, $modelResolverMock);
+
         // Mock the Git class
         $repoMock = Mockery::mock('CzProject\GitPhp\GitRepository');
         $repoMock->shouldReceive('getCurrentBranchName')->twice()->andReturn('main', 'updated-main');
@@ -135,13 +142,7 @@ class GitHubWebhookTest extends TestCase
         // Act
         $job = new ProcessGitHubWebhookJob($payload, $modelClass);
 
-        $job->handle();
-
-        // Assert
-        $this->assertTrue(true, "Job execution completed");
-
-        // Print all captured log messages for debugging
-        error_log('Log messages: ' . print_r($this->logMessages, true));
+        $job->handle($modelResolverMock);
 
         // Check if specific log messages were recorded
         $this->assertTrue(
