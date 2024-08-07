@@ -9,9 +9,14 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Services\JinaRerankService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Pgvector\Laravel\Vector as PgVector;
+use WendellAdriel\Lift\Attributes\Cast;
 
 trait Searchable
 {
+    #[Cast(PgVector::class)]
+    public ?PgVector $embedding;
+
     public static function bootSearchable()
     {
         static::saving(function ($model) {
@@ -23,8 +28,8 @@ trait Searchable
     {
         if (
             ($this->isNewSearchableRecord() && empty($this->embedding)) ||
-            $this->hasSearchableChanges())
-        {
+            $this->hasSearchableChanges()
+        ) {
             $this->updateSearchVector();
         }
     }
@@ -61,7 +66,7 @@ trait Searchable
             'input' => $text,
         ]);
 
-        $this->embedding = $response->embeddings[0]->embedding;
+        $this->embedding = new PgVector($response->embeddings[0]->embedding);
     }
 
     abstract public function toSearchableText(): string;
@@ -87,7 +92,7 @@ trait Searchable
 
     protected static function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
     {
-        $vector = new \Pgvector\Vector($embedding);
+        $vector = new PgVector($embedding);
         return $builder
             ->selectRaw('*, (embedding <=> ?) as distance', [$vector])
             ->orderBy('distance')
@@ -99,7 +104,7 @@ trait Searchable
     {
         return $builder->get()
             ->map(function ($item) use ($embedding) {
-                $item->distance = 1 - Distance::cosineSimilarity($item->embedding, $embedding);
+                $item->distance = 1 - Distance::cosineSimilarity($item->embedding->toArray(), $embedding);
                 return $item;
             })
             ->sortBy('distance')

@@ -4,26 +4,32 @@ namespace App\Models;
 
 use App\Traits\HasMedia;
 use App\Traits\MarkdownModel;
+use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\Searchable;
 use Pgvector\Laravel\Vector;
+use WendellAdriel\Lift\Attributes\Cast;
+use WendellAdriel\Lift\Attributes\Fillable;
+use WendellAdriel\Lift\Attributes\PrimaryKey;
+use WendellAdriel\Lift\Lift;
 
 class Document extends Model
 {
-    use HasFactory, HasMedia, Searchable, MarkdownModel;
+    use HasFactory, HasMedia, Searchable, MarkdownModel, Lift;
 
-    protected $fillable = [
-        'title',
-        'content',
-        'slug',
-    ];
+    #[PrimaryKey]
+    public int $id;
 
-    protected $casts = [
-        'embedding' => Vector::class
-    ];
+    #[Fillable]
+    public string $slug;
 
-    public function getRouteKeyName()
+    #[Fillable]
+    public ?string $title;
+
+    #[Fillable]
+    public ?string $content;
+
+    public function getRouteKeyName(): string
     {
         return 'slug';
     }

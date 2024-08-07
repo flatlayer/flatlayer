@@ -42,9 +42,6 @@ class Post extends Model
     #[Cast('boolean')]
     public bool $is_published = false;
 
-    #[Cast('vector')]
-    public ?Vector $embedding;
-
     public function toSearchableText(): string
     {
         return '# ' . $this->title . "\n\n" . $this->content;
