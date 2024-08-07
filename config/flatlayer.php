@@ -14,7 +14,7 @@ return [
     'models' => [
         Post::class => [
             'path' => env('FLATLAYER_POST_PATH', ''),
-            'source' => env('FLATLAYER_POST_SOURCE', '*.md'),
+            'source' => env('FLATLAYER_POST_SOURCE', '**/*.md'),
             'hook' => env('FLATLAYER_POST_HOOK', 'https://example.com/hook'),
         ],
 

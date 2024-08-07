@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\MarkdownSyncJob;
+use App\Services\ModelResolverService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +17,9 @@ class MarkdownSync extends Command
     public function handle()
     {
         $modelInput = $this->argument('model');
-        $modelClass = $this->resolveModelClass($modelInput);
+
+        $resolver = app(ModelResolverService::class);
+        $modelClass = $resolver->resolve($modelInput);
 
         if (!$modelClass) {
             $this->error("Model class for '{$modelInput}' does not exist.");
@@ -44,15 +47,6 @@ class MarkdownSync extends Command
 
     private function resolveModelClass($input)
     {
-        // Check if the input is already a valid class name
-        if (class_exists($input)) {
-            return $input;
-        }
 
-        // Convert kebab-case to StudlyCase and prepend the namespace
-        $studlyName = Str::studly(Str::singular($input));
-        $fullClassName = "App\\Models\\{$studlyName}";
-
-        return class_exists($fullClassName) ? $fullClassName : null;
     }
 }
