@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use App\Services\SearchRerankingService;
-use App\Services\MarkdownMediaService;
+use App\Services\MarkdownContentProcessor;
 use App\Services\ModelResolverService;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,8 +20,8 @@ class AppServiceProvider extends ServiceProvider
             return new SearchRerankingService($apiKey, $model);
         });
 
-        $this->app->singleton(MarkdownMediaService::class, function ($app) {
-            return new MarkdownMediaService();
+        $this->app->singleton(MarkdownContentProcessor::class, function ($app) {
+            return new MarkdownContentProcessor();
         });
 
         $this->app->singleton(ModelResolverService::class, function ($app) {

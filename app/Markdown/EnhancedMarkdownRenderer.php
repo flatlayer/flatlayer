@@ -10,7 +10,7 @@ use League\CommonMark\Renderer\NodeRendererInterface;
 use League\CommonMark\Node\Node;
 use League\CommonMark\Util\HtmlElement;
 
-class CustomImageRenderer implements NodeRendererInterface
+class EnhancedMarkdownRenderer implements NodeRendererInterface
 {
     protected $model;
 

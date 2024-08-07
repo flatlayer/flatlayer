@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Filter\QueryFilter;
+use App\Filter\AdvancedQueryFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -49,7 +49,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['name' => 'John'];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -64,7 +64,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['name' => 'John', 'age' => 30];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -82,7 +82,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['age' => ['$gt' => 25, '$lt' => 35]];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -101,7 +101,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['name' => ['$in' => ['John', 'Jane']]];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -118,7 +118,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['description' => ['$exists' => true]];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -141,7 +141,7 @@ class QueryFilterTest extends TestCase
             ]
         ];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -165,7 +165,7 @@ class QueryFilterTest extends TestCase
             ]
         ];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -183,7 +183,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['$tags' => ['important', 'urgent']];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -204,7 +204,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['$tags' => ['type' => 'colors', 'values' => ['red', 'blue']]];
         $query = TestFilterModel::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -227,7 +227,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['$search' => 'a man named John'];
         $query = TestFilterModel::query();
-        $filtered = (new QueryFilter($query, $filters))->apply();
+        $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
 
@@ -260,7 +260,7 @@ class QueryFilterTest extends TestCase
             '$search' => 'John'
         ];
         $query = TestFilterModel::query();
-        $filtered = (new QueryFilter($query, $filters))->apply();
+        $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
 

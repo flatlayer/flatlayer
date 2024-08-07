@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Jobs\MarkdownSyncJob;
+use App\Jobs\ContentSyncJob;
 use Tests\Fakes\FakePost;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use ReflectionClass;
 
-class MarkdownSyncJobTest extends TestCase
+class ContentSyncJobTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -29,7 +29,7 @@ class MarkdownSyncJobTest extends TestCase
     {
         Storage::put('posts/test-post.md', "---\ntitle: Test Post\n---\nThis is a test post.");
 
-        $job = new MarkdownSyncJob(FakePost::class);
+        $job = new ContentSyncJob(FakePost::class);
         $job->handle();
 
         $this->assertDatabaseHas('posts', [
@@ -49,7 +49,7 @@ class MarkdownSyncJobTest extends TestCase
 
         Storage::put('posts/existing-post.md', "---\ntitle: Updated Post\n---\nThis is updated content.");
 
-        $job = new MarkdownSyncJob(FakePost::class);
+        $job = new ContentSyncJob(FakePost::class);
         $job->handle();
 
         $this->assertDatabaseHas('posts', [
@@ -69,7 +69,7 @@ class MarkdownSyncJobTest extends TestCase
 
         Storage::put('posts/remaining-post.md', "---\ntitle: Remaining Post\n---\nThis post should remain.");
 
-        $job = new MarkdownSyncJob(FakePost::class);
+        $job = new ContentSyncJob(FakePost::class);
         $job->handle();
 
         $this->assertDatabaseMissing('posts', [
@@ -89,7 +89,7 @@ class MarkdownSyncJobTest extends TestCase
         Storage::put('posts/post2.md', "---\ntitle: Post 2\n---\nContent 2");
         Storage::put('posts/post3.md', "---\ntitle: Post 3\n---\nContent 3");
 
-        $job = new MarkdownSyncJob(FakePost::class);
+        $job = new ContentSyncJob(FakePost::class);
         $job->handle();
 
         $this->assertDatabaseCount('posts', 3);
@@ -114,7 +114,7 @@ class MarkdownSyncJobTest extends TestCase
             Storage::put("posts/post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
         }
 
-        $job = new MarkdownSyncJob(FakePost::class);
+        $job = new ContentSyncJob(FakePost::class);
         $job->handle();
 
         // Check that only the posts with markdown files remain

@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Traits\HasMedia;
-use App\Traits\MarkdownModel;
+use App\Traits\HasMediaFiles;
+use App\Traits\MarkdownContentModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +14,7 @@ use App\Markdown\CustomMarkdownRenderer;
 
 class Post extends Model
 {
-    use HasFactory, HasMedia, HasTags, Searchable, MarkdownModel;
+    use HasFactory, HasMediaFiles, HasTags, Searchable, MarkdownContentModel;
 
     protected $fillable = [
         'title',

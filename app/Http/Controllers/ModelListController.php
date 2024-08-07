@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Filter\QueryFilter;
+use App\Filter\AdvancedQueryFilter;
 use App\Http\Requests\ListRequest;
 use App\Services\ModelResolverService;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,7 +31,7 @@ class ModelListController extends Controller
             ? $modelClass::defaultSearchableQuery()
             : $modelClass::query();
 
-        $filter = new QueryFilter($query, $request->getFilter());
+        $filter = new AdvancedQueryFilter($query, $request->getFilter());
         $filteredResult = $filter->apply();
 
         $perPage = $request->input('per_page', 15);

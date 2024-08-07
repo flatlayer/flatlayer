@@ -6,7 +6,7 @@ use App\Models\MediaFile;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Collection;
 
-trait HasMedia
+trait HasMediaFiles
 {
     public function media(): MorphMany
     {

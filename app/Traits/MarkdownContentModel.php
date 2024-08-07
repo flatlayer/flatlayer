@@ -2,19 +2,19 @@
 
 namespace App\Traits;
 
-use App\Services\MarkdownMediaService;
+use App\Services\MarkdownContentProcessor;
 use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
 use Illuminate\Support\Str;
 use Spatie\Tags\HasTags;
 
-trait MarkdownModel
+trait MarkdownContentModel
 {
     protected $markdownMediaService;
 
     public function initializeMarkdownModel()
     {
-        $this->markdownMediaService = app(MarkdownMediaService::class);
+        $this->markdownMediaService = app(MarkdownContentProcessor::class);
     }
 
     public static function fromMarkdown(string $filename): self

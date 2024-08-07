@@ -2,15 +2,15 @@
 
 namespace Tests\Fakes;
 
-use App\Traits\HasMedia;
-use App\Traits\MarkdownModel;
+use App\Traits\HasMediaFiles;
+use App\Traits\MarkdownContentModel;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Tags\HasTags;
 use Illuminate\Support\Collection;
 
 class TestMarkdownModel extends Model
 {
-    use MarkdownModel, HasTags, HasMedia;
+    use MarkdownContentModel, HasTags, HasMediaFiles;
 
     protected $table = 'test_markdown_models';
 

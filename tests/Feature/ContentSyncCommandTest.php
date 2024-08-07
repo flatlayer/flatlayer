@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Tests\Fakes\FakePost;
 
-class MarkdownSyncCommandTest extends TestCase
+class ContentSyncCommandTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -36,7 +36,7 @@ class MarkdownSyncCommandTest extends TestCase
         Storage::disk('local')->put('posts/post2.md', "---\ntitle: Test Post 2\n---\nContent 2");
 
         // Run the command
-        $exitCode = Artisan::call('flatlayer:markdown-sync', ['model' => 'fake-post']);
+        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'fake-post']);
 
         // Assert that the command was successful
         $this->assertEquals(0, $exitCode);
@@ -55,7 +55,7 @@ class MarkdownSyncCommandTest extends TestCase
         Storage::disk('local')->put('posts/post3.md', "---\ntitle: Test Post 3\n---\nContent 3");
 
         // Run the command again
-        $exitCode = Artisan::call('flatlayer:markdown-sync', ['model' => 'FakePost']);
+        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'FakePost']);
 
         // Assert that the command was successful
         $this->assertEquals(0, $exitCode);
@@ -71,14 +71,14 @@ class MarkdownSyncCommandTest extends TestCase
 
     public function testMarkdownSyncCommandWithInvalidModel()
     {
-        $exitCode = Artisan::call('flatlayer:markdown-sync', ['model' => 'Invalid-model']);
+        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'Invalid-model']);
 
         $this->assertNotEquals(0, $exitCode);
     }
 
     public function testMarkdownSyncCommandWithNonEloquentModel()
     {
-        $exitCode = Artisan::call('flatlayer:markdown-sync', ['model' => 'stdClass']);
+        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'stdClass']);
 
         $this->assertNotEquals(0, $exitCode);
     }

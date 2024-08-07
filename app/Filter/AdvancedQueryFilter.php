@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-class QueryFilter
+class AdvancedQueryFilter
 {
     protected Builder|Collection $builder;
     protected array $filters;

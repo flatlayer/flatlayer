@@ -71,7 +71,7 @@ class ProcessGitHubWebhookJob implements ShouldQueue
 
             if ($beforeHash !== $afterHash) {
                 Log::info("Changes detected for {$this->modelClass}, running MarkdownSync");
-                Artisan::call('flatlayer:markdown-sync', ['model' => $this->modelClass]);
+                Artisan::call('flatlayer:content-sync', ['model' => $this->modelClass]);
                 Log::info("MarkdownSync command called");
             } else {
                 Log::info("No changes detected for {$this->modelClass}");

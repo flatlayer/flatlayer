@@ -11,7 +11,7 @@ use Tests\Fakes\FakePost;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
-class ImageControllerTest extends TestCase
+class MediaTransformControllerTest extends TestCase
 {
     use RefreshDatabase;
 

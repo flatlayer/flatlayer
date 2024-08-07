@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class MarkdownSyncJob implements ShouldQueue
+class ContentSyncJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 

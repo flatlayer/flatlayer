@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\MarkdownSyncJob;
+use App\Jobs\ContentSyncJob;
 use App\Services\ModelResolverService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
-class MarkdownSync extends Command
+class ContentSync extends Command
 {
-    protected $signature = 'flatlayer:markdown-sync {model} {--dispatch : Dispatch the job to the queue}';
+    protected $signature = 'flatlayer:content-sync {model} {--dispatch : Dispatch the job to the queue}';
 
     protected $description = 'Sync files from source to models.';
 
@@ -32,7 +32,7 @@ class MarkdownSync extends Command
             return 1;
         }
 
-        $job = new MarkdownSyncJob($modelClass);
+        $job = new ContentSyncJob($modelClass);
 
         if ($this->option('dispatch')) {
             dispatch($job);

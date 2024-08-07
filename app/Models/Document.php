@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Traits\HasMedia;
-use App\Traits\MarkdownModel;
+use App\Traits\HasMediaFiles;
+use App\Traits\MarkdownContentModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\Searchable;
@@ -11,7 +11,7 @@ use Pgvector\Laravel\Vector;
 
 class Document extends Model
 {
-    use HasFactory, HasMedia, Searchable, MarkdownModel;
+    use HasFactory, HasMediaFiles, Searchable, MarkdownContentModel;
 
     protected $fillable = [
         'title',

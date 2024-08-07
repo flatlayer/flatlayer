@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 
-class MarkdownMediaService
+class MarkdownContentProcessor
 {
     protected $imagePaths;
 

@@ -18,7 +18,7 @@ class CustomMarkdownRenderer
         $this->model = $model;
         $this->environment = new Environment();
         $this->environment->addExtension(new CommonMarkCoreExtension());
-        $this->environment->addRenderer(Image::class, new CustomImageRenderer($this->model));
+        $this->environment->addRenderer(Image::class, new EnhancedMarkdownRenderer($this->model));
         $this->converter = new MarkdownConverter($this->environment);
     }
 

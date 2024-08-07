@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ImageRequest;
+use App\Http\Requests\MediaTransformRequest;
 use App\Models\MediaFile;
 use App\Services\ImageTransformationService;
 
@@ -15,7 +15,7 @@ class MediaTransformController extends Controller
         $this->imageService = $imageService;
     }
 
-    public function transform(ImageRequest $request, $id)
+    public function transform(MediaTransformRequest $request, $id)
     {
         if (config('flatlayer.media.use_signatures') && !$request->hasValidSignature()) {
             abort(401);
