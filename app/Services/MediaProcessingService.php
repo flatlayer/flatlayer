@@ -16,7 +16,9 @@ class MediaProcessingService
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
-        return $model->media()->castAndCreate([
+        $media = Media::castAndCreate([
+            'model_type' => get_class($model),
+            'model_id' => $model->getKey(),
             'collection' => $collectionName,
             'filename' => basename($path),
             'path' => $path,
@@ -25,6 +27,9 @@ class MediaProcessingService
             'dimensions' => $fileInfo['dimensions'],
             'thumbhash' => $fileInfo['thumbhash'],
         ]);
+        $media->save();
+
+        return $media;
     }
 
     public function syncMedia(Model $model, array $filenames, string $collectionName = 'default'): void
