@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Media;
+use App\Services\MediaProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -112,7 +113,8 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $fileInfo = $this->invokeMethod(Media::class, 'getFileInfo', [Storage::path($path)]);
+        $service = app(MediaProcessingService::class);
+        $fileInfo = $service->getFileInfo(Storage::path($path));
 
         $this->assertArrayHasKey('size', $fileInfo);
         $this->assertArrayHasKey('mime_type', $fileInfo);
@@ -127,7 +129,8 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $thumbhash = $this->invokeMethod(Media::class, 'generateThumbhash', [Storage::path($path)]);
+        $service = app(MediaProcessingService::class);
+        $thumbhash = $service->generateThumbhash(Storage::path($path));
 
         $this->assertNotNull($thumbhash);
         $this->assertIsString($thumbhash);

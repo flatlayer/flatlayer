@@ -75,7 +75,7 @@ class MediaProcessingService
         return $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
-    protected function getFileInfo(string $path): array
+    public function getFileInfo(string $path): array
     {
         $size = filesize($path);
         $mimeType = mime_content_type($path);
@@ -99,7 +99,7 @@ class MediaProcessingService
         ];
     }
 
-    protected function generateThumbhash(string $path): string
+    public function generateThumbhash(string $path): string
     {
         if (extension_loaded('imagick')) {
             return $this->generateThumbhashWithImagick($path);

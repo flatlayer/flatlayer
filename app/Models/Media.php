@@ -65,6 +65,18 @@ class Media extends Model
         return $mediaProcessingService->updateOrCreateMedia($model, $fullPath, $collectionName);
     }
 
+    public function getFileInfo(): array
+    {
+        $mediaProcessingService = app(MediaProcessingService::class);
+        return $mediaProcessingService->getFileInfo($this->path);
+    }
+
+    public function generateThumbhash(): string
+    {
+        $mediaProcessingService = app(MediaProcessingService::class);
+        return $mediaProcessingService->generateThumbhash($this->path);
+    }
+
     public function getWidth(): ?int
     {
         return $this->dimensions['width'] ?? null;

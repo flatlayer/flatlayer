@@ -7,6 +7,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 class MarkdownModelTest extends TestCase
 {
@@ -83,6 +85,32 @@ class MarkdownModelTest extends TestCase
 
     public function testHandleMediaFromFrontMatter()
     {
+        // Create a fake storage disk
+        Storage::fake('local');
+
+        // Create an image manager
+        $imageManager = new ImageManager(new Driver());
+
+        // Create a real image for featured.jpg
+        $featuredImage = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#ff0000');
+        });
+        Storage::disk('local')->put('featured.jpg', $featuredImage->toJpeg());
+
+        // Create a real image for thumbnail.png
+        $thumbnailImage = $imageManager->create(50, 50, function ($draw) {
+            $draw->background('#00ff00');
+        });
+        Storage::disk('local')->put('thumbnail.png', $thumbnailImage->toPng());
+
+        // Create the test_media.md file with references to these images
+        $content = "---\n";
+        $content .= "image_featured: featured.jpg\n";
+        $content .= "image_thumbnail: thumbnail.png\n";
+        $content .= "---\n";
+        $content .= "Test content";
+        Storage::disk('local')->put('test_media.md', $content);
+
         $model = TestMarkdownModel::fromMarkdown(Storage::disk('local')->path('test_media.md'));
 
         $this->assertEquals(2, $model->media()->count());
@@ -92,6 +120,31 @@ class MarkdownModelTest extends TestCase
 
     public function testProcessMarkdownImages()
     {
+        // Create a fake storage disk
+        Storage::fake('local');
+
+        // Create an image manager
+        $imageManager = new ImageManager(new Driver());
+
+        // Create a real JPEG image
+        $image1 = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#ff0000');
+        });
+        Storage::disk('local')->put('image1.jpg', $image1->toJpeg());
+
+        // Create a real PNG image
+        $image3 = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#00ff00');
+        });
+        Storage::disk('local')->put('image3.png', $image3->toPng());
+
+        // Create the test_images.md file with references to these images
+        $content = "# Test Content\n";
+        $content .= "![Alt Text 1](image1.jpg)\n";
+        $content .= "![Alt Text 2](https://example.com/image2.jpg)\n";
+        $content .= "![Alt Text 3](image3.png)\n";
+        Storage::disk('local')->put('test_images.md', $content);
+
         $model = TestMarkdownModel::fromMarkdown(Storage::disk('local')->path('test_images.md'));
 
         $this->assertStringContainsString('![Alt Text 1](image1.jpg)', $model->content);
