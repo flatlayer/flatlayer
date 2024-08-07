@@ -133,6 +133,23 @@ class MediaTest extends TestCase
         $this->assertIsString($thumbhash);
     }
 
+    public function testGetImgTagIncludesThumbhash()
+    {
+        $post = FakePost::factory()->create();
+        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
+        $path = $file->store('test');
+
+        $media = Media::addMediaToModel($post, Storage::path($path));
+        $media->thumbhash = 'fake_thumbhash_value';
+        $media->save();
+
+        $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
+        $imgTag = $media->getImgTag($sizes);
+
+        $this->assertStringContainsString('data-thumbhash="fake_thumbhash_value"', $imgTag);
+        $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $imgTag);
+    }
+
     /**
      * Call protected/private method of a class.
      *

@@ -189,12 +189,13 @@ class Media extends Model
         return null;
     }
 
-    public function getImgTag(string $sizes, array $attributes = []): string
+    public function getImgTag(array $sizes, array $attributes = []): string
     {
         $service = app(ResponsiveImageService::class);
 
         $defaultAttributes = [
             'alt' => $this->custom_properties['alt'] ?? '',
+            'data-thumbhash' => $this->thumbhash,
         ];
 
         $attributes = array_merge($defaultAttributes, $attributes);
