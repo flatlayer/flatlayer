@@ -2,12 +2,12 @@
 
 namespace Tests\Integration;
 
-use App\Services\JinaRerankService;
+use App\Services\SearchRerankingService;
 use Tests\TestCase;
 
 class JinaRerankServiceIntegrationTest extends TestCase
 {
-    protected JinaRerankService $jinaService;
+    protected SearchRerankingService $jinaService;
 
     protected function setUp(): void
     {
@@ -20,7 +20,7 @@ class JinaRerankServiceIntegrationTest extends TestCase
             $this->markTestSkipped('Jina API key or model not configured in flatlayer config.');
         }
 
-        $this->jinaService = new JinaRerankService($apiKey, $model);
+        $this->jinaService = new SearchRerankingService($apiKey, $model);
     }
 
     public function testRerankIntegration()

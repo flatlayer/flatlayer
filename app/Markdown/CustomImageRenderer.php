@@ -2,7 +2,7 @@
 
 namespace App\Markdown;
 
-use App\Models\Media;
+use App\Models\MediaFile;
 use Illuminate\Support\Str;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Extension\CommonMark\Renderer\Inline\ImageRenderer;
@@ -32,7 +32,7 @@ class CustomImageRenderer implements NodeRendererInterface
             $filename = basename($url);
             $media = $this->model->media()->where('filename', $filename)->first();
 
-            if ($media instanceof Media) {
+            if ($media instanceof MediaFile) {
                 return new HtmlElement('div', ['class' => 'markdown-image'], [
                     $media->getImgTag('100vw', ['alt' => $node->getTitle() ?: $filename])
                 ]);

@@ -91,7 +91,7 @@ trait MarkdownModel
         // Save the model before attaching relationships
         $model->save();
 
-        // Handle Media
+        // Handle MediaFile
         if (method_exists($model, 'addMedia')) {
             $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
             $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);

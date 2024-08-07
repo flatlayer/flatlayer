@@ -6,7 +6,7 @@ use MathPHP\LinearAlgebra\Vector;
 use MathPHP\Statistics\Distance;
 use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Database\Eloquent\Builder;
-use App\Services\JinaRerankService;
+use App\Services\SearchRerankingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -133,7 +133,7 @@ trait Searchable
 
     protected static function rerankResults(string $query, Collection $results): Collection
     {
-        $jinaService = app(JinaRerankService::class);
+        $jinaService = app(SearchRerankingService::class);
         $results = $results->map(function($result){
             $result->relevance_score = 0;
             return $result;

@@ -51,14 +51,14 @@ class MarkdownMediaServiceTest extends TestCase
 
         $this->service->handleMediaFromFrontMatter($this->post, $data, $markdownPath);
 
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'featured',
             'filename' => 'featured.jpg',
         ]);
 
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'thumbnail',
@@ -100,14 +100,14 @@ class MarkdownMediaServiceTest extends TestCase
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
         $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('posts/image3.png') . ')', $result);
 
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'images',
             'filename' => 'image1.jpg',
         ]);
 
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'images',

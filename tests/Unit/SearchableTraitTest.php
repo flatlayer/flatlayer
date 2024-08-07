@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\JinaRerankService;
+use App\Services\SearchRerankingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -114,7 +114,7 @@ class SearchableTraitTest extends TestCase
             ])
         ]);
 
-        $jinaService = Mockery::mock(JinaRerankService::class);
+        $jinaService = Mockery::mock(SearchRerankingService::class);
         $jinaService->shouldReceive('rerank')
             ->once()
             ->andReturn([
@@ -124,7 +124,7 @@ class SearchableTraitTest extends TestCase
                 ]
             ]);
 
-        $this->app->instance(JinaRerankService::class, $jinaService);
+        $this->app->instance(SearchRerankingService::class, $jinaService);
 
         $results = FakeSearchableModel::search('test query', 2, true);
 

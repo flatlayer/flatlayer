@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Media;
-use App\Services\ImageService;
+use App\Models\MediaFile;
+use App\Services\ImageTransformationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ class ImageControllerTest extends TestCase
     {
         parent::setUp();
 
-        $this->imageService = $this->app->make(ImageService::class);
+        $this->imageService = $this->app->make(ImageTransformationService::class);
 
         $this->clearImageCache();
 

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Media;
+use App\Models\MediaFile;
 use Illuminate\Support\Str;
 
 class ResponsiveImageService
@@ -26,7 +26,7 @@ class ResponsiveImageService
         $this->defaultTransforms = $defaultTransforms;
     }
 
-    public function generateImgTag(Media $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
+    public function generateImgTag(MediaFile $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {
         $parsedSizes = $this->parseSizes($sizes);
         $srcset = $this->generateSrcset($media, $isFluid, $displaySize);
@@ -88,7 +88,7 @@ class ResponsiveImageService
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 
-    protected function generateSrcset(Media $media, bool $isFluid, ?array $displaySize = null): string
+    protected function generateSrcset(MediaFile $media, bool $isFluid, ?array $displaySize = null): string
     {
         $maxWidth = $media->getWidth();
         $srcset = [];
@@ -147,7 +147,7 @@ class ResponsiveImageService
         return implode(', ', array_unique($srcset));
     }
 
-    protected function formatSrcsetEntry(Media $media, int $width, ?int $height = null): string
+    protected function formatSrcsetEntry(MediaFile $media, int $width, ?int $height = null): string
     {
         $transforms = array_merge($this->defaultTransforms, ['w' => $width]);
         if ($height !== null) {

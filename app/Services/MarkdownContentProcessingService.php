@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Media;
+use App\Models\MediaFile;
 use Illuminate\Database\Eloquent\Model;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -10,9 +10,9 @@ use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
-class MediaProcessingService
+class MarkdownContentProcessingService
 {
-    public function addMediaToModel(Model $model, string $path, string $collectionName = 'default', array $fileInfo = null): Media
+    public function addMediaToModel(Model $model, string $path, string $collectionName = 'default', array $fileInfo = null): MediaFile
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
@@ -54,7 +54,7 @@ class MediaProcessingService
         }
     }
 
-    public function updateOrCreateMedia(Model $model, string $fullPath, string $collectionName = 'default'): Media
+    public function updateOrCreateMedia(Model $model, string $fullPath, string $collectionName = 'default'): MediaFile
     {
         $fileInfo = $this->getFileInfo($fullPath);
         $existingMedia = $model->media()

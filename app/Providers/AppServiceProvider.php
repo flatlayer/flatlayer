@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Services\JinaRerankService;
+use App\Services\SearchRerankingService;
 use App\Services\MarkdownMediaService;
 use App\Services\ModelResolverService;
 use Illuminate\Support\ServiceProvider;
@@ -14,10 +14,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(JinaRerankService::class, function ($app) {
+        $this->app->singleton(SearchRerankingService::class, function ($app) {
             $apiKey = config('flatlayer.search.jina.key');
             $model = config('flatlayer.search.jina.model');
-            return new JinaRerankService($apiKey, $model);
+            return new SearchRerankingService($apiKey, $model);
         });
 
         $this->app->singleton(MarkdownMediaService::class, function ($app) {

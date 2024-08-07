@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use App\Services\MediaProcessingService;
+use App\Services\MarkdownContentProcessingService;
 use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
-class Media extends Model
+class MediaFile extends Model
 {
     use HasFactory;
 
@@ -49,31 +49,31 @@ class Media extends Model
 
     public static function addMediaToModel($model, string $path, string $collectionName = 'default', array $fileInfo = null): self
     {
-        $mediaProcessingService = app(MediaProcessingService::class);
+        $mediaProcessingService = app(MarkdownContentProcessingService::class);
         return $mediaProcessingService->addMediaToModel($model, $path, $collectionName, $fileInfo);
     }
 
     public static function syncMedia($model, array $filenames, string $collectionName = 'default'): void
     {
-        $mediaProcessingService = app(MediaProcessingService::class);
+        $mediaProcessingService = app(MarkdownContentProcessingService::class);
         $mediaProcessingService->syncMedia($model, $filenames, $collectionName);
     }
 
     public static function updateOrCreateMedia($model, string $fullPath, string $collectionName = 'default'): self
     {
-        $mediaProcessingService = app(MediaProcessingService::class);
+        $mediaProcessingService = app(MarkdownContentProcessingService::class);
         return $mediaProcessingService->updateOrCreateMedia($model, $fullPath, $collectionName);
     }
 
     public function getFileInfo(): array
     {
-        $mediaProcessingService = app(MediaProcessingService::class);
+        $mediaProcessingService = app(MarkdownContentProcessingService::class);
         return $mediaProcessingService->getFileInfo($this->path);
     }
 
     public function generateThumbhash(): string
     {
-        $mediaProcessingService = app(MediaProcessingService::class);
+        $mediaProcessingService = app(MarkdownContentProcessingService::class);
         return $mediaProcessingService->generateThumbhash($this->path);
     }
 

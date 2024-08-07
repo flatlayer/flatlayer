@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\Media;
+use App\Models\MediaFile;
 use App\Services\ResponsiveImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,18 +13,18 @@ class ResponsiveImageServiceTest extends TestCase
     use RefreshDatabase;
 
     private ResponsiveImageService $service;
-    private Media $media;
-    private Media $thumbnail;
+    private MediaFile $media;
+    private MediaFile $thumbnail;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = new ResponsiveImageService(['q' => 80]);
-        $this->media = Media::factory()->create([
+        $this->media = MediaFile::factory()->create([
             'dimensions' => ['width' => 1600, 'height' => 900],
             'path' => 'path/to/image.jpg',
         ]);
-        $this->thumbnail = Media::factory()->create([
+        $this->thumbnail = MediaFile::factory()->create([
             'dimensions' => ['width' => 600, 'height' => 600],
             'path' => 'path/to/thumbnail.jpg',
         ]);

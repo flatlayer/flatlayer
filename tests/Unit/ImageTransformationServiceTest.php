@@ -2,14 +2,14 @@
 
 namespace Tests\Unit;
 
-use App\Services\ImageService;
+use App\Services\ImageTransformationService;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Tests\TestCase;
 
-class ImageServiceTest extends TestCase
+class ImageTransformationServiceTest extends TestCase
 {
     protected $imageService;
     protected $tempImagePath;
@@ -18,7 +18,7 @@ class ImageServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->imageService = new ImageService();
+        $this->imageService = new ImageTransformationService();
         Storage::fake($this->diskName);
         $this->tempImagePath = $this->createTempImage();
     }

@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
-class JinaRerankService
+class SearchRerankingService
 {
     protected string $apiKey;
     protected string $model;

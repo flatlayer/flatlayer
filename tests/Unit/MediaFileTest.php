@@ -2,15 +2,15 @@
 
 namespace Tests\Unit;
 
-use App\Models\Media;
-use App\Services\MediaProcessingService;
+use App\Models\MediaFile;
+use App\Services\MarkdownContentProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Tests\Fakes\FakePost;
 
-class MediaTest extends TestCase
+class MediaFileTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,9 +26,9 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = Media::addMediaToModel($post, Storage::path($path));
+        $media = MediaFile::addMediaToModel($post, Storage::path($path));
 
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $post->id,
             'collection' => 'default',
@@ -52,17 +52,17 @@ class MediaTest extends TestCase
         $path2 = $file2->store('test');
 
         // Add initial media
-        $media1 = Media::addMediaToModel($post, Storage::path($path1));
-        $media2 = Media::addMediaToModel($post, Storage::path($path2));
+        $media1 = MediaFile::addMediaToModel($post, Storage::path($path1));
+        $media2 = MediaFile::addMediaToModel($post, Storage::path($path2));
 
         // Sync media (removing test2.jpg and adding test3.jpg)
         $file3 = UploadedFile::fake()->image('test3.jpg', 300, 300);
         $path3 = $file3->store('test');
-        Media::syncMedia($post, [Storage::path($path1), Storage::path($path3)]);
+        MediaFile::syncMedia($post, [Storage::path($path1), Storage::path($path3)]);
 
-        $this->assertDatabaseHas('media', ['id' => $media1->id]);
-        $this->assertDatabaseMissing('media', ['id' => $media2->id]);
-        $this->assertDatabaseHas('media', [
+        $this->assertDatabaseHas('media_files', ['id' => $media1->id]);
+        $this->assertDatabaseMissing('media_files', ['id' => $media2->id]);
+        $this->assertDatabaseHas('media_files', [
             'model_id' => $post->id,
             'model_type' => FakePost::class,
             'dimensions' => json_encode(['width' => 300, 'height' => 300])
@@ -77,8 +77,8 @@ class MediaTest extends TestCase
         $fullPath = Storage::path($path);
 
         // Create new media
-        $media = Media::updateOrCreateMedia($post, $fullPath);
-        $this->assertDatabaseHas('media', [
+        $media = MediaFile::updateOrCreateMedia($post, $fullPath);
+        $this->assertDatabaseHas('media_files', [
             'model_type' => FakePost::class,
             'model_id' => $post->id,
             'dimensions' => json_encode(['width' => 100, 'height' => 100]),
@@ -94,7 +94,7 @@ class MediaTest extends TestCase
         Storage::delete($path);
         Storage::move($newPath, $path);
 
-        $updatedMedia = Media::updateOrCreateMedia($post, $fullPath);
+        $updatedMedia = MediaFile::updateOrCreateMedia($post, $fullPath);
 
         $this->assertEquals($media->id, $updatedMedia->id);
         $this->assertNotEquals($originalDimensions, $updatedMedia->dimensions);
@@ -113,7 +113,7 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(MediaProcessingService::class);
+        $service = app(MarkdownContentProcessingService::class);
         $fileInfo = $service->getFileInfo(Storage::path($path));
 
         $this->assertArrayHasKey('size', $fileInfo);
@@ -129,7 +129,7 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(MediaProcessingService::class);
+        $service = app(MarkdownContentProcessingService::class);
         $thumbhash = $service->generateThumbhash(Storage::path($path));
 
         $this->assertNotNull($thumbhash);
@@ -142,7 +142,7 @@ class MediaTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = Media::addMediaToModel($post, Storage::path($path));
+        $media = MediaFile::addMediaToModel($post, Storage::path($path));
         $media->thumbhash = 'fake_thumbhash_value';
         $media->save();
 

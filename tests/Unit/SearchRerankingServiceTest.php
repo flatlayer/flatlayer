@@ -2,18 +2,18 @@
 
 namespace Tests\Unit;
 
-use App\Services\JinaRerankService;
+use App\Services\SearchRerankingService;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class JinaRerankServiceTest extends TestCase
+class SearchRerankingServiceTest extends TestCase
 {
     protected $jinaService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->jinaService = new JinaRerankService('fake-api-key', 'jina-reranker-v2-base-multilingual');
+        $this->jinaService = new SearchRerankingService('fake-api-key', 'jina-reranker-v2-base-multilingual');
     }
 
     public function testRerankSuccess()

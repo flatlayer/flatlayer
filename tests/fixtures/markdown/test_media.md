@@ -1,5 +1,5 @@
 ---
-title: Media Test
+title: MediaFile Test
 image_featured: featured.jpg
 image_thumbnail: thumbnail.png
 ---

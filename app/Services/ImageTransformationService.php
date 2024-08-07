@@ -10,7 +10,7 @@ use Spatie\ImageOptimizer\OptimizerChainFactory;
 use Illuminate\Http\Response;
 use Carbon\Carbon;
 
-class ImageService
+class ImageTransformationService
 {
     protected ImageManager $manager;
     protected $optimizer;

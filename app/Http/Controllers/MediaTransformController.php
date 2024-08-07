@@ -3,14 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ImageRequest;
-use App\Models\Media;
-use App\Services\ImageService;
+use App\Models\MediaFile;
+use App\Services\ImageTransformationService;
 
 class MediaTransformController extends Controller
 {
     protected $imageService;
 
-    public function __construct(ImageService $imageService)
+    public function __construct(ImageTransformationService $imageService)
     {
         $this->imageService = $imageService;
     }
@@ -21,7 +21,7 @@ class MediaTransformController extends Controller
             abort(401);
         }
 
-        $media = Media::findOrFail($id);
+        $media = MediaFile::findOrFail($id);
 
         $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
         $cacheKey = $this->imageService->generateCacheKey($id, $request->all());
