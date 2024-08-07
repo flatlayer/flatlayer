@@ -3,16 +3,19 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Spatie\ImageOptimizer\OptimizerChainFactory;
 use Illuminate\Http\Response;
+use Carbon\Carbon;
 
 class ImageService
 {
     protected ImageManager $manager;
     protected $optimizer;
     protected $diskName = 'public';
+    protected $cachePrefix = 'image_last_access:';
 
     public function __construct()
     {
@@ -70,11 +73,13 @@ class ImageService
     public function cacheImage(string $cachePath, string $imageData): void
     {
         Storage::disk($this->diskName)->put($cachePath, $imageData);
+        $this->updateLastAccessTime($cachePath);
     }
 
     public function getCachedImage(string $cachePath): ?string
     {
         if (Storage::disk($this->diskName)->exists($cachePath)) {
+            $this->updateLastAccessTime($cachePath);
             return Storage::disk($this->diskName)->get($cachePath);
         }
         return null;
@@ -100,5 +105,29 @@ class ImageService
             'gif' => 'image/gif',
             default => 'application/octet-stream',
         };
+    }
+
+    private function updateLastAccessTime(string $cachePath): void
+    {
+        Cache::put($this->cachePrefix . $cachePath, now()->timestamp);
+    }
+
+    public function clearOldCache(int $days): int
+    {
+        $count = 0;
+        $files = Storage::disk($this->diskName)->files('cache/images');
+        $cutoffTime = now()->subDays($days)->timestamp;
+
+        foreach ($files as $file) {
+            $lastAccessed = Cache::get($this->cachePrefix . $file);
+
+            if (!$lastAccessed || $lastAccessed < $cutoffTime) {
+                Storage::disk($this->diskName)->delete($file);
+                Cache::forget($this->cachePrefix . $file);
+                $count++;
+            }
+        }
+
+        return $count;
     }
 }
