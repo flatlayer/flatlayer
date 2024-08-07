@@ -8,6 +8,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 class MarkdownMediaServiceTest extends TestCase
 {
@@ -31,8 +33,19 @@ class MarkdownMediaServiceTest extends TestCase
             'image_thumbnail' => 'thumbnail.png',
         ];
 
-        Storage::disk('local')->put('posts/featured.jpg', 'fake image content');
-        Storage::disk('local')->put('posts/thumbnail.png', 'fake image content');
+        $imageManager = new ImageManager(new Driver());
+
+        // Create a real image for featured.jpg
+        $featuredImage = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#ff0000');
+        });
+        Storage::disk('local')->put('posts/featured.jpg', $featuredImage->toJpeg());
+
+        // Create a real image for thumbnail.png
+        $thumbnailImage = $imageManager->create(50, 50, function ($draw) {
+            $draw->background('#00ff00');
+        });
+        Storage::disk('local')->put('posts/thumbnail.png', $thumbnailImage->toPng());
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
@@ -42,30 +55,42 @@ class MarkdownMediaServiceTest extends TestCase
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'featured',
-            'path' => Storage::disk('local')->path('posts/featured.jpg'),
+            'filename' => 'featured.jpg',
         ]);
 
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'thumbnail',
-            'path' => Storage::disk('local')->path('posts/thumbnail.png'),
+            'filename' => 'thumbnail.png',
         ]);
 
-        // The 'images' collection is handled differently, so we don't test it here
+        // Verify that the media was actually created
+        $this->assertEquals(2, $this->post->media()->count());
     }
 
     public function test_process_markdown_images()
     {
-        $markdownContent = "
-            # Test Content
-            ![Alt Text 1](image1.jpg)
-            ![Alt Text 2](https://example.com/image2.jpg)
-            ![Alt Text 3](image3.png)
-        ";
+        $imageManager = new ImageManager(new Driver());
 
-        Storage::disk('local')->put('posts/image1.jpg', 'fake image content');
-        Storage::disk('local')->put('posts/image3.png', 'fake image content');
+        $markdownContent = "
+        # Test Content
+        ![Alt Text 1](image1.jpg)
+        ![Alt Text 2](https://example.com/image2.jpg)
+        ![Alt Text 3](image3.png)
+    ";
+
+        // Create a real JPEG image
+        $image1 = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#ff0000');
+        });
+        Storage::disk('local')->put('posts/image1.jpg', $image1->toJpeg());
+
+        // Create a real PNG image
+        $image3 = $imageManager->create(100, 100, function ($draw) {
+            $draw->background('#00ff00');
+        });
+        Storage::disk('local')->put('posts/image3.png', $image3->toPng());
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
@@ -79,15 +104,18 @@ class MarkdownMediaServiceTest extends TestCase
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'images',
-            'path' => Storage::disk('local')->path('posts/image1.jpg'),
+            'filename' => 'image1.jpg',
         ]);
 
         $this->assertDatabaseHas('media', [
             'model_type' => FakePost::class,
             'model_id' => $this->post->id,
             'collection' => 'images',
-            'path' => Storage::disk('local')->path('posts/image3.png'),
+            'filename' => 'image3.png',
         ]);
+
+        // Verify that the correct number of media items were created
+        $this->assertEquals(2, $this->post->media()->count());
     }
 
     public function test_resolve_media_path()

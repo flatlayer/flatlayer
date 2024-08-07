@@ -113,6 +113,7 @@ class GitHubWebhookTest extends TestCase
 
         Config::set("flatlayer.models.{$modelClass}", [
             'path' => '/path/to/repo',
+            'source' => '*.md',
         ]);
 
         // Mock the Git class

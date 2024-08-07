@@ -118,18 +118,19 @@ class SearchableTraitTest extends TestCase
         $jinaService->shouldReceive('rerank')
             ->once()
             ->andReturn([
-                ['index' => 1, 'relevance_score' => 0.9],
-                ['index' => 0, 'relevance_score' => 0.8],
+                'results' => [
+                    ['index' => 1, 'relevance_score' => 0.9],
+                    ['index' => 0, 'relevance_score' => 0.8],
+                ]
             ]);
 
         $this->app->instance(JinaRerankService::class, $jinaService);
 
         $results = FakeSearchableModel::search('test query', 2, true);
 
-        $this->assertCount(2, $results);
-        $this->assertContains($results[0]->id, [1, 2]);
-        $this->assertContains($results[1]->id, [1, 2]);
-        $this->assertNotEquals($results[0]->id, $results[1]->id);
+        $this->assertEquals(2, $results->count());
+        $this->assertEquals(1, $results[0]->id);  // The model with higher relevance score
+        $this->assertEquals(2, $results[1]->id);  // The model with lower relevance score
         $this->assertEquals(0.9, $results[0]->relevance_score);
         $this->assertEquals(0.8, $results[1]->relevance_score);
     }
