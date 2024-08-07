@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Spatie\ImageOptimizer\OptimizerChain;
 use Spatie\ImageOptimizer\OptimizerChainFactory;
 use Illuminate\Http\Response;
 use Carbon\Carbon;
@@ -13,9 +14,9 @@ use Carbon\Carbon;
 class ImageTransformationService
 {
     protected ImageManager $manager;
-    protected $optimizer;
-    protected $diskName = 'public';
-    protected $cachePrefix = 'image_last_access:';
+    protected OptimizerChain $optimizer;
+    protected string $diskName = 'public';
+    protected string $cachePrefix = 'image_last_access:';
 
     public function __construct()
     {
