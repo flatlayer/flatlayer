@@ -95,7 +95,7 @@ class Media extends Model
         return null;
     }
 
-    public function getImgTag(array $sizes, array $attributes = []): string
+    public function getImgTag(array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {
         $service = app(ResponsiveImageService::class);
 
@@ -106,7 +106,7 @@ class Media extends Model
 
         $attributes = array_merge($defaultAttributes, $attributes);
 
-        return $service->generateImgTag($this, $sizes, $attributes);
+        return $service->generateImgTag($this, $sizes, $attributes, $isFluid, $displaySize);
     }
 
     public function getUrl(array $transforms = []): string
