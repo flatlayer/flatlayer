@@ -12,9 +12,7 @@ Route::get('/', function () {
 
 Route::get('/{modelSlug}/list', [ListController::class, 'index'])->name('list');
 Route::get('/{modelSlug}/show/{slug}', [SingleModelController::class, 'show'])->name('show');
+Route::get('/media/{id}.{extension}', [ImageController::class, 'transform'])->name('media.transform');
 
-// The update webhook
-Route::post('/{modelSlug}/webhook', [GitHubWebhookController::class, 'handle']);
-
-Route::get('/media/{id}.{extension}', [ImageController::class, 'transform'])
-    ->name('media.transform');
+Route::post('/{modelSlug}/webhook', [GitHubWebhookController::class, 'handle'])
+    ->middleware('throttle:10,1');
