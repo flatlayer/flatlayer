@@ -13,6 +13,8 @@ use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Renderer\ChildNodeRendererInterface;
 use Mockery;
 use Tests\TestCase;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 class CustomImageRendererTest extends TestCase
 {
@@ -37,6 +39,24 @@ class CustomImageRendererTest extends TestCase
         ]);
 
         Storage::fake('public');
+
+        // Create a test image
+        $this->createTestImage();
+    }
+
+    protected function createTestImage()
+    {
+        $manager = new ImageManager(new Driver());
+        $image = $manager->create(100, 100, function ($draw) {
+            $draw->background('#000000');
+            $draw->text('Test', 50, 50, function ($font) {
+                $font->color('#ffffff');
+                $font->align('center');
+                $font->valign('middle');
+            });
+        });
+
+        Storage::disk('public')->put('test-image.jpg', $image->toJpeg());
     }
 
     public function testEnhancedImageRendering()
