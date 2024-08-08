@@ -5,56 +5,34 @@ namespace App\Traits;
 use App\Markdown\CustomMarkdownRenderer;
 use App\Services\MarkdownContentProcessingService;
 use Illuminate\Database\Eloquent\Model;
-use Webuni\FrontMatter\FrontMatter;
-use Illuminate\Support\Str;
 use Spatie\Tags\HasTags;
 
 trait MarkdownContentModel
 {
-    protected $markdownMediaService;
+    protected MarkdownContentProcessingService $markdownContentService;
 
     public function initializeMarkdownModel()
     {
-        $this->markdownMediaService = app(MarkdownContentProcessingService::class);
+        $this->markdownContentService = app(MarkdownContentProcessingService::class);
     }
 
-    public static function fromMarkdown(string $filename, string $type = null): self
+    public static function createFromMarkdown(string $filename, string $type='post'): self
     {
-        $model = new static();
+        $model = new static(['type' => $type]);
         $model->initializeMarkdownModel();
-
-        $content = file_get_contents($filename);
-
-        $frontMatter = new FrontMatter();
-        $document = $frontMatter->parse($content);
-
-        $data = $document->getData();
-        $markdownContent = $document->getContent();
-
-        return static::fillModelFromMarkdown($model, $data, $markdownContent, $filename, $type);
+        return $model->fillFromMarkdown($filename, $type);
     }
 
-    public static function syncFromMarkdown(string $filename, bool $autoSave = false, string $type = null): self
+    public static function syncFromMarkdown(string $filename, string $type='post', bool $autoSave = false): self
     {
-        $content = file_get_contents($filename);
+        $model = static::where('type', $type)->where('slug', static::generateSlugFromFilename($filename))->first();
+        if(!$model) {
+            // Create a new model
+            return static::createFromMarkdown($filename, $type);
+        }
 
-        $frontMatter = new FrontMatter();
-        $document = $frontMatter->parse($content);
-
-        $data = $document->getData();
-        $markdownContent = $document->getContent();
-
-        // Generate slug from filename
-        $slug = static::generateSlugFromFilename($filename);
-
-        // Find existing model by slug or create a new one
-        $model = static::firstOrNew([
-            'type' => $type,
-            'slug' => $slug
-        ]);
         $model->initializeMarkdownModel();
-
-        $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename, $type);
+        $model = $model->fillFromMarkdown($filename, $type);
 
         if ($autoSave) {
             $model->save();
@@ -63,74 +41,36 @@ trait MarkdownContentModel
         return $model;
     }
 
-    protected static function fillModelFromMarkdown(self $model, array $data, string $markdownContent, string $filename): self
+    protected function fillFromMarkdown(string $filename, string $type): self
     {
-        // Set slug from filename
-        $model->slug = static::generateSlugFromFilename($filename);
+        $processedData = $this->markdownContentService->processMarkdownFile($filename, $type, $this->fillable);
 
-        // Extract title from the first line if it starts with #
-        [$title, $markdownContent] = static::extractTitleFromContent($markdownContent);
-
-        // Use extracted title if available, otherwise use front matter title
-        if ($title && !isset($data['title'])) {
-            $data['title'] = $title;
-        }
-
-        // Handle front matter data
-        foreach ($data as $key => $value) {
-            if ($model->isFillable($key)) {
-                if ($model->hasCast($key)) {
-                    $value = $model->castAttribute($key, $value);
-                } elseif (is_string($value) && in_array(strtolower($value), ['true', 'false'])) {
-                    $value = strtolower($value) === 'true';
-                }
-                $model->$key = $value;
+        foreach ($processedData as $key => $value) {
+            if($key === 'tags') {
+                continue;
+            }
+            if ($this->isFillable($key)) {
+                $this->$key = $value;
             }
         }
 
-        // Set the main content
-        $contentField = $model->getMarkdownContentField();
-        $model->$contentField = $markdownContent;
+        $this->save();
 
-        // Save the model before attaching relationships
-        $model->save();
-
-        // Handle MediaFile
-        if (method_exists($model, 'addMedia')) {
-            $model->markdownMediaService->handleMediaFromFrontMatter($model, $data, $filename);
-            $model->markdownMediaService->processMarkdownImages($model, $markdownContent, $filename);
+        if (method_exists($this, 'addMedia') && isset($processedData['images'])) {
+            $this->markdownContentService->handleMediaFromFrontMatter($this, $processedData['images'], $filename);
+            $this->content = $this->markdownContentService->processMarkdownImages($this, $this->content, $filename);
         }
 
-        // Handle Spatie Tags
-        if (in_array(HasTags::class, class_uses_recursive($model)) && isset($data['tags'])) {
-            $model->syncTags($data['tags']);
+        if (in_array(HasTags::class, class_uses_recursive($this)) && isset($processedData['tags'])) {
+            $this->syncTags($processedData['tags']);
         }
 
-        return $model;
-    }
-
-    protected static function extractTitleFromContent(string $content): array
-    {
-        $lines = explode("\n", $content);
-        $firstLine = trim($lines[0]);
-
-        if (str_starts_with($firstLine, '# ')) {
-            $title = trim(substr($firstLine, 2));
-            array_shift($lines);
-            return [$title, trim(implode("\n", $lines))];
-        }
-
-        return [null, $content];
-    }
-
-    protected function getMarkdownContentField(): string
-    {
-        return $this->markdownContentField ?? 'content';
+        return $this;
     }
 
     protected static function generateSlugFromFilename(string $filename): string
     {
-        return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
+        return app(MarkdownContentProcessingService::class)->generateSlugFromFilename($filename);
     }
 
     public function getParsedContent(): string

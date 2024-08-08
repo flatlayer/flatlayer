@@ -17,6 +17,7 @@ return new class extends Migration
             $table->text('content')->nullable();
             $table->string('excerpt')->nullable();
             $table->json('meta')->nullable();
+            $table->string('filename');
 
             // Create a composite unique index on type and slug
             $table->unique(['type', 'slug']);

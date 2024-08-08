@@ -2,34 +2,37 @@
 
 namespace App\Services;
 
-use App\Models\ContentItem;
 use App\Models\MediaFile;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\File;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
-class MarkdownImageProcessingService
+class MediaFileService
 {
-    public function addMediaToContentItem(ContentItem $contentItem, string $path, string $collectionName = 'default', array $fileInfo = null): MediaFile
+    public function addMediaToModel(Model $model, string $path, string $collectionName = 'default', array $fileInfo = null): MediaFile
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
-        return $contentItem->addMedia($path)
-            ->withCustomProperties([
-                'mime_type' => $fileInfo['mime_type'],
-                'size' => $fileInfo['size'],
-                'dimensions' => $fileInfo['dimensions'],
-                'thumbhash' => $fileInfo['thumbhash'],
-            ])
-            ->toMediaCollection($collectionName);
+        return MediaFile::create([
+            'model_type' => get_class($model),
+            'model_id' => $model->id,
+            'collection' => $collectionName,
+            'filename' => basename($path),
+            'path' => $path,
+            'mime_type' => $fileInfo['mime_type'],
+            'size' => $fileInfo['size'],
+            'dimensions' => $fileInfo['dimensions'],
+            'thumbhash' => $fileInfo['thumbhash'],
+        ]);
     }
 
-    public function syncMedia(ContentItem $contentItem, array $filenames, string $collectionName = 'default'): void
+    public function syncMedia(Model $model, array $filenames, string $collectionName = 'default'): void
     {
-        $existingMedia = $contentItem->getMedia($collectionName)->keyBy('file_name');
+        $existingMedia = $model->media()->where('collection', $collectionName)->get()->keyBy('filename');
         $newFilenames = collect($filenames)->keyBy(function ($path) {
             return basename($path);
         });
@@ -45,47 +48,45 @@ class MarkdownImageProcessingService
                 $media = $existingMedia->get($filename);
                 $this->updateMediaIfNeeded($media, $fileInfo);
             } else {
-                $this->addMediaToContentItem($contentItem, $fullPath, $collectionName, $fileInfo);
+                $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
             }
         }
     }
 
-    public function updateOrCreateMedia(ContentItem $contentItem, string $fullPath, string $collectionName = 'default'): MediaFile
+    public function updateOrCreateMedia(Model $model, string $fullPath, string $collectionName = 'default'): MediaFile
     {
         $fileInfo = $this->getFileInfo($fullPath);
         $filename = basename($fullPath);
-        $existingMedia = $contentItem->getMedia($collectionName)->firstWhere('file_name', $filename);
+        $existingMedia = $model->media()->where('collection', $collectionName)->where('filename', $filename)->first();
 
         if ($existingMedia) {
             $this->updateMediaIfNeeded($existingMedia, $fileInfo);
             return $existingMedia;
         }
 
-        return $this->addMediaToContentItem($contentItem, $fullPath, $collectionName, $fileInfo);
+        return $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
     protected function updateMediaIfNeeded(MediaFile $media, array $fileInfo): void
     {
-        $customProperties = $media->custom_properties;
         $needsUpdate = false;
 
         foreach (['size', 'dimensions', 'thumbhash', 'mime_type'] as $property) {
-            if ($customProperties[$property] !== $fileInfo[$property]) {
-                $customProperties[$property] = $fileInfo[$property];
+            if ($media->$property !== $fileInfo[$property]) {
+                $media->$property = $fileInfo[$property];
                 $needsUpdate = true;
             }
         }
 
         if ($needsUpdate) {
-            $media->custom_properties = $customProperties;
             $media->save();
         }
     }
 
     public function getFileInfo(string $path): array
     {
-        $size = filesize($path);
-        $mimeType = mime_content_type($path);
+        $size = File::size($path);
+        $mimeType = File::mimeType($path);
         $dimensions = $this->getImageDimensions($path);
         $thumbhash = $this->generateThumbhash($path);
 

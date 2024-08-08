@@ -24,6 +24,7 @@ class ContentItem extends Model
         'excerpt',
         'meta',
         'published_at',
+        'filename',
     ];
 
     protected $casts = [
@@ -32,19 +33,10 @@ class ContentItem extends Model
         'embedding' => Vector::class,
     ];
 
-    protected static function boot()
+    public function scopePublished($query)
     {
-        parent::boot();
-
-        static::addGlobalScope('published', function (Builder $builder) {
-            $builder->whereNotNull('published_at')
-                ->where('published_at', '<=', now());
-        });
-    }
-
-    public function scopeWithUnpublished($query)
-    {
-        return $query->withoutGlobalScope('published');
+        return $query->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
     }
 
     public function scopeOfType($query, $type)

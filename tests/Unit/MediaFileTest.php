@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\MediaFile;
-use App\Services\MarkdownImageProcessingService;
+use App\Services\MediaFileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -113,7 +113,7 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(MarkdownImageProcessingService::class);
+        $service = app(MediaFileService::class);
         $fileInfo = $service->getFileInfo(Storage::path($path));
 
         $this->assertArrayHasKey('size', $fileInfo);
@@ -129,7 +129,7 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(MarkdownImageProcessingService::class);
+        $service = app(MediaFileService::class);
         $thumbhash = $service->generateThumbhash(Storage::path($path));
 
         $this->assertNotNull($thumbhash);

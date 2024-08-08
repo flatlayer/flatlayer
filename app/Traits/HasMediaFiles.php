@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\MediaFile;
+use App\Services\MediaFileService;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -15,7 +16,8 @@ trait HasMediaFiles
 
     public function addMedia(string $path, string $collectionName = 'default'): MediaFile
     {
-        return MediaFile::addMediaToModel($this, $path, $collectionName);
+        $service = app(MediaFileService::class);
+        return $service->addMediaToModel($this, $path, $collectionName);
     }
 
     public function getMedia(string $collectionName = 'default'): Collection
@@ -36,11 +38,13 @@ trait HasMediaFiles
 
     public function syncMedia(array $filenames, string $collectionName = 'default'): void
     {
-        MediaFile::syncMedia($this, $filenames, $collectionName);
+        $service = app(MediaFileService::class);
+        $service->syncMedia($this, $filenames, $collectionName);
     }
 
     public function updateOrCreateMedia(string $fullPath, string $collectionName = 'default'): MediaFile
     {
-        return MediaFile::updateOrCreateMedia($this, $fullPath, $collectionName);
+        $service = app(MediaFileService::class);
+        return $service->updateOrCreateMedia($this, $fullPath, $collectionName);
     }
 }

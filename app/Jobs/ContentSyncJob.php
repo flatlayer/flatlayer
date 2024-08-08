@@ -46,7 +46,7 @@ class ContentSyncJob implements ShouldQueue
         $files = File::glob($fullPattern, GLOB_BRACE);
         Log::info("Found " . count($files) . " files to process");
 
-        $existingSlugs = ContentItem::withUnpublished()->where('type', $this->type)->pluck('slug')->flip();
+        $existingSlugs = ContentItem::where('type', $this->type)->pluck('slug')->flip();
         $processedSlugs = [];
 
         foreach ($files as $file) {
@@ -54,7 +54,7 @@ class ContentSyncJob implements ShouldQueue
             $processedSlugs[] = $slug;
 
             try {
-                $item = ContentItem::syncFromMarkdown($file, true, $this->type);
+                $item = ContentItem::syncFromMarkdown($file, $this->type, true);
                 Log::info($existingSlugs->has($slug) ? "Updated content item: {$slug}" : "Created new content item: {$slug}");
             } catch (\Exception $e) {
                 Log::error("Error processing file {$file}: " . $e->getMessage());
@@ -66,7 +66,7 @@ class ContentSyncJob implements ShouldQueue
         Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
 
         $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) {
-            $deletedCount = ContentItem::withUnpublished()->where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
+            $deletedCount = ContentItem::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
             Log::info("Deleted {$deletedCount} content items");
         });
 

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\MarkdownImageProcessingService;
 use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,60 +20,17 @@ class MediaFile extends Model
         'mime_type',
         'size',
         'dimensions',
-        'custom_properties',
         'thumbhash',
     ];
 
     protected $casts = [
         'size' => 'integer',
         'dimensions' => 'array',
-        'custom_properties' => 'array',
     ];
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::saving(function ($media) {
-            if (empty($media->filename) && !empty($media->path)) {
-                $media->filename = basename($media->path);
-            }
-        });
-    }
 
     public function model()
     {
         return $this->morphTo();
-    }
-
-    public static function addMediaToModel($model, string $path, string $collectionName = 'default', array $fileInfo = null): self
-    {
-        $mediaProcessingService = app(MarkdownImageProcessingService::class);
-        return $mediaProcessingService->addMediaToModel($model, $path, $collectionName, $fileInfo);
-    }
-
-    public static function syncMedia($model, array $filenames, string $collectionName = 'default'): void
-    {
-        $mediaProcessingService = app(MarkdownImageProcessingService::class);
-        $mediaProcessingService->syncMedia($model, $filenames, $collectionName);
-    }
-
-    public static function updateOrCreateMedia($model, string $fullPath, string $collectionName = 'default'): self
-    {
-        $mediaProcessingService = app(MarkdownImageProcessingService::class);
-        return $mediaProcessingService->updateOrCreateMedia($model, $fullPath, $collectionName);
-    }
-
-    public function getFileInfo(): array
-    {
-        $mediaProcessingService = app(MarkdownImageProcessingService::class);
-        return $mediaProcessingService->getFileInfo($this->path);
-    }
-
-    public function generateThumbhash(): string
-    {
-        $mediaProcessingService = app(MarkdownImageProcessingService::class);
-        return $mediaProcessingService->generateThumbhash($this->path);
     }
 
     public function getWidth(): ?int
@@ -100,7 +56,7 @@ class MediaFile extends Model
         $service = app(ResponsiveImageService::class);
 
         $defaultAttributes = [
-            'alt' => $this->custom_properties['alt'] ?? '',
+            'alt' => $attributes['alt'] ?? '',
             'data-thumbhash' => $this->thumbhash,
         ];
 

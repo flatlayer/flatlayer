@@ -37,15 +37,16 @@ class MarkdownModelTest extends TestCase
 
     public function testFromMarkdown()
     {
-        $model = ContentItem::fromMarkdown(Storage::disk('local')->path('test_basic.md'));
+        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_basic.md'), 'post');
 
         $this->assertEquals('Test Basic Markdown', $model->title);
         $this->assertEquals("This is the content of the basic markdown file.", trim($model->content));
         $this->assertEquals('test-basic', $model->slug);
         $this->assertEquals('2023-05-01 12:00:00', $model->published_at->format('Y-m-d H:i:s'));
-        $this->assertTrue($model->meta['is_published']);
+        $this->assertIsString($model->meta['seo']['description']);
+        $this->assertIsArray($model->meta['seo']['keywords']);
         $this->assertEquals(['tag1', 'tag2'], $model->tags->pluck('name')->toArray());
-        $this->assertEquals('post', $model->type); // Assuming 'post' is the default type
+        $this->assertEquals('post', $model->type);
     }
 
     public function testSyncFromMarkdown()
@@ -54,7 +55,7 @@ class MarkdownModelTest extends TestCase
         $updatedPath = Storage::disk('local')->path('test_sync_updated.md');
 
         // First sync
-        $model = ContentItem::syncFromMarkdown($originalPath, true);
+        $model = ContentItem::syncFromMarkdown($originalPath, 'post', true);
 
         $this->assertEquals('Initial Title', $model->title);
         $this->assertEquals('Initial content', trim($model->content));
@@ -69,7 +70,7 @@ class MarkdownModelTest extends TestCase
         file_put_contents($originalPath, $updatedContent);
 
         // Second sync (update) using the same file
-        $updatedModel = ContentItem::syncFromMarkdown($originalPath, true);
+        $updatedModel = ContentItem::syncFromMarkdown($originalPath, 'post', true);
 
         $this->assertEquals($initialId, $updatedModel->id, "The updated model should have the same ID as the original");
         $this->assertEquals('Updated Title', $updatedModel->title);
@@ -96,13 +97,13 @@ class MarkdownModelTest extends TestCase
 
         $content = "---\n";
         $content .= "type: post\n";
-        $content .= "image_featured: featured.jpg\n";
-        $content .= "image_thumbnail: thumbnail.png\n";
+        $content .= "images.featured: featured.jpg\n";
+        $content .= "images.thumbnail: thumbnail.png\n";
         $content .= "---\n";
         $content .= "Test content";
         Storage::disk('local')->put('test_media.md', $content);
 
-        $model = ContentItem::fromMarkdown(Storage::disk('local')->path('test_media.md'));
+        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_media.md'));
 
         $this->assertEquals(2, $model->media()->count());
         $this->assertTrue($model->media()->get()->contains('collection', 'featured'));
@@ -133,7 +134,7 @@ class MarkdownModelTest extends TestCase
         $content .= "![Alt Text 3](image3.png)\n";
         Storage::disk('local')->put('test_images.md', $content);
 
-        $model = ContentItem::fromMarkdown(Storage::disk('local')->path('test_images.md'));
+        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_images.md'));
 
         $this->assertStringContainsString('![Alt Text 1](image1.jpg)', $model->content);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
