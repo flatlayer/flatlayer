@@ -2,7 +2,6 @@
 
 return [
     'search' => [
-        'embedding_model' => env('FLATLAYER_EMBEDDING_MODEL', 'text-embedding-3-small'),
         'jina' => [
             'key' => env('JINA_API_KEY'),
             'rerank' => env('JINA_RERANK_MODEL', 'jina-reranker-v2-base-multilingual'),
