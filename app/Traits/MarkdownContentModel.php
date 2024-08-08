@@ -18,7 +18,7 @@ trait MarkdownContentModel
         $this->markdownMediaService = app(MarkdownContentProcessingService::class);
     }
 
-    public static function fromMarkdown(string $filename): self
+    public static function fromMarkdown(string $filename, string $type = null): self
     {
         $model = new static();
         $model->initializeMarkdownModel();
@@ -31,10 +31,10 @@ trait MarkdownContentModel
         $data = $document->getData();
         $markdownContent = $document->getContent();
 
-        return static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
+        return static::fillModelFromMarkdown($model, $data, $markdownContent, $filename, $type);
     }
 
-    public static function syncFromMarkdown(string $filename, bool $autoSave = false): self
+    public static function syncFromMarkdown(string $filename, bool $autoSave = false, string $type = null): self
     {
         $content = file_get_contents($filename);
 
@@ -48,10 +48,13 @@ trait MarkdownContentModel
         $slug = static::generateSlugFromFilename($filename);
 
         // Find existing model by slug or create a new one
-        $model = static::firstOrNew(['slug' => $slug]);
+        $model = static::firstOrNew([
+            'type' => $type,
+            'slug' => $slug
+        ]);
         $model->initializeMarkdownModel();
 
-        $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename);
+        $model = static::fillModelFromMarkdown($model, $data, $markdownContent, $filename, $type);
 
         if ($autoSave) {
             $model->save();

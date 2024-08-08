@@ -11,7 +11,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Webuni\FrontMatter\FrontMatter;
 use CzProject\GitPhp\Git;
 
 class ContentSyncJob implements ShouldQueue
@@ -50,24 +49,15 @@ class ContentSyncJob implements ShouldQueue
         $existingSlugs = ContentItem::withUnpublished()->where('type', $this->type)->pluck('slug')->flip();
         $processedSlugs = [];
 
-        $frontMatter = new FrontMatter();
-
         foreach ($files as $file) {
             $slug = $this->getSlugFromFilename($file);
             $processedSlugs[] = $slug;
 
-            $content = file_get_contents($file);
-            $document = $frontMatter->parse($content);
-            $data = $this->processFrontMatter($document->getData());
-            $markdownContent = $document->getContent();
-
-            if ($existingSlugs->has($slug)) {
-                Log::info("Updating existing content item: {$slug}");
-                $item = ContentItem::withUnpublished()->where('type', $this->type)->where('slug', $slug)->first();
-                $this->updateContentItem($item, $data, $markdownContent, $file);
-            } else {
-                Log::info("Creating new content item: {$slug}");
-                $this->createContentItem($slug, $data, $markdownContent, $file);
+            try {
+                $item = ContentItem::syncFromMarkdown($file, true, $this->type);
+                Log::info($existingSlugs->has($slug) ? "Updated content item: {$slug}" : "Created new content item: {$slug}");
+            } catch (\Exception $e) {
+                Log::error("Error processing file {$file}: " . $e->getMessage());
             }
         }
 
@@ -111,73 +101,5 @@ class ContentSyncJob implements ShouldQueue
     private function getSlugFromFilename($filename)
     {
         return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
-    }
-
-    private function processFrontMatter(array $data)
-    {
-        $processed = [];
-        foreach ($data as $key => $value) {
-            $keys = explode('.', $key);
-            $this->arraySet($processed, $keys, $value);
-        }
-        return $processed;
-    }
-
-    private function arraySet(&$array, $keys, $value)
-    {
-        $key = array_shift($keys);
-        if (empty($keys)) {
-            if (isset($array[$key]) && is_array($array[$key])) {
-                $array[$key][] = $value;
-            } else {
-                $array[$key] = $value;
-            }
-        } else {
-            if (!isset($array[$key]) || !is_array($array[$key])) {
-                $array[$key] = [];
-            }
-            $this->arraySet($array[$key], $keys, $value);
-        }
-    }
-
-    private function updateContentItem(ContentItem $item, array $data, string $markdownContent, string $file)
-    {
-        $item->title = $data['title'] ?? $item->title;
-        $item->content = $markdownContent;
-        $item->meta = array_merge($item->meta ?? [], $data);
-        $item->save();
-
-        $this->processImages($item, $data['images'] ?? [], $file);
-    }
-
-    private function createContentItem(string $slug, array $data, string $markdownContent, string $file)
-    {
-        $item = new ContentItem();
-        $item->type = $this->type;
-        $item->slug = $slug;
-        $item->title = $data['title'] ?? '';
-        $item->content = $markdownContent;
-        $item->meta = $data;
-        $item->save();
-
-        $this->processImages($item, $data['images'] ?? [], $file);
-    }
-
-    private function processImages(ContentItem $item, array $images, string $file)
-    {
-        foreach ($images as $collection => $paths) {
-            $paths = is_array($paths) ? $paths : [$paths];
-            foreach ($paths as $path) {
-                $fullPath = $this->resolveImagePath($path, $file);
-                if (File::exists($fullPath)) {
-                    $item->addMedia($fullPath)->toMediaCollection($collection);
-                }
-            }
-        }
-    }
-
-    private function resolveImagePath(string $path, string $markdownFile)
-    {
-        return rtrim(dirname($markdownFile), '/') . '/' . ltrim($path, '/');
     }
 }
