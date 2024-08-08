@@ -163,7 +163,7 @@ class ContentItemArrayConverter
 
     protected function getImage(ContentItem $item, string $collection, $options = null)
     {
-        $mediaItem = $item->getFirstMedia($collection);
+        $mediaItem = $item->getMedia($collection)->first();
         return $mediaItem ? $this->formatImage($mediaItem, $options) : null;
     }
 
@@ -174,11 +174,17 @@ class ContentItemArrayConverter
         $fluid = $options['fluid'] ?? true;
         $displaySize = $options['display_size'] ?? null;
 
+        $meta = array_merge([
+            'width' => $mediaItem->getWidth(),
+            'height' => $mediaItem->getHeight(),
+            'aspect_ratio' => $mediaItem->getAspectRatio(),
+        ], $mediaItem->custom_properties ?? []);
+
         return [
             'id' => $mediaItem->id,
             'url' => $mediaItem->getUrl(),
             'html' => $mediaItem->getImgTag($sizes, $attributes, $fluid, $displaySize),
-            'meta' => $mediaItem->custom_properties,
+            'meta' => $meta,
         ];
     }
 }

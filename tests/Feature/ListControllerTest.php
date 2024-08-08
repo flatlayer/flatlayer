@@ -146,4 +146,135 @@ class ListControllerTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Document B');
     }
+
+    public function test_index_returns_only_specified_fields()
+    {
+        ContentItem::factory()->create([
+            'title' => 'Test Post',
+            'content' => 'This is the content',
+            'excerpt' => 'This is the excerpt',
+            'type' => 'post',
+        ]);
+
+        $fields = json_encode([
+            'title',
+        ]);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [['title']]])
+            ->assertJsonMissing(['content'])
+            ->assertJsonMissing(['excerpt'])
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_returns_nested_meta_fields()
+    {
+        ContentItem::factory()->create([
+            'title' => 'Test Post',
+            'type' => 'post',
+            'meta' => [
+                'author' => 'John Doe',
+                'seo' => [
+                    'description' => 'SEO description',
+                    'keywords' => ['key1', 'key2'],
+                ],
+            ],
+        ]);
+
+        $fields = json_encode(['title', 'meta.author', 'meta.seo.description']);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [[
+                'title',
+                'meta' => [
+                    'author',
+                    'seo' => ['description'],
+                ],
+            ]]])
+            ->assertJsonMissing(['meta' => ['seo' => ['keywords']]])
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_returns_formatted_images()
+    {
+        $post = ContentItem::factory()->create(['type' => 'post']);
+        $post->addMedia(base_path('tests/fixtures/test.png'), 'featured');
+
+        $fields = json_encode(['title', 'images.featured']);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'title',
+                        'images' => [
+                            'featured' => [
+                                'id',
+                                'url',
+                                'html',
+                                'meta' => [
+                                    'width',
+                                    'height',
+                                    'aspect_ratio'
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ])
+            ->assertJsonCount(1, 'data');
+
+        $responseData = $response->json('data.0');
+        $this->assertArrayHasKey('title', $responseData);
+        $this->assertArrayHasKey('images', $responseData);
+        $this->assertArrayHasKey('featured', $responseData['images']);
+
+        $featuredImage = $responseData['images']['featured'];
+        $this->assertIsInt($featuredImage['id']);
+        $this->assertIsString($featuredImage['url']);
+        $this->assertStringStartsWith('http://', $featuredImage['url']);
+        $this->assertIsString($featuredImage['html']);
+        $this->assertStringContainsString('<img', $featuredImage['html']);
+        $this->assertIsArray($featuredImage['meta']);
+        $this->assertArrayHasKey('width', $featuredImage['meta']);
+        $this->assertArrayHasKey('height', $featuredImage['meta']);
+        $this->assertArrayHasKey('aspect_ratio', $featuredImage['meta']);
+        $this->assertIsInt($featuredImage['meta']['width']);
+        $this->assertIsInt($featuredImage['meta']['height']);
+        $this->assertIsNumeric($featuredImage['meta']['aspect_ratio']);
+    }
+
+    public function test_index_respects_field_options()
+    {
+        ContentItem::factory()->create([
+            'title' => 'Test Post',
+            'type' => 'post',
+            'published_at' => now(),
+            'meta' => ['views' => '1000'],
+        ]);
+
+        $fields = json_encode([
+            ['published_at', 'date'],
+            ['meta.views', 'integer'],
+        ]);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [[
+                'published_at',
+                'meta' => ['views'],
+            ]]])
+            ->assertJsonCount(1, 'data');
+
+        $responseData = $response->json('data.0');
+        $this->assertIsString($responseData['published_at']);
+        $this->assertIsInt($responseData['meta']['views']);
+    }
 }

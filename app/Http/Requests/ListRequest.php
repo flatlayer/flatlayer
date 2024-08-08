@@ -22,8 +22,10 @@ class ListRequest extends FormRequest
                 'sometimes',
                 Rule::when(is_string($this->input('filter')), 'json'),
             ],
-            'fields' => 'sometimes|array',
-            'fields.*' => ['string', 'array'],
+            'fields' => [
+                'sometimes',
+                Rule::when(is_string($this->input('fields')), 'json'),
+            ],
         ];
     }
 
@@ -47,9 +49,7 @@ class ListRequest extends FormRequest
     public function messages()
     {
         return [
-            'filter.json' => 'The filter must be a valid JSON string.',
-            'fields.array' => 'The fields must be a valid JSON array.',
-            'fields.*.string' => 'Each field must be a string or an array.',
+            'fields.json' => 'The fields must be a valid JSON string.',
         ];
     }
 
