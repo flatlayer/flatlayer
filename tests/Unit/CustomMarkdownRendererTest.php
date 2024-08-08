@@ -5,34 +5,68 @@ namespace Tests\Unit;
 use App\Markdown\CustomMarkdownRenderer;
 use App\Markdown\EnhancedMarkdownRenderer;
 use App\Models\MediaFile;
-use Tests\Fakes\FakePost;
+use App\Models\ContentItem;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
+use League\CommonMark\Renderer\ChildNodeRendererInterface;
+use Mockery;
 use Tests\TestCase;
 
 class CustomMarkdownRendererTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $post;
+    protected $contentItem;
     protected $customRenderer;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Create a fake post
-        $this->post = FakePost::factory()->create([
+        JinaSearchService::fake();
+
+        // Create a content item
+        $this->contentItem = ContentItem::factory()->create([
+            'type' => 'post',
             'title' => 'Test Post',
             'content' => "# Test Content\n\nThis is a test paragraph.\n\n![Test Image](/test-image.jpg This is a title)",
         ]);
 
+        // Set up the Environment
+        $this->environment = new Environment([
+            'allow_unsafe_links' => false,
+        ]);
+        $this->environment->addExtension(new CommonMarkCoreExtension());
+
         // Create a custom renderer instance
-        $this->customRenderer = new CustomMarkdownRenderer($this->post);
+        $this->customRenderer = new CustomMarkdownRenderer($this->contentItem);
 
         // Set up fake storage
         Storage::fake('public');
+
+        // Create a test image
+        $this->createTestImage();
+    }
+
+    protected function createTestImage()
+    {
+        $manager = new ImageManager(new Driver());
+        $image = $manager->create(100, 100, function ($draw) {
+            $draw->background('#000000');
+            $draw->text('Test', 50, 50, function ($font) {
+                $font->color('#ffffff');
+                $font->align('center');
+                $font->valign('middle');
+            });
+        });
+
+        Storage::put('test-image.jpg', $image->toJpeg());
     }
 
     public function testConvertToHtml()
@@ -46,19 +80,17 @@ class CustomMarkdownRendererTest extends TestCase
 
     public function testEnhancedImageRendering()
     {
-        // Create a fake media file
-        $media = MediaFile::factory()->create([
-            'model_type' => get_class($this->post),
-            'model_id' => $this->post->id,
-            'path' => '/test-image.jpg',
-            'filename' => 'test-image.jpg',
-            'collection' => 'images',
-        ]);
+        // Create a media file
+        $media = $this->contentItem->addMedia(Storage::path('test-image.jpg'), 'images');
 
-        $enhancedRenderer = new EnhancedMarkdownRenderer($this->post);
+        $enhancedRenderer = new EnhancedMarkdownRenderer($this->contentItem, $this->environment);
         $imageNode = new Image('/test-image.jpg', 'Test Image');
 
-        $result = $enhancedRenderer->render($imageNode);
+        // Mock the ChildNodeRendererInterface
+        $childRenderer = Mockery::mock(ChildNodeRendererInterface::class);
+        $childRenderer->shouldReceive('renderNodes')->andReturn('');
+
+        $result = $enhancedRenderer->render($imageNode, $childRenderer);
 
         $this->assertInstanceOf(\League\CommonMark\Util\HtmlElement::class, $result);
         $this->assertEquals('div', $result->getTagName());
@@ -69,13 +101,7 @@ class CustomMarkdownRendererTest extends TestCase
 
     public function testGetParsedContent()
     {
-        // Add a method to FakePost to mimic the behavior we're testing
-        FakePost::macro('getParsedContent', function () {
-            $renderer = new CustomMarkdownRenderer($this);
-            return $renderer->convertToHtml($this->content);
-        });
-
-        $parsedContent = $this->post->getParsedContent();
+        $parsedContent = $this->contentItem->getParsedContent();
 
         $this->assertStringContainsString('<h1>Test Content</h1>', $parsedContent);
         $this->assertStringContainsString('<p>This is a test paragraph.</p>', $parsedContent);
@@ -97,7 +123,7 @@ class CustomMarkdownRendererTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        $enhancedRenderer = new EnhancedMarkdownRenderer($this->post);
+        $enhancedRenderer = new EnhancedMarkdownRenderer($this->contentItem);
         $invalidNode = new \League\CommonMark\Node\Block\Paragraph();
 
         $enhancedRenderer->render($invalidNode);

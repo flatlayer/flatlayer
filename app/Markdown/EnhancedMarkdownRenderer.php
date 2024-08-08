@@ -5,6 +5,7 @@ namespace App\Markdown;
 use App\Models\MediaFile;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\Extension\CommonMark\Renderer\Inline\ImageRenderer;
 use League\CommonMark\Node\Inline\Text;
@@ -14,19 +15,23 @@ use League\CommonMark\Renderer\NodeRendererInterface;
 use League\CommonMark\Util\HtmlElement;
 use League\Config\ConfigurationAwareInterface;
 use League\Config\ConfigurationInterface;
-use League\Config\ReadOnlyConfiguration;
 
 class EnhancedMarkdownRenderer implements NodeRendererInterface, ConfigurationAwareInterface
 {
     private ImageRenderer $defaultRenderer;
-    private ReadOnlyConfiguration $config;
+    private ConfigurationInterface $config;
 
-    public function __construct(protected Model $model)
+    public function __construct(protected Model $model, Environment $environment)
     {
         $this->defaultRenderer = new ImageRenderer();
+        $this->config = $environment->getConfiguration();
+
+        if ($this->defaultRenderer instanceof ConfigurationAwareInterface) {
+            $this->defaultRenderer->setConfiguration($this->config);
+        }
     }
 
-    public function render(Node $node, ChildNodeRendererInterface $childRenderer = null)
+    public function render(Node $node, ChildNodeRendererInterface $childRenderer)
     {
         if (!($node instanceof Image)) {
             throw new \InvalidArgumentException('Incompatible node type: ' . get_class($node));

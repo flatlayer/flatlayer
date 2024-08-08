@@ -13,17 +13,21 @@ class CustomMarkdownRenderer
     protected $environment;
     protected $converter;
 
-    public function __construct(protected Model $model)
+    public function __construct(protected Model $model, Environment $environment = null)
     {
-        $config = [
+        $this->environment = $environment ?? $this->createDefaultEnvironment();
+        $this->environment->addRenderer(Image::class, new EnhancedMarkdownRenderer($this->model, $this->environment));
+        $this->converter = new MarkdownConverter($this->environment);
+    }
+
+    protected function createDefaultEnvironment(): Environment
+    {
+        $environment = new Environment([
             'allow_unsafe_links' => false,
             'max_nesting_level' => 100,
-        ];
-
-        $this->environment = new Environment($config);
-        $this->environment->addExtension(new CommonMarkCoreExtension());
-        $this->environment->addRenderer(Image::class, new EnhancedMarkdownRenderer($this->model));
-        $this->converter = new MarkdownConverter($this->environment);
+        ]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+        return $environment;
     }
 
     public function convertToHtml($markdown)
