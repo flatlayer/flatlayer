@@ -135,11 +135,11 @@ class ResponsiveImageServiceTest extends TestCase
     public function test_generate_img_tag_fluid()
     {
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
@@ -159,11 +159,11 @@ class ResponsiveImageServiceTest extends TestCase
     {
         // Mock both route and signedRoute methods
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
@@ -209,11 +209,11 @@ class ResponsiveImageServiceTest extends TestCase
 
         // Mock both route and signedRoute methods
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $result = $method->invoke($this->service, $this->media, 800);
@@ -225,11 +225,11 @@ class ResponsiveImageServiceTest extends TestCase
     public function test_generate_img_tag_with_display_size_fixed()
     {
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];
@@ -255,11 +255,11 @@ class ResponsiveImageServiceTest extends TestCase
     public function test_generate_img_tag_with_display_size_fluid()
     {
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
@@ -285,11 +285,11 @@ class ResponsiveImageServiceTest extends TestCase
     public function test_generate_img_tag_with_small_display_size()
     {
         URL::shouldReceive('route')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
 
         URL::shouldReceive('signedRoute')
-            ->with('media.transform', \Mockery::any(), \Mockery::any())
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/signed-url');
 
         $sizes = ['100vw'];

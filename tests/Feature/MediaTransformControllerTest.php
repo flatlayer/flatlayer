@@ -79,7 +79,7 @@ class MediaTransformControllerTest extends TestCase
 
     public function test_image_transformation()
     {
-        $response = $this->get(route('media.transform', [
+        $response = $this->get(route('image.transform', [
             'id' => $this->media->id,
             'extension' => 'jpg',
             'w' => 500,
@@ -100,7 +100,7 @@ class MediaTransformControllerTest extends TestCase
         $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
-        $response = $this->get(route('media.transform', [
+        $response = $this->get(route('image.transform', [
             'id' => $this->media->id,
             'extension' => 'webp',
             'fm' => 'webp',
@@ -109,7 +109,7 @@ class MediaTransformControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/webp');
 
-        $response = $this->get(route('media.transform', [
+        $response = $this->get(route('image.transform', [
             'id' => $this->media->id,
             'extension' => 'jpg',
             'q' => 50,
@@ -119,7 +119,7 @@ class MediaTransformControllerTest extends TestCase
         $response->assertHeader('Content-Type', 'image/jpeg');
         $this->assertLessThan(filesize($this->tempImagePath), strlen($response->getContent()));
 
-        $response = $this->get(route('media.transform', [
+        $response = $this->get(route('image.transform', [
             'id' => 9999,
             'extension' => 'jpg',
         ]));
@@ -136,7 +136,7 @@ class MediaTransformControllerTest extends TestCase
             'h' => 300,
         ];
 
-        $response1 = $this->get(route('media.transform', $params));
+        $response1 = $this->get(route('image.transform', $params));
         $response1->assertStatus(200);
         $response1->assertHeader('Content-Type', 'image/jpeg');
 
@@ -146,7 +146,7 @@ class MediaTransformControllerTest extends TestCase
         $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
-        $response2 = $this->get(route('media.transform', $params));
+        $response2 = $this->get(route('image.transform', $params));
         $response2->assertStatus(200);
         $response2->assertHeader('Content-Type', 'image/jpeg');
 
