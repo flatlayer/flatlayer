@@ -7,7 +7,8 @@ use App\Http\Controllers\EntryDetailController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    // Treat this as a health check
+    return response()->json(['message' => 'OK']);
 });
 
 // ContentItem routes
