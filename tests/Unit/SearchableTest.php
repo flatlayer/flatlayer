@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
-class SearchableTraitTest extends TestCase
+class SearchableTest extends TestCase
 {
     use RefreshDatabase;
 
