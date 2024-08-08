@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Query\EntryFilter;
-use App\Http\Requests\ListRequest;
 use App\Models\Entry;
 use App\Query\EntrySerializer;
+use App\Query\EntryFilter;
+use App\Http\Requests\ListRequest;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class EntryListController extends Controller
+class EntryController extends Controller
 {
     public function __construct(
         protected EntrySerializer $arrayConverter
@@ -36,7 +36,10 @@ class EntryListController extends Controller
         $paginatedResult = $filteredResult->paginate($perPage, ['*'], 'page', $page);
 
         $fields = $request->getFields();
-        $transformedItems = $this->transformItems($paginatedResult->items(), $fields);
+
+        $transformedItems = collect($paginatedResult->items())->map(
+            fn($item) => $this->arrayConverter->toSummaryArray($item, $fields)
+        )->all();
 
         $transformedResults = new LengthAwarePaginator(
             $transformedItems,
@@ -49,10 +52,16 @@ class EntryListController extends Controller
         return response()->json($transformedResults);
     }
 
-    protected function transformItems($items, array $fields)
+    public function show(ListRequest $request, $type, $slug)
     {
-        return collect($items)->map(
-            fn($item) => $this->arrayConverter->toSummaryArray($item, $fields)
-        )->all();
+        $contentItem = Entry::where('type', $type)
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        $fields = $request->getFields();
+
+        return response()->json(
+            $this->arrayConverter->toDetailArray($contentItem, $fields)
+        );
     }
 }

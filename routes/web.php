@@ -1,9 +1,8 @@
 <?php
 
+use App\Http\Controllers\EntryController;
 use App\Http\Controllers\WebhookHandlerController;
 use App\Http\Controllers\ImageTransformController;
-use App\Http\Controllers\EntryListController;
-use App\Http\Controllers\EntryDetailController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -12,8 +11,8 @@ Route::get('/', function () {
 });
 
 // ContentItem routes
-Route::get('/entry/{type}', [EntryListController::class, 'index'])->name('content.list');
-Route::get('/entry/{type}/{slug}', [EntryDetailController::class, 'show'])->name('content.detail');
+Route::get('/entry/{type}', [EntryController::class, 'index'])->name('content.list');
+Route::get('/entry/{type}/{slug}', [EntryController::class, 'show'])->name('content.detail');
 
 // Media transform route
 Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('media.transform');
