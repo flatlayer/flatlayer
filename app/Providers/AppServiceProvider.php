@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use App\Services\JinaSearchService;
 use App\Services\MarkdownProcessingService;
-use App\Services\MediaFileService;
+use App\Services\AssetService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(MarkdownProcessingService::class, function ($app) {
-            return new MarkdownProcessingService($app->make(MediaFileService::class));
+            return new MarkdownProcessingService($app->make(AssetService::class));
         });
     }
 

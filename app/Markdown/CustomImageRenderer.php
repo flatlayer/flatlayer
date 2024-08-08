@@ -2,7 +2,7 @@
 
 namespace App\Markdown;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
@@ -41,14 +41,14 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
 
         if (Str::startsWith($url, '/') || Str::startsWith($url, '\\')) {
             // This is an absolute file path
-            $media = $this->model->media()->where('path', $url)->first();
+            $asset = $this->model->assets()->where('path', $url)->first();
 
             // Get the alt text from the first child node if it exists
             $alt = $this->getNodeAlt($node);
 
-            if ($media instanceof MediaFile) {
+            if ($asset instanceof Asset) {
                 return new HtmlElement('div', ['class' => 'markdown-image'], [
-                    $media->getImgTag(['100vw'], ['alt' => $alt ?? basename($url)]),
+                    $asset->getImgTag(['100vw'], ['alt' => $alt ?? basename($url)]),
                 ]);
             }
         }

@@ -2,19 +2,19 @@
 
 namespace Database\Factories;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
+use App\Models\Entry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-class MediaFileFactory extends Factory
+class AssetFactory extends Factory
 {
-    protected $model = MediaFile::class;
+    protected $model = Asset::class;
 
     public function definition()
     {
         return [
-            'model_type' => $this->faker->word,
-            'model_id' => $this->faker->randomNumber(),
+            'entry_id' => Entry::factory(),
             'collection' => $this->faker->word,
             'filename' => $this->faker->word . '.jpg',
             'path' => $this->faker->filePath(),

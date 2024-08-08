@@ -2,23 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\MediaTransformRequest;
-use App\Models\MediaFile;
+use App\Http\Requests\ImageTransformRequest;
+use App\Models\Asset;
 use App\Services\ImageTransformationService;
 
-class MediaTransformController extends Controller
+class ImageTransformController extends Controller
 {
     public function __construct(
         protected ImageTransformationService $imageService
     ) {}
 
-    public function transform(MediaTransformRequest $request, $id)
+    public function transform(ImageTransformRequest $request, $id)
     {
-        if (config('flatlayer.media.use_signatures') && !$request->hasValidSignature()) {
+        if (config('flatlayer.images.use_signatures') && !$request->hasValidSignature()) {
             abort(401);
         }
 
-        $media = MediaFile::findOrFail($id);
+        $media = Asset::findOrFail($id);
 
         $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
         $cacheKey = $this->imageService->generateCacheKey($id, $request->all());

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
 use App\Models\Entry;
 use App\Services\ImageTransformationService;
 use App\Services\JinaSearchService;
@@ -38,7 +38,7 @@ class MediaTransformControllerTest extends TestCase
 
         $this->contentItem = Entry::factory()->create(['type' => 'post']);
 
-        $this->media = $this->contentItem->addMedia($this->tempImagePath, 'featured_image');
+        $this->media = $this->contentItem->addAsset($this->tempImagePath, 'featured_image');
     }
 
     protected function clearImageCache()

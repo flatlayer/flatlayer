@@ -55,7 +55,7 @@ trait HasMarkdown
 
         $this->save();
 
-        if (method_exists($this, 'addMedia') && isset($processedData['images'])) {
+        if (method_exists($this, 'addAsset') && isset($processedData['images'])) {
             $this->markdownContentService->handleMediaFromFrontMatter($this, $processedData['images'], $filename);
             $this->content = $this->markdownContentService->processMarkdownImages($this, $this->content, $filename);
         }

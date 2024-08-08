@@ -2,7 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
+use App\Models\Entry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\ImageManager;
@@ -11,15 +12,13 @@ use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
-class MediaFileService
+class AssetService
 {
-    public function addMediaToModel(Model $model, string $path, string $collectionName = 'default', array $fileInfo = null): MediaFile
+    public function addAssetToModel(Entry $model, string $path, string $collectionName = 'default', array $fileInfo = null): Asset
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
-        return MediaFile::create([
-            'model_type' => get_class($model),
-            'model_id' => $model->id,
+        return $model->assets()->create([
             'collection' => $collectionName,
             'filename' => basename($path),
             'path' => $path,
@@ -30,9 +29,9 @@ class MediaFileService
         ]);
     }
 
-    public function syncMedia(Model $model, array $filenames, string $collectionName = 'default'): void
+    public function syncAssets(Model $model, array $filenames, string $collectionName = 'default'): void
     {
-        $existingMedia = $model->media()->where('collection', $collectionName)->get()->keyBy('filename');
+        $existingMedia = $model->assets()->where('collection', $collectionName)->get()->keyBy('filename');
         $newFilenames = collect($filenames)->keyBy(function ($path) {
             return basename($path);
         });
@@ -46,28 +45,28 @@ class MediaFileService
 
             if ($existingMedia->has($filename)) {
                 $media = $existingMedia->get($filename);
-                $this->updateMediaIfNeeded($media, $fileInfo);
+                $this->updateAssetIfNeeded($media, $fileInfo);
             } else {
-                $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
+                $this->addAssetToModel($model, $fullPath, $collectionName, $fileInfo);
             }
         }
     }
 
-    public function updateOrCreateMedia(Model $model, string $fullPath, string $collectionName = 'default'): MediaFile
+    public function updateOrCreateAsset(Model $model, string $fullPath, string $collectionName = 'default'): Asset
     {
         $fileInfo = $this->getFileInfo($fullPath);
         $filename = basename($fullPath);
-        $existingMedia = $model->media()->where('collection', $collectionName)->where('filename', $filename)->first();
+        $existingMedia = $model->assets()->where('collection', $collectionName)->where('filename', $filename)->first();
 
         if ($existingMedia) {
-            $this->updateMediaIfNeeded($existingMedia, $fileInfo);
+            $this->updateAssetIfNeeded($existingMedia, $fileInfo);
             return $existingMedia;
         }
 
-        return $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
+        return $this->addAssetToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
-    protected function updateMediaIfNeeded(MediaFile $media, array $fileInfo): void
+    protected function updateAssetIfNeeded(Asset $media, array $fileInfo): void
     {
         $needsUpdate = false;
 

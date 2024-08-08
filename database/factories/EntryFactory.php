@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Entry;
+use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 

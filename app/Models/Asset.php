@@ -7,13 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
-class MediaFile extends Model
+class Asset extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'model_type',
-        'model_id',
+        'entry_id',
         'collection',
         'filename',
         'path',
@@ -82,7 +81,7 @@ class MediaFile extends Model
             $route .= '?' . $queryString;
         }
 
-        if (config('flatlayer.media.use_signatures', true)) {
+        if (config('flatlayer.images.use_signatures', true)) {
             return URL::signedRoute('media.transform', array_merge(
                 ['id' => $this->id, 'extension' => $extension],
                 $transforms

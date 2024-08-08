@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Markdown\CustomImageRenderer;
-use App\Models\MediaFile;
+use App\Models\Asset;
 use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,7 +61,7 @@ class CustomImageRendererTest extends TestCase
 
     public function testEnhancedImageRendering()
     {
-        $media = $this->contentItem->addMedia(Storage::disk('public')->path('test-image.jpg'), 'images');
+        $media = $this->contentItem->addAsset(Storage::disk('public')->path('test-image.jpg'), 'images');
 
         $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
         $imageNode = new Image(

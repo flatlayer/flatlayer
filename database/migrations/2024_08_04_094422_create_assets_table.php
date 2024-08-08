@@ -8,12 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('media_files', function (Blueprint $table) {
+        Schema::create('assets', function (Blueprint $table) {
             $table->id();
-            $table->morphs('model');
+
+            $table->unsignedBigInteger('entry_id');
+            $table->foreign('entry_id')->references('id')->on('entries')->onDelete('cascade');
+
             $table->string('collection');
             $table->string('filename');
-            $table->string('path');
+            $table->string('path')->index();
             $table->string('mime_type')->nullable();
             $table->string('thumbhash')->nullable();
             $table->unsignedBigInteger('size');

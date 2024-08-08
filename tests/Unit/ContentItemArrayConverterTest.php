@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Query\EntrySerializer;
 use App\Models\Entry;
-use App\Models\MediaFile;
+use App\Models\Asset;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -58,9 +58,8 @@ class ContentItemArrayConverterTest extends TestCase
 
     protected function addMediaToContentItem(Entry $contentItem): void
     {
-        $mediaFile = MediaFile::factory()->create([
-            'model_type' => Entry::class,
-            'model_id' => $contentItem->id,
+        $mediaFile = Asset::factory()->create([
+            'entry_id' => $contentItem->id,
             'collection' => 'featured',
             'filename' => 'test-image.jpg',
             'mime_type' => 'image/jpeg',
@@ -68,8 +67,8 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 800, 'height' => 600],
         ]);
 
-        $contentItem->media()->save($mediaFile);
-        $contentItem->load('media'); // Ensure the relationship is loaded
+        $contentItem->assets()->save($mediaFile);
+        $contentItem->load('assets');
     }
 
     public function testToArrayWithDefaultFields()
@@ -258,9 +257,8 @@ class ContentItemArrayConverterTest extends TestCase
 
     public function testMultipleImagesInDifferentCollections()
     {
-        $secondMediaFile = MediaFile::factory()->create([
-            'model_type' => Entry::class,
-            'model_id' => $this->contentItem->id,
+        $secondMediaFile = Asset::factory()->create([
+            'entry_id' => $this->contentItem->id,
             'collection' => 'gallery',
             'filename' => 'gallery-image.jpg',
             'mime_type' => 'image/jpeg',
@@ -268,7 +266,7 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 1024, 'height' => 768],
         ]);
 
-        $this->contentItem->media()->save($secondMediaFile);
+        $this->contentItem->assets()->save($secondMediaFile);
 
         $fields = ['images'];
         $result = $this->converter->toArray($this->contentItem, $fields);

@@ -9,7 +9,7 @@ return [
         ],
     ],
 
-    'media' => [
+    'images' => [
         'use_signatures' => env('FLATLAYER_MEDIA_USE_SIGNATURES', false),
     ],
 
