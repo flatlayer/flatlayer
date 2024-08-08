@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Query\QueryFilter;
-use App\Models\ContentItem;
+use App\Query\EntryFilter;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,14 +23,14 @@ class QueryFilterTest extends TestCase
 
     public function testTagFiltersWithType()
     {
-        $post1 = ContentItem::factory()->create(['type' => 'post']);
-        $post2 = ContentItem::factory()->create(['type' => 'post']);
+        $post1 = Entry::factory()->create(['type' => 'post']);
+        $post2 = Entry::factory()->create(['type' => 'post']);
         $post1->attachTag('red', 'colors');
         $post2->attachTag('blue', 'colors');
 
         $filters = ['$tags' => ['type' => 'colors', 'values' => ['red', 'blue']]];
-        $query = ContentItem::query();
-        $filteredQuery = (new QueryFilter($query, $filters))->apply();
+        $query = Entry::query();
+        $filteredQuery = (new EntryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -46,15 +46,15 @@ class QueryFilterTest extends TestCase
 
     public function testSearch()
     {
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'John Doe',
             'type' => 'post',
             'content' => 'A post about John',
         ]);
 
         $filters = ['$search' => 'a post about John'];
-        $query = ContentItem::query();
-        $filtered = (new QueryFilter($query, $filters))->apply();
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);
@@ -63,7 +63,7 @@ class QueryFilterTest extends TestCase
 
     public function testCombinedFilters()
     {
-        $olderJohn = ContentItem::factory()->create([
+        $olderJohn = Entry::factory()->create([
             'title' => 'John Smith',
             'type' => 'post',
             'content' => 'An older John post',
@@ -72,7 +72,7 @@ class QueryFilterTest extends TestCase
         ]);
         $olderJohn->attachTag('important');
 
-        $youngerJohn = ContentItem::factory()->create([
+        $youngerJohn = Entry::factory()->create([
             'title' => 'John Smith',
             'type' => 'post',
             'content' => 'A younger John post',
@@ -88,7 +88,7 @@ class QueryFilterTest extends TestCase
             '$search' => 'John'
         ];
 
-        $filtered = (new QueryFilter(ContentItem::query(), $filters))->apply();
+        $filtered = (new EntryFilter(Entry::query(), $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);

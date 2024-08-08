@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class ContentItemDetailControllerTest extends TestCase
 
     public function test_can_retrieve_content_item_by_type_and_slug()
     {
-        $contentItem = ContentItem::factory()->create([
+        $contentItem = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
             'slug' => 'test-post',
@@ -46,7 +46,7 @@ class ContentItemDetailControllerTest extends TestCase
 
     public function test_returns_404_for_mismatched_type_and_slug()
     {
-        $contentItem = ContentItem::factory()->create([
+        $contentItem = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
             'slug' => 'test-post',
@@ -60,14 +60,14 @@ class ContentItemDetailControllerTest extends TestCase
 
     public function test_can_retrieve_different_content_types()
     {
-        $post = ContentItem::factory()->create([
+        $post = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
             'slug' => 'test-post',
             'content' => 'This is a test post.',
         ]);
 
-        $document = ContentItem::factory()->create([
+        $document = Entry::factory()->create([
             'type' => 'document',
             'title' => 'Test Document',
             'slug' => 'test-document',

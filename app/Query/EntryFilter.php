@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class QueryFilter
+class EntryFilter
 {
     protected ?string $search;
 

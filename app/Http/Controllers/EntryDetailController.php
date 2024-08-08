@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ContentItem;
-use App\Query\ContentISerializer;
+use App\Models\Entry;
+use App\Query\EntrySerializer;
 use App\Http\Requests\ListRequest;
 
-class ContentItemDetailController extends Controller
+class EntryDetailController extends Controller
 {
     public function __construct(
-        protected ContentISerializer $arrayConverter
+        protected EntrySerializer $arrayConverter
     ) {}
 
     public function show(ListRequest $request, $type, $slug)
     {
-        $contentItem = ContentItem::where('type', $type)
+        $contentItem = Entry::where('type', $type)
             ->where('slug', $slug)
             ->firstOrFail();
 

@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 use Webuni\FrontMatter\FrontMatter;
 
-class MarkdownContentProcessingService
+class MarkdownProcessingService
 {
     protected $imagePaths;
 
@@ -64,7 +64,7 @@ class MarkdownContentProcessingService
         return $processed;
     }
 
-    public function handleMediaFromFrontMatter(ContentItem $contentItem, array $images, string $filename): void
+    public function handleMediaFromFrontMatter(Entry $contentItem, array $images, string $filename): void
     {
         $mediaFileService = app(MediaFileService::class);
 
@@ -83,7 +83,7 @@ class MarkdownContentProcessingService
         }
     }
 
-    public function processMarkdownImages(ContentItem $contentItem, string $markdownContent, string $filename): string
+    public function processMarkdownImages(Entry $contentItem, string $markdownContent, string $filename): string
     {
         $pattern = '/!\[(.*?)\]\((.*?)\)/';
         $imagePaths = new Collection();
@@ -119,7 +119,7 @@ class MarkdownContentProcessingService
         return File::exists($fullPath) ? $fullPath : $mediaItem;
     }
 
-    protected function syncImagesCollection(ContentItem $contentItem, Collection $newImagePaths, string $collectionName): void
+    protected function syncImagesCollection(Entry $contentItem, Collection $newImagePaths, string $collectionName): void
     {
         $existingMedia = $contentItem->getMedia($collectionName);
         $existingPaths = $existingMedia->pluck('path');
@@ -137,7 +137,7 @@ class MarkdownContentProcessingService
         $existingMedia->whereIn('path', $pathsToRemove)->each->delete();
     }
 
-    protected function addMediaToContentItem(ContentItem $contentItem, string $path, string $collectionName): void
+    protected function addMediaToContentItem(Entry $contentItem, string $path, string $collectionName): void
     {
         if (method_exists($contentItem, 'addMedia')) {
             $contentItem->addMedia($path)->toMediaCollection($collectionName);

@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\ContentSyncJob;
+use App\Jobs\EntrySyncJob;
 use App\Services\SyncConfigurationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use CzProject\GitPhp\Git;
 
-class ContentSyncCommand extends Command
+class EntrySyncCommand extends Command
 {
-    protected $signature = 'flatlayer:content-sync
+    protected $signature = 'flatlayer:entry-sync
                             {path? : Path to the content folder}
                             {--type= : Content type (required if path is not provided)}
                             {--pattern= : Glob pattern for finding content files}
@@ -61,7 +61,7 @@ class ContentSyncCommand extends Command
         $shouldPull = $this->option('pull');
         $skipIfNoChanges = $this->option('skip');
 
-        $job = new ContentSyncJob($fullPath, $type, $pattern, $shouldPull, $skipIfNoChanges);
+        $job = new EntrySyncJob($fullPath, $type, $pattern, $shouldPull, $skipIfNoChanges);
 
         if ($this->option('dispatch')) {
             dispatch($job);

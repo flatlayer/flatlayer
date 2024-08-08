@@ -3,16 +3,16 @@
 namespace App\Traits;
 
 use App\Markdown\EnhancedMarkdownRenderer;
-use App\Services\MarkdownContentProcessingService;
+use App\Services\MarkdownProcessingService;
 use Spatie\Tags\HasTags;
 
-trait MarkdownContentModel
+trait HasMarkdown
 {
-    protected MarkdownContentProcessingService $markdownContentService;
+    protected MarkdownProcessingService $markdownContentService;
 
     public function initializeMarkdownModel()
     {
-        $this->markdownContentService = app(MarkdownContentProcessingService::class);
+        $this->markdownContentService = app(MarkdownProcessingService::class);
     }
 
     public static function createFromMarkdown(string $filename, string $type='post'): self
@@ -69,7 +69,7 @@ trait MarkdownContentModel
 
     protected static function generateSlugFromFilename(string $filename): string
     {
-        return app(MarkdownContentProcessingService::class)->generateSlugFromFilename($filename);
+        return app(MarkdownProcessingService::class)->generateSlugFromFilename($filename);
     }
 
     public function getParsedContent(): string

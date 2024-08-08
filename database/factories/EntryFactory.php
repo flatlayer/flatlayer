@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-class ContentItemFactory extends Factory
+class EntryFactory extends Factory
 {
-    protected $model = ContentItem::class;
+    protected $model = Entry::class;
 
     public function definition(): array
     {

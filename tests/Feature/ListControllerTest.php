@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -20,7 +20,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_paginated_results()
     {
-        ContentItem::factory()->count(20)->create(['type' => 'post']);
+        Entry::factory()->count(20)->create(['type' => 'post']);
 
         $response = $this->getJson('/content/post');
 
@@ -36,7 +36,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_respects_per_page_parameter()
     {
-        ContentItem::factory()->count(20)->create(['type' => 'post']);
+        Entry::factory()->count(20)->create(['type' => 'post']);
 
         $response = $this->getJson('/content/post?per_page=10');
 
@@ -53,9 +53,9 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_tag_filters()
     {
-        $postA = ContentItem::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        $postB = ContentItem::factory()->create(['title' => 'Post B', 'type' => 'post']);
-        $postC = ContentItem::factory()->create(['title' => 'Post C', 'type' => 'post']);
+        $postA = Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        $postB = Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
+        $postC = Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
 
         $postA->attachTag('tag1');
         $postB->attachTag('tag2');
@@ -85,8 +85,8 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_field_filters()
     {
-        ContentItem::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        ContentItem::factory()->create(['title' => 'Post B', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
 
         $filter = json_encode(['title' => 'Post A']);
         $response = $this->getJson("/content/post?filter={$filter}");
@@ -98,9 +98,9 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_operator_field_filters()
     {
-        ContentItem::factory()->create(['title' => 'AAA Post', 'type' => 'post']);
-        ContentItem::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
-        ContentItem::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'AAA Post', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
 
         $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
         $response = $this->getJson("/content/post?filter={$filter}");
@@ -113,7 +113,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_transforms_items_using_to_summary_array()
     {
-        $post = ContentItem::factory()->create([
+        $post = Entry::factory()->create([
             'title' => 'Test Post',
             'content' => 'This content should not appear in summary',
             'slug' => 'test-post',
@@ -131,8 +131,8 @@ class ListControllerTest extends TestCase
 
     public function test_index_filters_by_type()
     {
-        ContentItem::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        ContentItem::factory()->create(['title' => 'Document B', 'type' => 'document']);
+        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'Document B', 'type' => 'document']);
 
         $response = $this->getJson('/content/post');
 
@@ -149,7 +149,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_only_specified_fields()
     {
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'Test Post',
             'content' => 'This is the content',
             'excerpt' => 'This is the excerpt',
@@ -171,7 +171,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_nested_meta_fields()
     {
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'Test Post',
             'type' => 'post',
             'meta' => [
@@ -201,7 +201,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_formatted_images()
     {
-        $post = ContentItem::factory()->create(['type' => 'post']);
+        $post = Entry::factory()->create(['type' => 'post']);
         $post->addMedia(base_path('tests/fixtures/test.png'), 'featured');
 
         $fields = json_encode(['title', 'images.featured']);
@@ -254,7 +254,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_respects_field_options()
     {
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'Test Post',
             'type' => 'post',
             'published_at' => now(),

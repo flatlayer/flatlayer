@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ContentSyncJob;
+use App\Jobs\EntrySyncJob;
 use App\Services\SyncConfigurationService;
 use CzProject\GitPhp\Git;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -65,7 +65,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertStatus(202);
         $response->assertSee('Sync initiated');
 
-        Queue::assertPushed(ContentSyncJob::class, function ($job) use ($tempDir) {
+        Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
             $config = $job->getJobConfig();
             return $config['type'] === 'post' &&
                 $config['path'] === $tempDir &&
@@ -89,7 +89,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertStatus(403);
         $response->assertSee('Invalid signature');
 
-        Queue::assertNotPushed(ContentSyncJob::class);
+        Queue::assertNotPushed(EntrySyncJob::class);
         $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), "Expected log message not found");
     }
 
@@ -109,7 +109,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertStatus(400);
         $response->assertSee('Configuration for invalid-type not found');
 
-        Queue::assertNotPushed(ContentSyncJob::class);
+        Queue::assertNotPushed(EntrySyncJob::class);
         $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), "Expected log message not found");
     }
 
@@ -127,7 +127,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $path = '/path/to/posts';
         $pattern = '*.md';
 
-        $job = new ContentSyncJob($path, $type, $pattern, true, true);
+        $job = new EntrySyncJob($path, $type, $pattern, true, true);
         $job->handle($gitMock);
 
         $this->assertTrue(

@@ -2,12 +2,12 @@
 
 namespace App\Query;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
-class ContentISerializer
+class EntrySerializer
 {
     protected $defaultFields = [
         'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'
@@ -21,22 +21,22 @@ class ContentISerializer
         'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'
     ];
 
-    public function toArray(ContentItem $item, array $fields = []): array
+    public function toArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultFields);
     }
 
-    public function toSummaryArray(ContentItem $item, array $fields = []): array
+    public function toSummaryArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultSummaryFields);
     }
 
-    public function toDetailArray(ContentItem $item, array $fields = []): array
+    public function toDetailArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultDetailFields);
     }
 
-    protected function convertToArray(ContentItem $item, array $fields): array
+    protected function convertToArray(Entry $item, array $fields): array
     {
         $result = [];
 
@@ -59,7 +59,7 @@ class ContentISerializer
         return $result;
     }
 
-    protected function getFieldValue(ContentItem $item, string $field, $options = null)
+    protected function getFieldValue(Entry $item, string $field, $options = null)
     {
         if (Str::startsWith($field, 'meta.')) {
             return $this->getMetaValue($item, Str::after($field, 'meta.'), $options);
@@ -82,13 +82,13 @@ class ContentISerializer
         }
     }
 
-    protected function getMetaValue(ContentItem $item, string $key, $options = null)
+    protected function getMetaValue(Entry $item, string $key, $options = null)
     {
         $value = Arr::get($item->meta, $key);
         return $value !== null ? $this->castValue($value, $options) : null;
     }
 
-    protected function getAllMetaValues(ContentItem $item, $options = null)
+    protected function getAllMetaValues(Entry $item, $options = null)
     {
         if (!is_array($options)) {
             return $item->meta;
@@ -147,7 +147,7 @@ class ContentISerializer
             : Carbon::parse($value)->toDateTimeString();
     }
 
-    protected function getImage(ContentItem $item, string $collection, $options = null): array
+    protected function getImage(Entry $item, string $collection, $options = null): array
     {
         $mediaItems = $item->getMedia($collection);
         return $mediaItems->map(function ($mediaItem) use ($options) {
@@ -155,7 +155,7 @@ class ContentISerializer
         })->toArray();
     }
 
-    protected function getImages(ContentItem $item, $options = null): array
+    protected function getImages(Entry $item, $options = null): array
     {
         $images = [];
         $collections = $item->media()->get()->groupBy('collection');

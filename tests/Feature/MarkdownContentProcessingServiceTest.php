@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\ContentItem;
-use App\Services\MarkdownContentProcessingService;
+use App\Models\Entry;
+use App\Services\MarkdownProcessingService;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -16,15 +16,15 @@ class MarkdownContentProcessingServiceTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    protected MarkdownContentProcessingService $service;
-    protected ContentItem $contentItem;
+    protected MarkdownProcessingService $service;
+    protected Entry $contentItem;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = app(MarkdownContentProcessingService::class);
+        $this->service = app(MarkdownProcessingService::class);
         JinaSearchService::fake();
-        $this->contentItem = ContentItem::factory()->create(['type' => 'post']);
+        $this->contentItem = Entry::factory()->create(['type' => 'post']);
         Storage::fake('local');
     }
 
@@ -56,14 +56,14 @@ class MarkdownContentProcessingServiceTest extends TestCase
         $this->service->handleMediaFromFrontMatter($this->contentItem, $data['images'], $markdownPath);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $this->contentItem->id,
             'collection' => 'featured',
             'filename' => 'featured.jpg',
         ]);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $this->contentItem->id,
             'collection' => 'thumbnail',
             'filename' => 'thumbnail.png',
@@ -105,14 +105,14 @@ class MarkdownContentProcessingServiceTest extends TestCase
         $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('posts/image3.png') . ')', $result);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $this->contentItem->id,
             'collection' => 'content',
             'filename' => 'image1.jpg',
         ]);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $this->contentItem->id,
             'collection' => 'content',
             'filename' => 'image3.png',
@@ -124,7 +124,7 @@ class MarkdownContentProcessingServiceTest extends TestCase
 
     public function test_resolve_media_path()
     {
-        $method = new \ReflectionMethod(MarkdownContentProcessingService::class, 'resolveMediaPath');
+        $method = new \ReflectionMethod(MarkdownProcessingService::class, 'resolveMediaPath');
         $method->setAccessible(true);
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');

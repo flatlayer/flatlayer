@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Query\ContentISerializer;
-use App\Models\ContentItem;
+use App\Query\EntrySerializer;
+use App\Models\Entry;
 use App\Models\MediaFile;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,20 +14,20 @@ class ContentItemArrayConverterTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected ContentISerializer $converter;
-    protected ContentItem $contentItem;
+    protected EntrySerializer $converter;
+    protected Entry $contentItem;
 
     protected function setUp(): void
     {
         parent::setUp();
         JinaSearchService::fake();
-        $this->converter = new ContentISerializer();
+        $this->converter = new EntrySerializer();
         $this->contentItem = $this->createContentItem();
     }
 
-    protected function createContentItem(): ContentItem
+    protected function createContentItem(): Entry
     {
-        $contentItem = ContentItem::factory()->create([
+        $contentItem = Entry::factory()->create([
             'title' => 'Test Content',
             'slug' => 'test-content',
             'content' => 'This is test content.',
@@ -56,10 +56,10 @@ class ContentItemArrayConverterTest extends TestCase
         return $contentItem;
     }
 
-    protected function addMediaToContentItem(ContentItem $contentItem): void
+    protected function addMediaToContentItem(Entry $contentItem): void
     {
         $mediaFile = MediaFile::factory()->create([
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $contentItem->id,
             'collection' => 'featured',
             'filename' => 'test-image.jpg',
@@ -259,7 +259,7 @@ class ContentItemArrayConverterTest extends TestCase
     public function testMultipleImagesInDifferentCollections()
     {
         $secondMediaFile = MediaFile::factory()->create([
-            'model_type' => ContentItem::class,
+            'model_type' => Entry::class,
             'model_id' => $this->contentItem->id,
             'collection' => 'gallery',
             'filename' => 'gallery-image.jpg',

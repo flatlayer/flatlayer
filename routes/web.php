@@ -2,8 +2,8 @@
 
 use App\Http\Controllers\WebhookHandlerController;
 use App\Http\Controllers\MediaTransformController;
-use App\Http\Controllers\ContentItemListController;
-use App\Http\Controllers\ContentItemDetailController;
+use App\Http\Controllers\EntryListController;
+use App\Http\Controllers\EntryDetailController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -11,8 +11,8 @@ Route::get('/', function () {
 });
 
 // ContentItem routes
-Route::get('/content/{type}', [ContentItemListController::class, 'index'])->name('content.list');
-Route::get('/content/{type}/{slug}', [ContentItemDetailController::class, 'show'])->name('content.detail');
+Route::get('/content/{type}', [EntryListController::class, 'index'])->name('content.list');
+Route::get('/content/{type}/{slug}', [EntryDetailController::class, 'show'])->name('content.detail');
 
 // Media transform route
 Route::get('/media/{id}.{extension}', [MediaTransformController::class, 'transform'])->name('media.transform');

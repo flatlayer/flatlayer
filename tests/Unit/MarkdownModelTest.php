@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -37,7 +37,7 @@ class MarkdownModelTest extends TestCase
 
     public function testFromMarkdown()
     {
-        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_basic.md'), 'post');
+        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_basic.md'), 'post');
 
         $this->assertEquals('Test Basic Markdown', $model->title);
         $this->assertEquals("This is the content of the basic markdown file.", trim($model->content));
@@ -55,7 +55,7 @@ class MarkdownModelTest extends TestCase
         $updatedPath = Storage::disk('local')->path('test_sync_updated.md');
 
         // First sync
-        $model = ContentItem::syncFromMarkdown($originalPath, 'post', true);
+        $model = Entry::syncFromMarkdown($originalPath, 'post', true);
 
         $this->assertEquals('Initial Title', $model->title);
         $this->assertEquals('Initial content', trim($model->content));
@@ -70,7 +70,7 @@ class MarkdownModelTest extends TestCase
         file_put_contents($originalPath, $updatedContent);
 
         // Second sync (update) using the same file
-        $updatedModel = ContentItem::syncFromMarkdown($originalPath, 'post', true);
+        $updatedModel = Entry::syncFromMarkdown($originalPath, 'post', true);
 
         $this->assertEquals($initialId, $updatedModel->id, "The updated model should have the same ID as the original");
         $this->assertEquals('Updated Title', $updatedModel->title);
@@ -78,7 +78,7 @@ class MarkdownModelTest extends TestCase
         $this->assertEquals('test-sync', $updatedModel->slug, "The slug should not change during update");
         $this->assertEquals('post', $updatedModel->type);
 
-        $this->assertEquals(1, ContentItem::count(), "There should only be one model after sync");
+        $this->assertEquals(1, Entry::count(), "There should only be one model after sync");
     }
 
     public function testHandleMediaFromFrontMatter()
@@ -103,7 +103,7 @@ class MarkdownModelTest extends TestCase
         $content .= "Test content";
         Storage::disk('local')->put('test_media.md', $content);
 
-        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_media.md'));
+        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_media.md'));
 
         $this->assertEquals(2, $model->media()->count());
         $this->assertTrue($model->media()->get()->contains('collection', 'featured'));
@@ -134,7 +134,7 @@ class MarkdownModelTest extends TestCase
         $content .= "![Alt Text 3](image3.png)\n";
         Storage::disk('local')->put('test_images.md', $content);
 
-        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
+        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
 
         $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('image1.jpg') . ')', $model->content);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);

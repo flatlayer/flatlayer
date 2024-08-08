@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Query\QueryFilter;
+use App\Query\EntryFilter;
 use App\Http\Requests\ListRequest;
-use App\Models\ContentItem;
-use App\Query\ContentISerializer;
+use App\Models\Entry;
+use App\Query\EntrySerializer;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class ContentItemListController extends Controller
+class EntryListController extends Controller
 {
     public function __construct(
-        protected ContentISerializer $arrayConverter
+        protected EntrySerializer $arrayConverter
     ) {}
 
     public function index(ListRequest $request, $type = null)
     {
-        $query = ContentItem::query();
+        $query = Entry::query();
 
         if ($type) {
             $query->where('type', $type);
@@ -27,7 +27,7 @@ class ContentItemListController extends Controller
             }
         }
 
-        $filter = new QueryFilter($query, $request->getFilter());
+        $filter = new EntryFilter($query, $request->getFilter());
         $filteredResult = $filter->apply();
 
         $perPage = $request->input('per_page', 15);

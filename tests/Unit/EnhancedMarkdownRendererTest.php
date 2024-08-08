@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Markdown\EnhancedMarkdownRenderer;
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +22,7 @@ class EnhancedMarkdownRendererTest extends TestCase
 
         JinaSearchService::fake();
 
-        $this->contentItem = ContentItem::factory()->create([
+        $this->contentItem = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
             'content' => "# Test Content\n\nThis is a test paragraph.\n\n![Test Image](/test-image.jpg)",

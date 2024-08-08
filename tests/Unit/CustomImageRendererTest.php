@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Markdown\CustomImageRenderer;
 use App\Models\MediaFile;
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +29,7 @@ class CustomImageRendererTest extends TestCase
 
         JinaSearchService::fake();
 
-        $this->contentItem = ContentItem::factory()->create([
+        $this->contentItem = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
         ]);

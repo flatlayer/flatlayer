@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,12 +32,12 @@ class ContentSyncCommandTest extends TestCase
     {
         $this->createTestFiles();
 
-        $exitCode = Artisan::call('flatlayer:content-sync', ['path' => Storage::path('posts')]);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
         $this->assertEquals(0, $exitCode);
-        $this->assertDatabaseCount('content_items', 2);
-        $this->assertDatabaseHas('content_items', ['title' => 'Test Post 1', 'type' => 'post']);
-        $this->assertDatabaseHas('content_items', ['title' => 'Test Post 2', 'type' => 'post']);
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 1', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
     }
 
     public function testContentSyncCommandWithType()
@@ -55,18 +55,18 @@ class ContentSyncCommandTest extends TestCase
                 '--pattern' => '*.md',
             ]);
 
-        $exitCode = Artisan::call('flatlayer:content-sync', ['--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'post']);
 
         $this->assertEquals(0, $exitCode);
-        $this->assertDatabaseCount('content_items', 2);
-        $this->assertDatabaseHas('content_items', ['title' => 'Test Post 1', 'type' => 'post']);
-        $this->assertDatabaseHas('content_items', ['title' => 'Test Post 2', 'type' => 'post']);
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 1', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
     }
 
     public function testContentSyncCommandUpdatesAndDeletes()
     {
         $this->createTestFiles();
-        Artisan::call('flatlayer:content-sync', ['path' => Storage::path('posts')]);
+        Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
         // Modify an existing file
         Storage::disk('local')->put('posts/post1.md', "---\ntitle: Updated Post 1\n---\nUpdated Content 1");
@@ -77,13 +77,13 @@ class ContentSyncCommandTest extends TestCase
         // Add a new file
         Storage::disk('local')->put('posts/post3.md', "---\ntitle: Test Post 3\n---\nContent 3");
 
-        $exitCode = Artisan::call('flatlayer:content-sync', ['path' => Storage::path('posts')]);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
         $this->assertEquals(0, $exitCode);
-        $this->assertDatabaseCount('content_items', 2);
-        $this->assertDatabaseHas('content_items', ['title' => 'Updated Post 1', 'type' => 'post']);
-        $this->assertDatabaseMissing('content_items', ['title' => 'Test Post 2', 'type' => 'post']);
-        $this->assertDatabaseHas('content_items', ['title' => 'Test Post 3', 'type' => 'post']);
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Updated Post 1', 'type' => 'post']);
+        $this->assertDatabaseMissing('entries', ['title' => 'Test Post 2', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 3', 'type' => 'post']);
     }
 
     public function testContentSyncCommandWithInvalidType()
@@ -92,14 +92,14 @@ class ContentSyncCommandTest extends TestCase
             ->with('invalid-type')
             ->andReturn(false);
 
-        $exitCode = Artisan::call('flatlayer:content-sync', ['--type' => 'invalid-type']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'invalid-type']);
 
         $this->assertEquals(1, $exitCode);
     }
 
     public function testContentSyncCommandWithInvalidPath()
     {
-        $exitCode = Artisan::call('flatlayer:content-sync', ['path' => '/non/existent/path']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => '/non/existent/path']);
 
         $this->assertEquals(1, $exitCode);
     }

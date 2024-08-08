@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Query\ContentISerializer;
+use App\Query\EntrySerializer;
 use App\Traits\HasMediaFiles;
-use App\Traits\MarkdownContentModel;
+use App\Traits\HasMarkdown;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\Model;
 use Pgvector\Laravel\Vector;
 use Spatie\Tags\HasTags;
 
-class ContentItem extends Model
+class Entry extends Model
 {
-    use HasFactory, HasMediaFiles, HasTags, Searchable, MarkdownContentModel;
+    use HasFactory, HasMediaFiles, HasTags, Searchable, HasMarkdown;
 
     protected $fillable = [
         'type',
@@ -56,7 +56,7 @@ class ContentItem extends Model
 
     public function toArray($fields = null): array
     {
-        return (new ContentISerializer())->toArray($this, $fields);
+        return (new EntrySerializer())->toArray($this, $fields);
     }
 
     public static function findByTypeAndSlug($type, $slug)

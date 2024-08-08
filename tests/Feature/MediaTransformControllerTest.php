@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\MediaFile;
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\ImageTransformationService;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +36,7 @@ class MediaTransformControllerTest extends TestCase
 
         $this->tempImagePath = $this->createTempImage();
 
-        $this->contentItem = ContentItem::factory()->create(['type' => 'post']);
+        $this->contentItem = Entry::factory()->create(['type' => 'post']);
 
         $this->media = $this->contentItem->addMedia($this->tempImagePath, 'featured_image');
     }

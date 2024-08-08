@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\ContentItem;
+use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -20,7 +20,7 @@ class SearchableTest extends TestCase
 
     public function testUpdateSearchVector()
     {
-        $contentItem = ContentItem::factory()->create([
+        $contentItem = Entry::factory()->create([
             'title' => 'Test Title',
             'content' => 'Test Content',
             'type' => 'post'
@@ -33,19 +33,19 @@ class SearchableTest extends TestCase
     public function testSearch()
     {
         // Create test records
-        $first = ContentItem::factory()->create([
+        $first = Entry::factory()->create([
             'title' => 'First document',
             'content' => 'This is the first test document',
             'type' => 'post'
         ]);
-        $second = ContentItem::factory()->create([
+        $second = Entry::factory()->create([
             'title' => 'Second document',
             'content' => 'This is the second test document',
             'type' => 'post'
         ]);
 
         // Perform the search
-        $results = ContentItem::search('test document', 2, false);
+        $results = Entry::search('test document', 2, false);
 
         // Detailed assertions
         $this->assertCount(2, $results);
@@ -69,18 +69,18 @@ class SearchableTest extends TestCase
     public function testSearchWithReranking()
     {
         // Create actual records in the database
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'First',
             'content' => 'This is a test document',
             'type' => 'post'
         ]);
-        ContentItem::factory()->create([
+        Entry::factory()->create([
             'title' => 'Second',
             'content' => 'This is an actual real document',
             'type' => 'post'
         ]);
 
-        $results = ContentItem::search('test document', 2, true);
+        $results = Entry::search('test document', 2, true);
 
         $this->assertEquals(2, $results->count());
         $this->assertEquals('First', $results[0]->title);
