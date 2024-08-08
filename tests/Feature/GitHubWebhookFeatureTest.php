@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 use Mockery;
 
-class GitHubWebhookTest extends TestCase
+class GitHubWebhookFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -73,7 +74,6 @@ class GitHubWebhookTest extends TestCase
                 $config['skipIfNoChanges'] === true;
         });
 
-        // Clean up
         rmdir($tempDir);
     }
 
@@ -139,6 +139,33 @@ class GitHubWebhookTest extends TestCase
             in_array("Content sync completed for type: {$type}", $this->logMessages),
             "Expected log message not found"
         );
+    }
+
+    public function testHandleSyncError()
+    {
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('post')
+            ->andReturn(true);
+
+        $this->syncConfigService->shouldReceive('getConfig')
+            ->with('post')
+            ->andReturn([
+                'path' => '/path/to/posts',
+                '--pattern' => '**/*.md',
+            ]);
+
+        Artisan::shouldReceive('call')
+            ->andThrow(new \Exception('Sync error'));
+
+        $payload = ['repository' => ['name' => 'test-repo']];
+        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+
+        $response = $this->postJson('/webhook/post', $payload, [
+            'X-Hub-Signature-256' => $signature,
+        ]);
+
+        $response->assertStatus(500);
+        $response->assertSee('Error executing sync');
     }
 
     protected function tearDown(): void
