@@ -5,7 +5,8 @@ namespace App\Filter;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdvancedQueryFilter
 {
@@ -57,19 +58,71 @@ class AdvancedQueryFilter
 
     protected function applyFieldFilter($query, string $field, $value): void
     {
-        if (is_array($value)) {
-            if (isset($value['$in'])) {
-                $query->whereIn($field, $value['$in']);
-            } elseif (isset($value['$exists'])) {
-                $method = $value['$exists'] ? 'whereNotNull' : 'whereNull';
-                $query->$method($field);
-            } else {
-                foreach ($value as $operator => $operand) {
-                    $this->applyOperator($query, $field, $operator, $operand);
+        if (Str::contains($field, '.')) {
+            $this->applyJsonFieldFilter($query, $field, $value);
+        } else {
+            if (is_array($value)) {
+                if (isset($value['$in'])) {
+                    $query->whereIn($field, $value['$in']);
+                } elseif (isset($value['$exists'])) {
+                    $method = $value['$exists'] ? 'whereNotNull' : 'whereNull';
+                    $query->$method($field);
+                } else {
+                    foreach ($value as $operator => $operand) {
+                        $this->applyOperator($query, $field, $operator, $operand);
+                    }
                 }
+            } else {
+                $query->where($field, $value);
+            }
+        }
+    }
+
+    protected function applyJsonFieldFilter($query, string $field, $value): void
+    {
+        [$jsonField, $jsonKey] = explode('.', $field, 2);
+
+        if (is_array($value)) {
+            foreach ($value as $operator => $operand) {
+                $this->applyJsonOperator($query, $jsonField, $jsonKey, $operator, $operand);
             }
         } else {
-            $query->where($field, $value);
+            $this->applyJsonExactMatch($query, $jsonField, $jsonKey, $value);
+        }
+    }
+
+    protected function applyJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    {
+        $databaseDriver = DB::getDriverName();
+
+        if ($databaseDriver === 'pgsql') {
+            $this->applyPostgresJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
+        } else {
+            $this->applySqliteJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
+        }
+    }
+
+    protected function applyPostgresJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    {
+        $jsonOperator = $this->mapJsonOperator($operator);
+        $castType = is_numeric($value) ? '::numeric' : '';
+        $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} {$jsonOperator} ?", [$value]);
+    }
+
+    protected function applySqliteJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    {
+        $jsonOperator = $this->mapJsonOperator($operator);
+        $query->whereRaw("JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') {$jsonOperator} ?", [$value]);
+    }
+
+    protected function applyJsonExactMatch($query, string $jsonField, string $jsonKey, $value): void
+    {
+        $databaseDriver = DB::getDriverName();
+
+        if ($databaseDriver === 'pgsql') {
+            $query->whereRaw("{$jsonField}->'{$jsonKey}' = ?", [$value]);
+        } else {
+            $query->whereRaw("JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') = ?", [$value]);
         }
     }
 
@@ -93,6 +146,24 @@ class AdvancedQueryFilter
                 break;
             default:
                 $query->where($field, $value);
+        }
+    }
+
+    protected function mapJsonOperator(string $operator): string
+    {
+        switch ($operator) {
+            case '$gt':
+                return '>';
+            case '$gte':
+                return '>=';
+            case '$lt':
+                return '<';
+            case '$lte':
+                return '<=';
+            case '$ne':
+                return '!=';
+            default:
+                return '=';
         }
     }
 

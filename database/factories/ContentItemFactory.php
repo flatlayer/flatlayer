@@ -19,6 +19,7 @@ class ContentItemFactory extends Factory
             'slug' => Str::slug($title),
             'content' => $this->faker->paragraphs(3, true),
             'excerpt' => $this->faker->paragraph,
+            'filename' => $this->faker->filePath() . '/' . $this->faker->word . '.md',
             'meta' => [
                 'author' => $this->faker->name,
                 'reading_time' => $this->faker->numberBetween(1, 20),

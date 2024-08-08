@@ -3,11 +3,11 @@
 namespace Tests\Unit;
 
 use App\Filter\AdvancedQueryFilter;
+use App\Models\ContentItem;
 use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
-use Tests\Fakes\TestFilterModel;
 use Tests\TestCase;
 use Mockery;
 
@@ -15,32 +15,27 @@ class QueryFilterTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $jinaService;
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        $migrationFile = require base_path('tests/database/migrations/create_test_filter_models_table.php');
-        (new $migrationFile)->up();
-
         JinaSearchService::fake();
-        TestFilterModel::factory()->count(20)->create();
     }
 
     public function testTagFiltersWithType()
     {
-        TestFilterModel::first()->attachTag('red', 'colors');
-        TestFilterModel::find(2)->attachTag('blue', 'colors');
+        $post1 = ContentItem::factory()->create(['type' => 'post']);
+        $post2 = ContentItem::factory()->create(['type' => 'post']);
+        $post1->attachTag('red', 'colors');
+        $post2->attachTag('blue', 'colors');
 
         $filters = ['$tags' => ['type' => 'colors', 'values' => ['red', 'blue']]];
-        $query = TestFilterModel::query();
+        $query = ContentItem::query();
         $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
 
-        $this->assertGreaterThanOrEqual(2, $results->count());
+        $this->assertCount(2, $results);
         $this->assertTrue($results->contains(function ($model) {
             return $model->tags->where('type', 'colors')->pluck('name')->contains('red');
         }));
@@ -51,62 +46,59 @@ class QueryFilterTest extends TestCase
 
     public function testSearch()
     {
-        // Create a matching item
-        TestFilterModel::factory()->create([
-            'name' => 'John Doe',
+        ContentItem::factory()->create([
+            'title' => 'John Doe',
+            'type' => 'post',
+            'content' => 'A post about John',
         ]);
 
-        $filters = ['$search' => 'a man named John'];
-        $query = TestFilterModel::query();
+        $filters = ['$search' => 'a post about John'];
+        $query = ContentItem::query();
         $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
-        $this->assertGreaterThanOrEqual(1, $filtered->count());
+        $this->assertCount(1, $filtered);
         $this->assertGreaterThanOrEqual(0.1, $filtered->first()->relevance);
     }
 
     public function testCombinedFilters()
     {
-        // Create an older John Smith
-        $olderJohn = TestFilterModel::factory()->create([
-            'name' => 'John Smith',
-            'age' => 50,
-            'is_active' => true,
-            'embedding' => json_encode(array_fill(0, 768, 0.1))
+        $olderJohn = ContentItem::factory()->create([
+            'title' => 'John Smith',
+            'type' => 'post',
+            'content' => 'An older John post',
+            'meta' => ['age' => 50],
+            'published_at' => now()->subDays(30),
         ]);
         $olderJohn->attachTag('important');
 
-        // Create a younger John Smith
-        $youngerJohn = TestFilterModel::factory()->create([
-            'name' => 'John Smith',
-            'age' => 30,
-            'is_active' => true,
-            'embedding' => json_encode(array_fill(0, 768, 0.2))
+        $youngerJohn = ContentItem::factory()->create([
+            'title' => 'John Smith',
+            'type' => 'post',
+            'content' => 'A younger John post',
+            'meta' => ['age' => 30],
+            'published_at' => now()->subDays(10),
         ]);
         $youngerJohn->attachTag('important');
 
         $filters = [
-            'age' => ['$gte' => 25, '$lt' => 40],  // This should only match the younger John
-            'is_active' => true,
+            'meta.age' => ['$gte' => 25, '$lt' => 40],
+            'published_at' => ['$gte' => now()->subDays(20)->toDateTimeString()],
             '$tags' => ['important'],
             '$search' => 'John'
         ];
 
-        // Then apply the filters
-        $filtered = (new AdvancedQueryFilter(TestFilterModel::query(), $filters))->apply();
+        $filtered = (new AdvancedQueryFilter(ContentItem::query(), $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);
 
         $model = $filtered->first();
-        $this->assertGreaterThanOrEqual(25, $model->age);
-        $this->assertLessThan(40, $model->age);
-        $this->assertTrue($model->is_active);
+        $this->assertEquals('John Smith', $model->title);
+        $this->assertEquals(30, $model->meta['age']);
+        $this->assertTrue($model->published_at->gt(now()->subDays(20)));
         $this->assertTrue($model->tags->pluck('name')->contains('important'));
-        $this->assertStringContainsString('John', $model->name);
-
-        // Additional assertion to ensure we got the younger John
-        $this->assertEquals(30, $filtered->first()->age);
+        $this->assertStringContainsString('younger John', $model->content);
     }
 
     protected function tearDown(): void

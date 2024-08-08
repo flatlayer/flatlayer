@@ -96,7 +96,7 @@ trait Searchable
     {
         return $builder->get()
             ->map(function ($item) use ($embedding) {
-                $item->similarity = Distance::cosineSimilarity($item->embedding, $embedding);
+                $item->similarity = Distance::cosineSimilarity($item->embedding->toArray(), $embedding);
                 return $item;
             })
             ->sortByDesc('similarity')
