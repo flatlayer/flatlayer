@@ -147,10 +147,18 @@ class ContentItemArrayConverter
             : Carbon::parse($value)->toDateTimeString();
     }
 
+    protected function getImage(ContentItem $item, string $collection, $options = null): array
+    {
+        $mediaItems = $item->getMedia($collection);
+        return $mediaItems->map(function ($mediaItem) use ($options) {
+            return $this->formatImage($mediaItem, $options);
+        })->toArray();
+    }
+
     protected function getImages(ContentItem $item, $options = null): array
     {
         $images = [];
-        $collections = $item->getMedia()->groupBy('collection');
+        $collections = $item->media()->get()->groupBy('collection');
 
         foreach ($collections as $collection => $mediaItems) {
             $images[$collection] = $mediaItems->map(function ($mediaItem) use ($options) {
@@ -161,12 +169,6 @@ class ContentItemArrayConverter
         return $images;
     }
 
-    protected function getImage(ContentItem $item, string $collection, $options = null)
-    {
-        $mediaItem = $item->getMedia($collection)->first();
-        return $mediaItem ? $this->formatImage($mediaItem, $options) : null;
-    }
-
     protected function formatImage($mediaItem, $options = null): array
     {
         $sizes = $options['sizes'] ?? ['100vw'];
@@ -174,11 +176,15 @@ class ContentItemArrayConverter
         $fluid = $options['fluid'] ?? true;
         $displaySize = $options['display_size'] ?? null;
 
+        $customProperties = is_string($mediaItem->custom_properties)
+            ? json_decode($mediaItem->custom_properties, true)
+            : ($mediaItem->custom_properties ?? []);
+
         $meta = array_merge([
             'width' => $mediaItem->getWidth(),
             'height' => $mediaItem->getHeight(),
             'aspect_ratio' => $mediaItem->getAspectRatio(),
-        ], $mediaItem->custom_properties ?? []);
+        ], $customProperties);
 
         return [
             'id' => $mediaItem->id,

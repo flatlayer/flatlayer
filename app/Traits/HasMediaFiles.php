@@ -27,7 +27,7 @@ trait HasMediaFiles
 
     public function getAllMedia(): Collection
     {
-        return $this->media;
+        return $this->media()->get();
     }
 
     public function clearMediaCollection(string $collectionName = 'default'): self
