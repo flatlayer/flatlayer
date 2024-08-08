@@ -66,12 +66,20 @@ class MarkdownContentProcessingService
 
     public function handleMediaFromFrontMatter(ContentItem $contentItem, array $images, string $filename): void
     {
+        $mediaFileService = app(MediaFileService::class);
+
         foreach ($images as $collectionName => $imagePaths) {
             $imagePaths = Arr::wrap($imagePaths);
-            foreach ($imagePaths as $imagePath) {
-                $fullPath = $this->resolveMediaPath($imagePath, $filename);
-                $this->imageProcessingService->addMediaToContentItem($contentItem, $fullPath, $collectionName);
-            }
+            $fullPaths = array_map(function ($imagePath) use ($filename) {
+                return $this->resolveMediaPath($imagePath, $filename);
+            }, $imagePaths);
+
+            // Filter out any paths that don't exist
+            $existingPaths = array_filter($fullPaths, function ($path) {
+                return File::exists($path);
+            });
+
+            $mediaFileService->syncMedia($contentItem, $existingPaths, $collectionName);
         }
     }
 
