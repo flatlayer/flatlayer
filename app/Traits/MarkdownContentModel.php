@@ -2,9 +2,8 @@
 
 namespace App\Traits;
 
-use App\Markdown\CustomMarkdownRenderer;
+use App\Markdown\EnhancedMarkdownRenderer;
 use App\Services\MarkdownContentProcessingService;
-use Illuminate\Database\Eloquent\Model;
 use Spatie\Tags\HasTags;
 
 trait MarkdownContentModel
@@ -75,7 +74,7 @@ trait MarkdownContentModel
 
     public function getParsedContent(): string
     {
-        $markdownRenderer = new CustomMarkdownRenderer($this);
+        $markdownRenderer = new EnhancedMarkdownRenderer($this);
         return $markdownRenderer->convertToHtml($this->content)->getContent();
     }
 }

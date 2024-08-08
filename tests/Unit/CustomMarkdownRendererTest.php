@@ -2,8 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Markdown\CustomMarkdownRenderer;
-use App\Markdown\EnhancedMarkdownRenderer;
+use App\Markdown\CustomImageRenderer;
 use App\Models\MediaFile;
 use App\Models\ContentItem;
 use App\Services\JinaSearchService;
@@ -45,7 +44,7 @@ class CustomMarkdownRendererTest extends TestCase
         $this->environment->addExtension(new CommonMarkCoreExtension());
 
         // Create a custom renderer instance
-        $this->customRenderer = new CustomMarkdownRenderer($this->contentItem);
+        $this->customRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
 
         // Set up fake storage
         Storage::fake('public');
@@ -66,7 +65,7 @@ class CustomMarkdownRendererTest extends TestCase
             });
         });
 
-        Storage::put('test-image.jpg', $image->toJpeg());
+        Storage::disk('public')->put('test-image.jpg', $image->toJpeg());
     }
 
     public function testConvertToHtml()
@@ -81,10 +80,13 @@ class CustomMarkdownRendererTest extends TestCase
     public function testEnhancedImageRendering()
     {
         // Create a media file
-        $media = $this->contentItem->addMedia(Storage::path('test-image.jpg'), 'images');
+        $media = $this->contentItem->addMedia(Storage::disk('public')->path('test-image.jpg'), 'images');
 
-        $enhancedRenderer = new EnhancedMarkdownRenderer($this->contentItem, $this->environment);
-        $imageNode = new Image('/test-image.jpg', 'Test Image');
+        $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
+        $imageNode = new Image(
+            Storage::disk('public')->path('test-image.jpg'),
+            'Test Image'
+        );
 
         // Mock the ChildNodeRendererInterface
         $childRenderer = Mockery::mock(ChildNodeRendererInterface::class);
@@ -123,7 +125,7 @@ class CustomMarkdownRendererTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        $enhancedRenderer = new EnhancedMarkdownRenderer($this->contentItem);
+        $enhancedRenderer = new CustomImageRenderer($this->contentItem);
         $invalidNode = new \League\CommonMark\Node\Block\Paragraph();
 
         $enhancedRenderer->render($invalidNode);
