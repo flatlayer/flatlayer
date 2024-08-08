@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Services\ImageTransformationService;
 use Illuminate\Console\Command;
 
-class ClearImageCache extends Command
+class ClearImageCacheCommand extends Command
 {
     protected $signature = 'image:clear-cache {days=30 : Number of days old to clear}';
 

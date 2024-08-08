@@ -23,7 +23,7 @@ class ContentSyncJob implements ShouldQueue
     public function __construct(
         protected string $path,
         protected string $type,
-        protected string $pattern = '**/*.md',
+        protected string $pattern = '*.md',
         protected bool $shouldPull = false,
         protected bool $skipIfNoChanges = false
     ) {}
@@ -47,7 +47,7 @@ class ContentSyncJob implements ShouldQueue
         $files = File::glob($fullPattern, GLOB_BRACE);
         Log::info("Found " . count($files) . " files to process");
 
-        $existingSlugs = ContentItem::where('type', $this->type)->pluck('slug')->flip();
+        $existingSlugs = ContentItem::withUnpublished()->where('type', $this->type)->pluck('slug')->flip();
         $processedSlugs = [];
 
         $frontMatter = new FrontMatter();
@@ -63,7 +63,7 @@ class ContentSyncJob implements ShouldQueue
 
             if ($existingSlugs->has($slug)) {
                 Log::info("Updating existing content item: {$slug}");
-                $item = ContentItem::where('type', $this->type)->where('slug', $slug)->first();
+                $item = ContentItem::withUnpublished()->where('type', $this->type)->where('slug', $slug)->first();
                 $this->updateContentItem($item, $data, $markdownContent, $file);
             } else {
                 Log::info("Creating new content item: {$slug}");
@@ -76,7 +76,7 @@ class ContentSyncJob implements ShouldQueue
         Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
 
         $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) {
-            $deletedCount = ContentItem::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
+            $deletedCount = ContentItem::withUnpublished()->where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
             Log::info("Deleted {$deletedCount} content items");
         });
 
