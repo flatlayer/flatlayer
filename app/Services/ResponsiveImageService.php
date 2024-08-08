@@ -32,7 +32,7 @@ class ResponsiveImageService
 
         $defaultAttributes = [
             'src' => $media->getUrl(array_merge($this->defaultTransforms, $this->getBaseTransforms($displaySize))),
-            'alt' => $media->custom_properties['alt'] ?? '',
+            'alt' => $this->getMediaAlt($media),
             'sizes' => $sizesAttribute,
             'srcset' => $srcset,
         ];
@@ -45,6 +45,15 @@ class ResponsiveImageService
         $mergedAttributes = array_merge($defaultAttributes, $attributes);
 
         return $this->buildImgTag($mergedAttributes);
+    }
+
+    protected function getMediaAlt(MediaFile $media): string
+    {
+        $customProperties = $media->custom_properties;
+        if (is_string($customProperties)) {
+            $customProperties = json_decode($customProperties, true);
+        }
+        return $customProperties['alt'] ?? '';
     }
 
     protected function parseSizes(array $sizes): array
@@ -88,7 +97,7 @@ class ResponsiveImageService
 
     protected function generateSrcset(MediaFile $media, bool $isFluid, ?array $displaySize = null): string
     {
-        $maxWidth = $media->getWidth();
+        $maxWidth = $this->getMediaWidth($media);
         $srcset = [];
 
         if ($displaySize) {
@@ -143,6 +152,15 @@ class ResponsiveImageService
         }
 
         return implode(', ', array_unique($srcset));
+    }
+
+    protected function getMediaWidth(MediaFile $media): int
+    {
+        $dimensions = $media->dimensions;
+        if (is_string($dimensions)) {
+            $dimensions = json_decode($dimensions, true);
+        }
+        return $dimensions['width'] ?? 0;
     }
 
     protected function formatSrcsetEntry(MediaFile $media, int $width, ?int $height = null): string

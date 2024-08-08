@@ -20,12 +20,14 @@ class MediaFile extends Model
         'mime_type',
         'size',
         'dimensions',
+        'custom_properties',
         'thumbhash',
     ];
 
     protected $casts = [
         'size' => 'integer',
         'dimensions' => 'array',
+        'custom_properties' => 'array',
     ];
 
     public function model()

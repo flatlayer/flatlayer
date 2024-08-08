@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Markdown\CustomImageRenderer;
+use App\Markdown\EnhancedMarkdownRenderer;
 use App\Models\MediaFile;
 use App\Models\ContentItem;
 use App\Services\JinaSearchService;
@@ -44,7 +45,7 @@ class CustomMarkdownRendererTest extends TestCase
         $this->environment->addExtension(new CommonMarkCoreExtension());
 
         // Create a custom renderer instance
-        $this->customRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
+        $this->customRenderer = new EnhancedMarkdownRenderer($this->contentItem, $this->environment);
 
         // Set up fake storage
         Storage::fake('public');
@@ -121,13 +122,13 @@ class CustomMarkdownRendererTest extends TestCase
         $this->assertStringNotContainsString('markdown-image', $html);
     }
 
-    public function testInvalidNodeType()
+    public function testInvalidInputType()
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(\TypeError::class);
 
-        $enhancedRenderer = new CustomImageRenderer($this->contentItem);
-        $invalidNode = new \League\CommonMark\Node\Block\Paragraph();
+        $enhancedRenderer = new EnhancedMarkdownRenderer($this->contentItem, $this->environment);
+        $invalidInput = new \stdClass(); // This is not a string, which is what convertToHtml expects
 
-        $enhancedRenderer->render($invalidNode);
+        $enhancedRenderer->convertToHtml($invalidInput);
     }
 }
