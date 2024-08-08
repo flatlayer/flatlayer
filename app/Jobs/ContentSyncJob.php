@@ -9,10 +9,10 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Webuni\FrontMatter\FrontMatter;
+use CzProject\GitPhp\Git;
 
 class ContentSyncJob implements ShouldQueue
 {
@@ -20,29 +20,31 @@ class ContentSyncJob implements ShouldQueue
 
     const CHUNK_SIZE = 100;
 
-    protected $type;
+    public function __construct(
+        protected string $path,
+        protected string $type,
+        protected string $pattern = '**/*.md',
+        protected bool $shouldPull = false,
+        protected bool $skipIfNoChanges = false
+    ) {}
 
-    public function __construct($type)
-    {
-        $this->type = $type;
-    }
-
-    public function handle()
+    public function handle(Git $git)
     {
         Log::info("Starting content sync for type: {$this->type}");
 
-        $config = config("flatlayer.content_types.{$this->type}");
-        if (!isset($config['path']) || !isset($config['source'])) {
-            Log::error("Path or source not configured for type {$this->type}.");
-            throw new \Exception("Path or source not configured for type {$this->type}.");
+        $changesDetected = true;
+        if ($this->shouldPull) {
+            $changesDetected = $this->pullLatestChanges($git);
+            if (!$changesDetected && $this->skipIfNoChanges) {
+                Log::info("No changes detected and skipIfNoChanges is true. Skipping sync.");
+                return;
+            }
         }
 
-        $path = $config['path'];
-        $source = $config['source'];
-        $fullPattern = $path . '/' . $source;
+        $fullPattern = $this->path . '/' . $this->pattern;
 
         Log::info("Scanning directory: {$fullPattern}");
-        $files = File::glob($fullPattern);
+        $files = File::glob($fullPattern, GLOB_BRACE);
         Log::info("Found " . count($files) . " files to process");
 
         $existingSlugs = ContentItem::where('type', $this->type)->pluck('slug')->flip();
@@ -78,18 +80,32 @@ class ContentSyncJob implements ShouldQueue
             Log::info("Deleted {$deletedCount} content items");
         });
 
-        $hook = $config['hook'] ?? null;
-        if ($hook) {
-            Log::info("Sending request to hook: {$hook}");
-            $response = Http::post($hook);
-            if ($response->successful()) {
-                Log::info("Hook request successful");
-            } else {
-                Log::warning("Hook request failed with status: " . $response->status());
-            }
-        }
-
         Log::info("Content sync completed for type: {$this->type}");
+    }
+
+    protected function pullLatestChanges(Git $git): bool
+    {
+        try {
+            $repo = $git->open($this->path);
+            Log::info("Opened Git repository at: {$this->path}");
+
+            $beforeHash = $repo->getLastCommitId()->toString();
+            Log::info("Current commit hash before pull: {$beforeHash}");
+
+            $repo->pull();
+            Log::info("Pull completed successfully");
+
+            $afterHash = $repo->getLastCommitId()->toString();
+            Log::info("Current commit hash after pull: {$afterHash}");
+
+            $changesDetected = $beforeHash !== $afterHash;
+            Log::info($changesDetected ? "Changes detected during pull" : "No changes detected during pull");
+
+            return $changesDetected;
+        } catch (\Exception $e) {
+            Log::error("Error during Git pull: " . $e->getMessage());
+            return false;
+        }
     }
 
     private function getSlugFromFilename($filename)
