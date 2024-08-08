@@ -3,12 +3,13 @@
 namespace Tests\Unit;
 
 use App\Models\MediaFile;
+use App\Models\ContentItem;
 use App\Services\MediaFileService;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
-use Tests\Fakes\FakePost;
 
 class MediaFileTest extends TestCase
 {
@@ -18,25 +19,26 @@ class MediaFileTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        JinaSearchService::fake();
     }
 
     public function testAddMediaToModel()
     {
-        $post = FakePost::factory()->create();
+        $contentItem = ContentItem::factory()->create(['type' => 'post']);
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = MediaFile::addMediaToModel($post, Storage::path($path));
+        $media = $contentItem->addMedia(Storage::path($path));
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $post->id,
+            'model_type' => ContentItem::class,
+            'model_id' => $contentItem->id,
             'collection' => 'default',
         ]);
 
         // Verify the media record
-        $this->assertEquals($post->id, $media->model_id);
-        $this->assertEquals(FakePost::class, $media->model_type);
+        $this->assertEquals($contentItem->id, $media->model_id);
+        $this->assertEquals(ContentItem::class, $media->model_type);
         $this->assertEquals('default', $media->collection);
         $this->assertNotNull($media->filename);
         $this->assertNotNull($media->thumbhash);
@@ -45,42 +47,42 @@ class MediaFileTest extends TestCase
 
     public function testSyncMedia()
     {
-        $post = FakePost::factory()->create();
+        $contentItem = ContentItem::factory()->create(['type' => 'post']);
         $file1 = UploadedFile::fake()->image('test1.jpg', 100, 100);
         $file2 = UploadedFile::fake()->image('test2.jpg', 200, 200);
         $path1 = $file1->store('test');
         $path2 = $file2->store('test');
 
         // Add initial media
-        $media1 = MediaFile::addMediaToModel($post, Storage::path($path1));
-        $media2 = MediaFile::addMediaToModel($post, Storage::path($path2));
+        $media1 = $contentItem->addMedia(Storage::path($path1));
+        $media2 = $contentItem->addMedia(Storage::path($path2));
 
         // Sync media (removing test2.jpg and adding test3.jpg)
         $file3 = UploadedFile::fake()->image('test3.jpg', 300, 300);
         $path3 = $file3->store('test');
-        MediaFile::syncMedia($post, [Storage::path($path1), Storage::path($path3)]);
+        $contentItem->syncMedia([Storage::path($path1), Storage::path($path3)]);
 
         $this->assertDatabaseHas('media_files', ['id' => $media1->id]);
         $this->assertDatabaseMissing('media_files', ['id' => $media2->id]);
         $this->assertDatabaseHas('media_files', [
-            'model_id' => $post->id,
-            'model_type' => FakePost::class,
+            'model_id' => $contentItem->id,
+            'model_type' => ContentItem::class,
             'dimensions' => json_encode(['width' => 300, 'height' => 300])
         ]);
     }
 
     public function testUpdateOrCreateMedia()
     {
-        $post = FakePost::factory()->create();
+        $contentItem = ContentItem::factory()->create(['type' => 'post']);
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
         $fullPath = Storage::path($path);
 
         // Create new media
-        $media = MediaFile::updateOrCreateMedia($post, $fullPath);
+        $media = $contentItem->updateOrCreateMedia($fullPath);
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $post->id,
+            'model_type' => ContentItem::class,
+            'model_id' => $contentItem->id,
             'dimensions' => json_encode(['width' => 100, 'height' => 100]),
             'path' => $fullPath,
         ]);
@@ -94,7 +96,7 @@ class MediaFileTest extends TestCase
         Storage::delete($path);
         Storage::move($newPath, $path);
 
-        $updatedMedia = MediaFile::updateOrCreateMedia($post, $fullPath);
+        $updatedMedia = $contentItem->updateOrCreateMedia($fullPath);
 
         $this->assertEquals($media->id, $updatedMedia->id);
         $this->assertNotEquals($originalDimensions, $updatedMedia->dimensions);
@@ -104,8 +106,8 @@ class MediaFileTest extends TestCase
         $this->assertNotNull($updatedMedia->thumbhash);
         $this->assertIsString($updatedMedia->thumbhash);
 
-        // Verify that only one media record exists for this post
-        $this->assertEquals(1, $post->media()->count());
+        // Verify that only one media record exists for this content item
+        $this->assertEquals(1, $contentItem->media()->count());
     }
 
     public function testGetFileInfo()
@@ -138,11 +140,11 @@ class MediaFileTest extends TestCase
 
     public function testGetImgTagIncludesThumbhash()
     {
-        $post = FakePost::factory()->create();
+        $contentItem = ContentItem::factory()->create(['type' => 'post']);
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = MediaFile::addMediaToModel($post, Storage::path($path));
+        $media = $contentItem->addMedia(Storage::path($path));
         $media->thumbhash = 'fake_thumbhash_value';
         $media->save();
 

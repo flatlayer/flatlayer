@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentItem;
 use App\Services\MarkdownContentProcessingService;
-use Tests\Fakes\FakePost;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
@@ -16,21 +17,24 @@ class MarkdownContentProcessorTest extends TestCase
     use RefreshDatabase, WithFaker;
 
     protected MarkdownContentProcessingService $service;
-    protected FakePost $post;
+    protected ContentItem $contentItem;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MarkdownContentProcessingService();
-        $this->post = FakePost::factory()->create();
+        $this->service = app(MarkdownContentProcessingService::class);
+        JinaSearchService::fake();
+        $this->contentItem = ContentItem::factory()->create(['type' => 'post']);
         Storage::fake('local');
     }
 
     public function test_handle_media_from_front_matter()
     {
         $data = [
-            'image_featured' => 'featured.jpg',
-            'image_thumbnail' => 'thumbnail.png',
+            'images' => [
+                'featured' => 'featured.jpg',
+                'thumbnail' => 'thumbnail.png',
+            ]
         ];
 
         $imageManager = new ImageManager(new Driver());
@@ -49,24 +53,24 @@ class MarkdownContentProcessorTest extends TestCase
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
-        $this->service->handleMediaFromFrontMatter($this->post, $data, $markdownPath);
+        $this->service->handleMediaFromFrontMatter($this->contentItem, $data['images'], $markdownPath);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $this->post->id,
+            'model_type' => ContentItem::class,
+            'model_id' => $this->contentItem->id,
             'collection' => 'featured',
             'filename' => 'featured.jpg',
         ]);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $this->post->id,
+            'model_type' => ContentItem::class,
+            'model_id' => $this->contentItem->id,
             'collection' => 'thumbnail',
             'filename' => 'thumbnail.png',
         ]);
 
         // Verify that the media was actually created
-        $this->assertEquals(2, $this->post->media()->count());
+        $this->assertEquals(2, $this->contentItem->media()->count());
     }
 
     public function test_process_markdown_images()
@@ -94,28 +98,28 @@ class MarkdownContentProcessorTest extends TestCase
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
-        $result = $this->service->processMarkdownImages($this->post, $markdownContent, $markdownPath);
+        $result = $this->service->processMarkdownImages($this->contentItem, $markdownContent, $markdownPath);
 
         $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('posts/image1.jpg') . ')', $result);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
         $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('posts/image3.png') . ')', $result);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $this->post->id,
-            'collection' => 'images',
+            'model_type' => ContentItem::class,
+            'model_id' => $this->contentItem->id,
+            'collection' => 'content',
             'filename' => 'image1.jpg',
         ]);
 
         $this->assertDatabaseHas('media_files', [
-            'model_type' => FakePost::class,
-            'model_id' => $this->post->id,
-            'collection' => 'images',
+            'model_type' => ContentItem::class,
+            'model_id' => $this->contentItem->id,
+            'collection' => 'content',
             'filename' => 'image3.png',
         ]);
 
         // Verify that the correct number of media items were created
-        $this->assertEquals(2, $this->post->media()->count());
+        $this->assertEquals(2, $this->contentItem->media()->count());
     }
 
     public function test_resolve_media_path()
