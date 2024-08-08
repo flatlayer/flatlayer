@@ -11,10 +11,11 @@ return new class extends Migration
     {
         Schema::create('content_items', function (Blueprint $table) {
             $table->id();
-            $table->string('type');  // Add type field
-            $table->string('title');
+            $table->string('type');
+            $table->string('title')->nullable();
             $table->string('slug');
-            $table->text('content');
+            $table->text('content')->nullable();
+            $table->string('excerpt')->nullable();
             $table->json('meta')->nullable();
 
             // Create a composite unique index on type and slug

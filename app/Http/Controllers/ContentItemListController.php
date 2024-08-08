@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Filter\AdvancedQueryFilter;
 use App\Http\Requests\ListRequest;
 use App\Models\ContentItem;
-use App\Filters\ContentItemArrayConverter;
+use App\Filter\ContentItemArrayConverter;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ContentItemListController extends Controller
@@ -20,6 +20,11 @@ class ContentItemListController extends Controller
 
         if ($type) {
             $query->where('type', $type);
+
+            // Check if any items exist for the given type
+            if ($query->doesntExist()) {
+                return response()->json(['error' => 'No items found for the specified type'], 404);
+            }
         }
 
         $filter = new AdvancedQueryFilter($query, $request->getFilter());

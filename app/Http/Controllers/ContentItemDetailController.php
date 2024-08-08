@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentItem;
-use App\Filters\ContentItemArrayConverter;
+use App\Filter\ContentItemArrayConverter;
 use App\Http\Requests\ListRequest;
 
 class ContentItemDetailController extends Controller

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Filters\ContentItemArrayConverter;
+use App\Filter\ContentItemArrayConverter;
 use App\Traits\HasMediaFiles;
 use App\Traits\MarkdownContentModel;
 use App\Traits\Searchable;
