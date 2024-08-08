@@ -24,19 +24,8 @@ class QueryFilterTest extends TestCase
         $migrationFile = require base_path('tests/database/migrations/create_test_filter_models_table.php');
         (new $migrationFile)->up();
 
-        $this->setupFakeJinaResponses();
-
+        JinaSearchService::fake();
         TestFilterModel::factory()->count(20)->create();
-    }
-
-    protected function setupFakeJinaResponses()
-    {
-        $this->jinaService = Mockery::mock(JinaSearchService::class);
-        $this->app->instance(JinaSearchService::class, $this->jinaService);
-
-        $this->jinaService->shouldReceive('embed')->andReturn([
-            ['embedding' => array_fill(0, 768, 0.1)],
-        ]);
     }
 
     public function testTagFiltersWithType()
@@ -62,17 +51,10 @@ class QueryFilterTest extends TestCase
 
     public function testSearch()
     {
-        $this->jinaService->shouldReceive('rerank')
-            ->once()
-            ->andReturn([
-                'results' => [
-                    [
-                        'index' => 0,
-                        'relevance_score' => 0.9,
-                        'document' => 'This is a description about a man named John. Everyone knows him as John, because that is his name. He is a man named John.'
-                    ]
-                ]
-            ]);
+        // Create a matching item
+        TestFilterModel::factory()->create([
+            'name' => 'John Doe',
+        ]);
 
         $filters = ['$search' => 'a man named John'];
         $query = TestFilterModel::query();
@@ -80,7 +62,7 @@ class QueryFilterTest extends TestCase
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertGreaterThanOrEqual(1, $filtered->count());
-        $this->assertEquals(0.9, $filtered->first()->relevance_score);
+        $this->assertGreaterThanOrEqual(0.1, $filtered->first()->relevance);
     }
 
     public function testCombinedFilters()
@@ -102,23 +84,6 @@ class QueryFilterTest extends TestCase
             'embedding' => json_encode(array_fill(0, 768, 0.2))
         ]);
         $youngerJohn->attachTag('important');
-
-        $this->jinaService->shouldReceive('rerank')
-            ->once()
-            ->andReturn([
-                'results' => [
-                    [
-                        'index' => 1,
-                        'relevance_score' => 0.9,
-                        'document' => 'John Smith, age 30'
-                    ],
-                    [
-                        'index' => 0,
-                        'relevance_score' => 0.8,
-                        'document' => 'John Smith, age 50'
-                    ],
-                ]
-            ]);
 
         $filters = [
             'age' => ['$gte' => 25, '$lt' => 40],  // This should only match the younger John

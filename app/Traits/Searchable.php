@@ -86,8 +86,8 @@ trait Searchable
     {
         $vector = new \Pgvector\Vector($embedding);
         return $builder
-            ->selectRaw('*, (embedding <=> ?) as distance', [$vector])
-            ->orderBy('distance')
+            ->selectRaw('*, (1 - (embedding <=> ?)) as similarity', [$vector])
+            ->orderByDesc('similarity')
             ->limit($limit)
             ->get();
     }
@@ -96,10 +96,10 @@ trait Searchable
     {
         return $builder->get()
             ->map(function ($item) use ($embedding) {
-                $item->distance = 1 - Distance::cosineSimilarity($item->embedding, $embedding);
+                $item->similarity = Distance::cosineSimilarity($item->embedding, $embedding);
                 return $item;
             })
-            ->sortBy('distance')
+            ->sortByDesc('similarity')
             ->take($limit);
     }
 
@@ -114,8 +114,8 @@ trait Searchable
 
     public function scopeSearchSimilar($query, $embedding)
     {
-        return $query->selectRaw('*, (embedding <=> ?) as distance', [$embedding])
-            ->orderBy('distance');
+        return $query->selectRaw('*, (1 - (embedding <=> ?)) as similarity', [$embedding])
+            ->orderByDesc('similarity');
     }
 
     protected static function getEmbedding(string $text): array
@@ -129,7 +129,7 @@ trait Searchable
     {
         $jinaService = app(JinaSearchService::class);
         $results = $results->map(function($result){
-            $result->relevance_score = 0;
+            $result->relevance = 0;
             return $result;
         })->values();
 
@@ -148,8 +148,8 @@ trait Searchable
                 return null;
             }
             $originalResult = $results[$rerankedResult['index']];
-            $originalResult->relevance_score = $rerankedResult['relevance_score'] ?? 0;
+            $originalResult->relevance = $rerankedResult['relevance_score'] ?? 0;
             return $originalResult;
-        })->filter()->sortByDesc('relevance_score')->values();
+        })->filter()->sortByDesc('relevance')->values();
     }
 }

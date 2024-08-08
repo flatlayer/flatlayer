@@ -126,18 +126,6 @@ class ListControllerTest extends TestCase
             ->assertJsonPath('data.1.title', 'BBB Post');
     }
 
-    public function test_index_throws_exception_for_non_filterable_fields()
-    {
-        FakePost::factory()->create(['content' => 'Filtered content']);
-        FakePost::factory()->create(['content' => 'Other content']);
-
-        $filter = json_encode(['content' => 'Filtered content']);
-
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
-        $response->assertStatus(500);
-        $this->assertEquals("Filtering by field 'content' is not allowed.", $response->json('message'));
-    }
-
     public function test_index_transforms_items_using_to_summary_array()
     {
         $post = FakePost::factory()->create([

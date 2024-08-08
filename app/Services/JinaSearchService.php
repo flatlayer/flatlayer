@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Services\Fakes\FakeJinaSearchService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\App;
 
 class JinaSearchService
 {
@@ -58,5 +60,12 @@ class JinaSearchService
     protected function cropDocument(string $document): string
     {
         return Str::limit($document, self::MAX_CHARS, '');
+    }
+
+    public static function fake(): FakeJinaSearchService
+    {
+        $fake = new FakeJinaSearchService();
+        App::instance(JinaSearchService::class, $fake);
+        return $fake;
     }
 }
