@@ -3,11 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\MediaFile;
+use App\Models\ContentItem;
 use App\Services\ImageTransformationService;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
-use Tests\Fakes\FakePost;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
@@ -16,7 +17,7 @@ class MediaTransformControllerTest extends TestCase
     use RefreshDatabase;
 
     protected $tempImagePath;
-    protected $fakeArticle;
+    protected $contentItem;
     protected $media;
     protected $diskName = 'public';
     protected $imageService;
@@ -31,11 +32,13 @@ class MediaTransformControllerTest extends TestCase
 
         Storage::fake($this->diskName);
 
+        JinaSearchService::fake();
+
         $this->tempImagePath = $this->createTempImage();
 
-        $this->fakeArticle = FakePost::factory()->create();
+        $this->contentItem = ContentItem::factory()->create(['type' => 'post']);
 
-        $this->media = $this->fakeArticle->updateOrCreateMedia($this->tempImagePath, 'featured_image');
+        $this->media = $this->contentItem->addMedia($this->tempImagePath, 'featured_image');
     }
 
     protected function clearImageCache()
@@ -69,7 +72,7 @@ class MediaTransformControllerTest extends TestCase
         });
 
         $tempPath = tempnam(sys_get_temp_dir(), 'test_image_') . '.jpg';
-        $image->save($tempPath);
+        $image->toJpeg()->save($tempPath);
 
         return $tempPath;
     }
