@@ -102,4 +102,15 @@ class ContentSyncJob implements ShouldQueue
     {
         return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
     }
+
+    public function getJobConfig(): array
+    {
+        return [
+            'type' => $this->type,
+            'path' => $this->path,
+            'pattern' => $this->pattern,
+            'shouldPull' => $this->shouldPull,
+            'skipIfNoChanges' => $this->skipIfNoChanges,
+        ];
+    }
 }

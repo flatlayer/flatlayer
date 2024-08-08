@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\WebhookHandlerController;
-use App\Jobs\ProcessGitHubWebhookJob;
-use App\Services\ModelResolverService;
+use App\Jobs\ContentSyncJob;
+use App\Services\SyncConfigurationService;
+use CzProject\GitPhp\Git;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Mockery;
 
@@ -16,24 +17,22 @@ class GitHubWebhookTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $modelResolver;
+    protected $syncConfigService;
     protected $logMessages = [];
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Set up a fake webhook secret
+        Storage::fake('local');
+
         Config::set('flatlayer.github.webhook_secret', 'test_webhook_secret');
 
-        // Mock the ModelResolverService
-        $this->modelResolver = Mockery::mock(ModelResolverService::class);
-        $this->app->instance(ModelResolverService::class, $this->modelResolver);
+        $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
+        $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
 
-        // Fake the queue so jobs are not actually processed
         Queue::fake();
 
-        // Set up a custom log handler to capture messages
         Log::listen(function($message) {
             $this->logMessages[] = $message->message;
         });
@@ -41,134 +40,105 @@ class GitHubWebhookTest extends TestCase
 
     public function testValidWebhookRequest()
     {
-        // Arrange
+        $tempDir = Storage::path('temp_posts');
+        mkdir($tempDir, 0755, true);
+
         $payload = ['repository' => ['name' => 'test-repo']];
         $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
-        $this->modelResolver->shouldReceive('resolve')
-            ->with('posts')
-            ->andReturn('App\Models\Post');
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('post')
+            ->andReturn(true);
 
-        // Act
-        $response = $this->postJson('/posts/webhook', $payload, [
+        $this->syncConfigService->shouldReceive('getConfig')
+            ->with('post')
+            ->andReturn([
+                'path' => $tempDir,
+                '--pattern' => '*.md',
+            ]);
+
+        $response = $this->postJson('/webhook/post', $payload, [
             'X-Hub-Signature-256' => $signature,
         ]);
 
-        // Assert
         $response->assertStatus(202);
-        $response->assertSee('Webhook received');
+        $response->assertSee('Sync initiated');
 
-        Queue::assertPushed(ProcessGitHubWebhookJob::class, function ($job) {
-            return $job->getModelClass() === 'App\Models\Post';
+        Queue::assertPushed(ContentSyncJob::class, function ($job) use ($tempDir) {
+            $config = $job->getJobConfig();
+            return $config['type'] === 'post' &&
+                $config['path'] === $tempDir &&
+                $config['pattern'] === '*.md' &&
+                $config['shouldPull'] === true &&
+                $config['skipIfNoChanges'] === true;
         });
+
+        // Clean up
+        rmdir($tempDir);
     }
 
     public function testInvalidSignature()
     {
-        // Arrange
         $payload = ['repository' => ['name' => 'test-repo']];
         $invalidSignature = 'sha256=invalid_signature';
 
-        // Act
-        $response = $this->postJson('/posts/webhook', $payload, [
+        $response = $this->postJson('/webhook/post', $payload, [
             'X-Hub-Signature-256' => $invalidSignature,
         ]);
 
-        // Assert
         $response->assertStatus(403);
         $response->assertSee('Invalid signature');
 
-        Queue::assertNotPushed(ProcessGitHubWebhookJob::class);
+        Queue::assertNotPushed(ContentSyncJob::class);
         $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), "Expected log message not found");
     }
 
-    public function testInvalidModelSlug()
+    public function testInvalidContentType()
     {
-        // Arrange
         $payload = ['repository' => ['name' => 'test-repo']];
         $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
-        $this->modelResolver->shouldReceive('resolve')
-            ->with('invalid-model')
-            ->andReturnNull();
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('invalid-type')
+            ->andReturn(false);
 
-        // Act
-        $response = $this->postJson('/invalid-model/webhook', $payload, [
+        $response = $this->postJson('/webhook/invalid-type', $payload, [
             'X-Hub-Signature-256' => $signature,
         ]);
 
-        // Assert
         $response->assertStatus(400);
-        $response->assertSee('Invalid model slug');
+        $response->assertSee('Configuration for invalid-type not found');
 
-        Queue::assertNotPushed(ProcessGitHubWebhookJob::class);
-        $this->assertTrue(in_array('Invalid model slug: invalid-model', $this->logMessages), "Expected log message not found");
+        Queue::assertNotPushed(ContentSyncJob::class);
+        $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), "Expected log message not found");
     }
 
-    public function testProcessGitHubWebhookJob()
+    public function testContentSyncJob()
     {
-        // Arrange
-        $payload = ['repository' => ['name' => 'test-repo']];
-        $modelClass = 'App\Models\Post';
+        $gitMock = Mockery::mock(Git::class);
+        $this->app->instance(Git::class, $gitMock);
 
-        Config::set("flatlayer.models.{$modelClass}", [
-            'path' => '/path/to/repo',
-            'source' => '*.md',
-        ]);
-
-        // Mock the ModelResolverService
-        $modelResolverMock = Mockery::mock(ModelResolverService::class);
-        $modelResolverMock->shouldReceive('resolve')
-            ->with($modelClass)
-            ->andReturn($modelClass);
-        $this->app->instance(ModelResolverService::class, $modelResolverMock);
-
-        // Mock the Git class
         $repoMock = Mockery::mock('CzProject\GitPhp\GitRepository');
-        $repoMock->shouldReceive('getCurrentBranchName')->twice()->andReturn('main', 'updated-main');
+        $gitMock->shouldReceive('open')->andReturn($repoMock);
         $repoMock->shouldReceive('pull')->once();
+        $repoMock->shouldReceive('getLastCommitId->toString')->twice()->andReturn('old-hash', 'new-hash');
 
-        $gitMock = Mockery::mock('CzProject\GitPhp\Git');
-        $gitMock->shouldReceive('open')->once()->andReturn($repoMock);
+        $type = 'post';
+        $path = '/path/to/posts';
+        $pattern = '*.md';
 
-        $this->app->instance('CzProject\GitPhp\Git', $gitMock);
+        $job = new ContentSyncJob($path, $type, $pattern, true, true);
+        $job->handle($gitMock);
 
-        // Mock Artisan more flexibly
-        $artisanMock = $this->mock('Illuminate\Contracts\Console\Kernel');
-        $artisanMock->shouldReceive('call')
-            ->with('flatlayer:markdown-sync', ['model' => $modelClass])
-            ->zeroOrMoreTimes();
-
-        // Act
-        $job = new ProcessGitHubWebhookJob($payload, $modelClass);
-
-        $job->handle($modelResolverMock);
-
-        // Check if specific log messages were recorded
         $this->assertTrue(
-            in_array("Changes detected for {$modelClass}, running MarkdownSync", $this->logMessages),
+            in_array("Starting content sync for type: {$type}", $this->logMessages),
             "Expected log message not found"
         );
 
         $this->assertTrue(
-            in_array("MarkdownSync command called", $this->logMessages),
-            "MarkdownSync command was not called"
+            in_array("Content sync completed for type: {$type}", $this->logMessages),
+            "Expected log message not found"
         );
-
-        // Verify mock calls
-        $gitMock->shouldHaveReceived('open')->once();
-        $repoMock->shouldHaveReceived('getCurrentBranchName')->twice();
-        $repoMock->shouldHaveReceived('pull')->once();
-
-        // Check if Artisan command was called (but don't fail the test if it wasn't)
-        try {
-            $artisanMock->shouldHaveReceived('call')
-                ->with('flatlayer:markdown-sync', ['model' => $modelClass])
-                ->once();
-            $this->assertTrue(true, "Artisan command was called as expected");
-        } catch (\Exception $e) {
-            error_log("Warning: Artisan command was not called. This might be intentional depending on your implementation.");
-        }
     }
 
     protected function tearDown(): void
