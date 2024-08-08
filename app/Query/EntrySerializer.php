@@ -149,7 +149,7 @@ class EntrySerializer
 
     protected function getImage(Entry $item, string $collection, $options = null): array
     {
-        $mediaItems = $item->getAssets($collection);
+        $mediaItems = $item->getImages($collection);
         return $mediaItems->map(function ($mediaItem) use ($options) {
             return $this->formatImage($mediaItem, $options);
         })->toArray();
@@ -158,7 +158,7 @@ class EntrySerializer
     protected function getImages(Entry $item, $options = null): array
     {
         $images = [];
-        $collections = $item->assets()->get()->groupBy('collection');
+        $collections = $item->images()->get()->groupBy('collection');
 
         foreach ($collections as $collection => $mediaItems) {
             $images[$collection] = $mediaItems->map(function ($mediaItem) use ($options) {

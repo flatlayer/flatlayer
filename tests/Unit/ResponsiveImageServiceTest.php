@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\Asset;
+use App\Models\Image;
 use App\Services\ResponsiveImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -14,8 +14,8 @@ class ResponsiveImageServiceTest extends TestCase
     use RefreshDatabase;
 
     private ResponsiveImageService $service;
-    private Asset $media;
-    private Asset $thumbnail;
+    private Image $media;
+    private Image $thumbnail;
 
     protected function setUp(): void
     {
@@ -29,11 +29,11 @@ class ResponsiveImageServiceTest extends TestCase
         $this->createTestImage('image.jpg', 1600, 900);
         $this->createTestImage('thumbnail.jpg', 600, 600);
 
-        $this->media = Asset::factory()->create([
+        $this->media = Image::factory()->create([
             'dimensions' => json_encode(['width' => 1600, 'height' => 900]),
             'path' => Storage::disk('public')->path('image.jpg'),
         ]);
-        $this->thumbnail = Asset::factory()->create([
+        $this->thumbnail = Image::factory()->create([
             'dimensions' => json_encode(['width' => 600, 'height' => 600]),
             'path' => Storage::disk('public')->path('thumbnail.jpg'),
         ]);

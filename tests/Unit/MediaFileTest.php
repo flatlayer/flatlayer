@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use App\Models\Asset;
+use App\Models\Image;
 use App\Models\Entry;
-use App\Services\AssetService;
+use App\Services\ImageService;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -28,9 +28,9 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = $contentItem->addAsset(Storage::path($path));
+        $media = $contentItem->addImage(Storage::path($path));
 
-        $this->assertDatabaseHas('assets', [
+        $this->assertDatabaseHas('images', [
             'entry_id' => $contentItem->id,
             'collection' => 'default',
         ]);
@@ -52,17 +52,17 @@ class MediaFileTest extends TestCase
         $path2 = $file2->store('test');
 
         // Add initial media
-        $media1 = $contentItem->addAsset(Storage::path($path1));
-        $media2 = $contentItem->addAsset(Storage::path($path2));
+        $media1 = $contentItem->addImage(Storage::path($path1));
+        $media2 = $contentItem->addImage(Storage::path($path2));
 
         // Sync media (removing test2.jpg and adding test3.jpg)
         $file3 = UploadedFile::fake()->image('test3.jpg', 300, 300);
         $path3 = $file3->store('test');
-        $contentItem->syncAssets([Storage::path($path1), Storage::path($path3)]);
+        $contentItem->syncImages([Storage::path($path1), Storage::path($path3)]);
 
-        $this->assertDatabaseHas('assets', ['id' => $media1->id]);
-        $this->assertDatabaseMissing('assets', ['id' => $media2->id]);
-        $this->assertDatabaseHas('assets', [
+        $this->assertDatabaseHas('images', ['id' => $media1->id]);
+        $this->assertDatabaseMissing('images', ['id' => $media2->id]);
+        $this->assertDatabaseHas('images', [
             'entry_id' => $contentItem->id,
             'dimensions' => json_encode(['width' => 300, 'height' => 300])
         ]);
@@ -76,8 +76,8 @@ class MediaFileTest extends TestCase
         $fullPath = Storage::path($path);
 
         // Create new media
-        $media = $contentItem->updateOrCreateAsset($fullPath);
-        $this->assertDatabaseHas('assets', [
+        $media = $contentItem->updateOrCreateImage($fullPath);
+        $this->assertDatabaseHas('images', [
             'entry_id' => $contentItem->id,
             'dimensions' => json_encode(['width' => 100, 'height' => 100]),
             'path' => $fullPath,
@@ -92,7 +92,7 @@ class MediaFileTest extends TestCase
         Storage::delete($path);
         Storage::move($newPath, $path);
 
-        $updatedMedia = $contentItem->updateOrCreateAsset($fullPath);
+        $updatedMedia = $contentItem->updateOrCreateImage($fullPath);
 
         $this->assertEquals($media->id, $updatedMedia->id);
         $this->assertNotEquals($originalDimensions, $updatedMedia->dimensions);
@@ -103,7 +103,7 @@ class MediaFileTest extends TestCase
         $this->assertIsString($updatedMedia->thumbhash);
 
         // Verify that only one media record exists for this content item
-        $this->assertEquals(1, $contentItem->assets()->count());
+        $this->assertEquals(1, $contentItem->images()->count());
     }
 
     public function testGetFileInfo()
@@ -111,7 +111,7 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(AssetService::class);
+        $service = app(ImageService::class);
         $fileInfo = $service->getFileInfo(Storage::path($path));
 
         $this->assertArrayHasKey('size', $fileInfo);
@@ -127,7 +127,7 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $service = app(AssetService::class);
+        $service = app(ImageService::class);
         $thumbhash = $service->generateThumbhash(Storage::path($path));
 
         $this->assertNotNull($thumbhash);
@@ -140,7 +140,7 @@ class MediaFileTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->store('test');
 
-        $media = $contentItem->addAsset(Storage::path($path));
+        $media = $contentItem->addImage(Storage::path($path));
         $media->thumbhash = 'fake_thumbhash_value';
         $media->save();
 

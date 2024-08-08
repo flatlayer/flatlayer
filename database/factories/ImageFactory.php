@@ -2,14 +2,14 @@
 
 namespace Database\Factories;
 
-use App\Models\Asset;
+use App\Models\Image;
 use App\Models\Entry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-class AssetFactory extends Factory
+class ImageFactory extends Factory
 {
-    protected $model = Asset::class;
+    protected $model = Image::class;
 
     public function definition()
     {

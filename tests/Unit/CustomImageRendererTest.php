@@ -3,13 +3,13 @@
 namespace Tests\Unit;
 
 use App\Markdown\CustomImageRenderer;
-use App\Models\Asset;
+use App\Models\Image;
 use App\Models\Entry;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use League\CommonMark\Environment\Environment;
-use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
+use League\CommonMark\Extension\CommonMark\Node\Inline\Image as ImageNode;
 use League\CommonMark\Renderer\ChildNodeRendererInterface;
 use Mockery;
 use Tests\TestCase;
@@ -61,10 +61,10 @@ class CustomImageRendererTest extends TestCase
 
     public function testEnhancedImageRendering()
     {
-        $media = $this->contentItem->addAsset(Storage::disk('public')->path('test-image.jpg'), 'images');
+        $media = $this->contentItem->addImage(Storage::disk('public')->path('test-image.jpg'), 'images');
 
         $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
-        $imageNode = new Image(
+        $imageNode = new ImageNode(
             Storage::disk('public')->path('test-image.jpg'),
             'Test Image'
         );
@@ -84,7 +84,7 @@ class CustomImageRendererTest extends TestCase
     public function testExternalImageFallback()
     {
         $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
-        $imageNode = new Image('https://example.com/image.jpg', 'External Image');
+        $imageNode = new ImageNode('https://example.com/image.jpg', 'External Image');
 
         $childRenderer = Mockery::mock(ChildNodeRendererInterface::class);
         $childRenderer->shouldReceive('renderNodes')->andReturn('');
@@ -97,5 +97,4 @@ class CustomImageRendererTest extends TestCase
         $this->assertEquals('External Image', $result->getAttribute('alt'));
     }
 
-    // Add more tests specific to CustomImageRenderer
 }

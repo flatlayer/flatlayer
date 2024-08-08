@@ -2,11 +2,11 @@
 
 namespace App\Markdown;
 
-use App\Models\Asset;
+use App\Models\Image;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
-use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
+use League\CommonMark\Extension\CommonMark\Node\Inline\Image as ImageNode;
 use League\CommonMark\Extension\CommonMark\Renderer\Inline\ImageRenderer;
 use League\CommonMark\Node\Inline\Text;
 use League\CommonMark\Node\Node;
@@ -33,7 +33,7 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
 
     public function render(Node $node, ChildNodeRendererInterface $childRenderer)
     {
-        if (!($node instanceof Image)) {
+        if (!($node instanceof ImageNode)) {
             throw new \InvalidArgumentException('Incompatible node type: ' . get_class($node));
         }
 
@@ -41,14 +41,14 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
 
         if (Str::startsWith($url, '/') || Str::startsWith($url, '\\')) {
             // This is an absolute file path
-            $asset = $this->model->assets()->where('path', $url)->first();
+            $image = $this->model->images()->where('path', $url)->first();
 
             // Get the alt text from the first child node if it exists
             $alt = $this->getNodeAlt($node);
 
-            if ($asset instanceof Asset) {
+            if ($image instanceof Image) {
                 return new HtmlElement('div', ['class' => 'markdown-image'], [
-                    $asset->getImgTag(['100vw'], ['alt' => $alt ?? basename($url)]),
+                    $image->getImgTag(['100vw'], ['alt' => $alt ?? basename($url)]),
                 ]);
             }
         }

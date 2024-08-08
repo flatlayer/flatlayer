@@ -202,7 +202,7 @@ class ListControllerTest extends TestCase
     public function test_index_returns_formatted_images()
     {
         $post = Entry::factory()->create(['type' => 'post']);
-        $post->addAsset(base_path('tests/fixtures/test.png'), 'featured');
+        $post->addImage(base_path('tests/fixtures/test.png'), 'featured');
 
         $fields = json_encode(['title', 'images.featured']);
 

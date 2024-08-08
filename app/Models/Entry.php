@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Query\EntrySerializer;
-use App\Traits\HasAssets;
+use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,7 +14,7 @@ use Spatie\Tags\HasTags;
 
 class Entry extends Model
 {
-    use HasFactory, HasAssets, HasTags, Searchable, HasMarkdown;
+    use HasFactory, HasImages, HasTags, Searchable, HasMarkdown;
 
     protected $fillable = [
         'type',

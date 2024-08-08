@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Query\EntrySerializer;
 use App\Models\Entry;
-use App\Models\Asset;
+use App\Models\Image;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -58,7 +58,7 @@ class ContentItemArrayConverterTest extends TestCase
 
     protected function addMediaToContentItem(Entry $contentItem): void
     {
-        $mediaFile = Asset::factory()->create([
+        $mediaFile = Image::factory()->create([
             'entry_id' => $contentItem->id,
             'collection' => 'featured',
             'filename' => 'test-image.jpg',
@@ -67,8 +67,8 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 800, 'height' => 600],
         ]);
 
-        $contentItem->assets()->save($mediaFile);
-        $contentItem->load('assets');
+        $contentItem->images()->save($mediaFile);
+        $contentItem->load('images');
     }
 
     public function testToArrayWithDefaultFields()
@@ -257,7 +257,7 @@ class ContentItemArrayConverterTest extends TestCase
 
     public function testMultipleImagesInDifferentCollections()
     {
-        $secondMediaFile = Asset::factory()->create([
+        $secondMediaFile = Image::factory()->create([
             'entry_id' => $this->contentItem->id,
             'collection' => 'gallery',
             'filename' => 'gallery-image.jpg',
@@ -266,7 +266,7 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 1024, 'height' => 768],
         ]);
 
-        $this->contentItem->assets()->save($secondMediaFile);
+        $this->contentItem->images()->save($secondMediaFile);
 
         $fields = ['images'];
         $result = $this->converter->toArray($this->contentItem, $fields);

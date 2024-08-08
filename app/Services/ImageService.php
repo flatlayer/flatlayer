@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Asset;
+use App\Models\Image;
 use App\Models\Entry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
@@ -12,13 +12,13 @@ use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
-class AssetService
+class ImageService
 {
-    public function addAssetToModel(Entry $model, string $path, string $collectionName = 'default', array $fileInfo = null): Asset
+    public function addImageToModel(Entry $model, string $path, string $collectionName = 'default', array $fileInfo = null): Image
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
-        return $model->assets()->create([
+        return $model->images()->create([
             'collection' => $collectionName,
             'filename' => basename($path),
             'path' => $path,
@@ -29,9 +29,9 @@ class AssetService
         ]);
     }
 
-    public function syncAssets(Model $model, array $filenames, string $collectionName = 'default'): void
+    public function syncImages(Model $model, array $filenames, string $collectionName = 'default'): void
     {
-        $existingMedia = $model->assets()->where('collection', $collectionName)->get()->keyBy('filename');
+        $existingMedia = $model->images()->where('collection', $collectionName)->get()->keyBy('filename');
         $newFilenames = collect($filenames)->keyBy(function ($path) {
             return basename($path);
         });
@@ -45,28 +45,28 @@ class AssetService
 
             if ($existingMedia->has($filename)) {
                 $media = $existingMedia->get($filename);
-                $this->updateAssetIfNeeded($media, $fileInfo);
+                $this->updateImageIfNeeded($media, $fileInfo);
             } else {
-                $this->addAssetToModel($model, $fullPath, $collectionName, $fileInfo);
+                $this->addImageToModel($model, $fullPath, $collectionName, $fileInfo);
             }
         }
     }
 
-    public function updateOrCreateAsset(Model $model, string $fullPath, string $collectionName = 'default'): Asset
+    public function updateOrCreateImage(Model $model, string $fullPath, string $collectionName = 'default'): Image
     {
         $fileInfo = $this->getFileInfo($fullPath);
         $filename = basename($fullPath);
-        $existingMedia = $model->assets()->where('collection', $collectionName)->where('filename', $filename)->first();
+        $existingMedia = $model->images()->where('collection', $collectionName)->where('filename', $filename)->first();
 
         if ($existingMedia) {
-            $this->updateAssetIfNeeded($existingMedia, $fileInfo);
+            $this->updateImageIfNeeded($existingMedia, $fileInfo);
             return $existingMedia;
         }
 
-        return $this->addAssetToModel($model, $fullPath, $collectionName, $fileInfo);
+        return $this->addImageToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
-    protected function updateAssetIfNeeded(Asset $media, array $fileInfo): void
+    protected function updateImageIfNeeded(Image $media, array $fileInfo): void
     {
         $needsUpdate = false;
 

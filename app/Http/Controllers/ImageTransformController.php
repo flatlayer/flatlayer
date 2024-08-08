@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ImageTransformRequest;
-use App\Models\Asset;
+use App\Models\Image;
 use App\Services\ImageTransformationService;
 
 class ImageTransformController extends Controller
@@ -18,7 +18,7 @@ class ImageTransformController extends Controller
             abort(401);
         }
 
-        $media = Asset::findOrFail($id);
+        $media = Image::findOrFail($id);
 
         $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
         $cacheKey = $this->imageService->generateCacheKey($id, $request->all());
