@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Services\MarkdownContentProcessingService;
+use App\Services\MarkdownImageProcessingService;
 use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -49,31 +49,31 @@ class MediaFile extends Model
 
     public static function addMediaToModel($model, string $path, string $collectionName = 'default', array $fileInfo = null): self
     {
-        $mediaProcessingService = app(MarkdownContentProcessingService::class);
+        $mediaProcessingService = app(MarkdownImageProcessingService::class);
         return $mediaProcessingService->addMediaToModel($model, $path, $collectionName, $fileInfo);
     }
 
     public static function syncMedia($model, array $filenames, string $collectionName = 'default'): void
     {
-        $mediaProcessingService = app(MarkdownContentProcessingService::class);
+        $mediaProcessingService = app(MarkdownImageProcessingService::class);
         $mediaProcessingService->syncMedia($model, $filenames, $collectionName);
     }
 
     public static function updateOrCreateMedia($model, string $fullPath, string $collectionName = 'default'): self
     {
-        $mediaProcessingService = app(MarkdownContentProcessingService::class);
+        $mediaProcessingService = app(MarkdownImageProcessingService::class);
         return $mediaProcessingService->updateOrCreateMedia($model, $fullPath, $collectionName);
     }
 
     public function getFileInfo(): array
     {
-        $mediaProcessingService = app(MarkdownContentProcessingService::class);
+        $mediaProcessingService = app(MarkdownImageProcessingService::class);
         return $mediaProcessingService->getFileInfo($this->path);
     }
 
     public function generateThumbhash(): string
     {
-        $mediaProcessingService = app(MarkdownContentProcessingService::class);
+        $mediaProcessingService = app(MarkdownImageProcessingService::class);
         return $mediaProcessingService->generateThumbhash($this->path);
     }
 

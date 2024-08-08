@@ -2,133 +2,118 @@
 
 namespace App\Services;
 
-use App\Models\MediaFile;
-use Illuminate\Database\Eloquent\Model;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
-use Thumbhash\Thumbhash;
-use function Thumbhash\extract_size_and_pixels_with_gd;
-use function Thumbhash\extract_size_and_pixels_with_imagick;
+use App\Models\ContentItem;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 
 class MarkdownContentProcessingService
 {
-    public function addMediaToModel(Model $model, string $path, string $collectionName = 'default', array $fileInfo = null): MediaFile
-    {
-        $fileInfo = $fileInfo ?? $this->getFileInfo($path);
+    protected $imagePaths;
 
-        return $model->media()->create([
-            'collection' => $collectionName,
-            'filename' => basename($path),
-            'path' => $path,
-            'mime_type' => $fileInfo['mime_type'],
-            'size' => $fileInfo['size'],
-            'dimensions' => $fileInfo['dimensions'],
-            'thumbhash' => $fileInfo['thumbhash'],
-        ]);
+    public function __construct()
+    {
+        $this->imagePaths = new Collection();
     }
 
-    public function syncMedia(Model $model, array $filenames, string $collectionName = 'default'): void
+    public function handleMediaFromFrontMatter(ContentItem $contentItem, array $data, string $filename): void
     {
-        $existingMedia = $model->getMedia($collectionName)->keyBy('path');
-        $newFilenames = collect($filenames);
-
-        // Remove media that no longer exists in the new filenames
-        $existingMedia->whereNotIn('path', $newFilenames)->each->delete();
-
-        // Add or update media
-        foreach ($newFilenames as $fullPath) {
-            $fileInfo = $this->getFileInfo($fullPath);
-
-            if ($existingMedia->has($fullPath)) {
-                $media = $existingMedia->get($fullPath);
-                if ($media->size !== $fileInfo['size'] || $media->dimensions !== $fileInfo['dimensions'] || $media->thumbhash !== $fileInfo['thumbhash']) {
-                    $media->update([
-                        'size' => $fileInfo['size'],
-                        'dimensions' => $fileInfo['dimensions'],
-                        'thumbhash' => $fileInfo['thumbhash'],
-                    ]);
+        if (isset($data['images']) && is_array($data['images'])) {
+            foreach ($data['images'] as $collectionName => $imagePaths) {
+                $imagePaths = is_array($imagePaths) ? $imagePaths : [$imagePaths];
+                foreach ($imagePaths as $imagePath) {
+                    $fullPath = $this->resolveMediaPath($imagePath, $filename);
+                    $this->addMediaToContentItem($contentItem, $fullPath, $collectionName);
                 }
-            } else {
-                $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
             }
         }
     }
 
-    public function updateOrCreateMedia(Model $model, string $fullPath, string $collectionName = 'default'): MediaFile
+    public function processMarkdownImages(ContentItem $contentItem, string $markdownContent, string $filename): string
     {
-        $fileInfo = $this->getFileInfo($fullPath);
-        $existingMedia = $model->media()
-            ->where('collection', $collectionName)
-            ->where('path', $fullPath)
-            ->first();
+        $pattern = '/!\[(.*?)\]\((.*?)\)/';
+        $imagePaths = new Collection();
 
-        if ($existingMedia) {
-            $existingMedia->update([
-                'size' => $fileInfo['size'],
-                'dimensions' => $fileInfo['dimensions'],
-                'thumbhash' => $fileInfo['thumbhash'],
-                'mime_type' => $fileInfo['mime_type'],
-            ]);
-            return $existingMedia;
+        $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename, &$imagePaths) {
+            $altText = $matches[1];
+            $imagePath = $matches[2];
+
+            if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
+                // Leave external URLs as they are
+                return $matches[0];
+            }
+
+            $fullImagePath = $this->resolveMediaPath($imagePath, $filename);
+
+            if (File::exists($fullImagePath)) {
+                $imagePaths->push($fullImagePath);
+                return "![{$altText}]({$fullImagePath})";
+            }
+
+            // If the file doesn't exist, leave the original markdown as is
+            return $matches[0];
+        }, $markdownContent);
+
+        $this->syncImagesCollection($contentItem, $imagePaths, 'content');
+
+        return $processedContent;
+    }
+
+    protected function resolveMediaPath(string $mediaItem, string $markdownFilename): string
+    {
+        $fullPath = dirname($markdownFilename) . '/' . $mediaItem;
+        return File::exists($fullPath) ? $fullPath : $mediaItem;
+    }
+
+    protected function syncImagesCollection(ContentItem $contentItem, Collection $newImagePaths, string $collectionName): void
+    {
+        $existingMedia = $contentItem->getMedia($collectionName);
+        $existingPaths = $existingMedia->pluck('path');
+
+        // Determine which images to add, keep, and remove
+        $pathsToAdd = $newImagePaths->diff($existingPaths);
+        $pathsToRemove = $existingPaths->diff($newImagePaths);
+
+        // Add new images
+        foreach ($pathsToAdd as $path) {
+            $this->addMediaToContentItem($contentItem, $path, $collectionName);
         }
 
-        return $this->addMediaToModel($model, $fullPath, $collectionName, $fileInfo);
+        // Remove images that are no longer present
+        $existingMedia->whereIn('path', $pathsToRemove)->each->delete();
     }
 
-    public function getFileInfo(string $path): array
+    protected function addMediaToContentItem(ContentItem $contentItem, string $path, string $collectionName): void
     {
-        $size = filesize($path);
-        $mimeType = mime_content_type($path);
-        $dimensions = $this->getImageDimensions($path);
-        $thumbhash = $this->generateThumbhash($path);
-
-        return [
-            'size' => $size,
-            'mime_type' => $mimeType,
-            'dimensions' => $dimensions,
-            'thumbhash' => $thumbhash,
-        ];
+        if (method_exists($contentItem, 'addMedia')) {
+            $contentItem->addMedia($path)->toMediaCollection($collectionName);
+        }
     }
 
-    protected function getImageDimensions(string $path): array
+    public function processFrontMatter(array $data): array
     {
-        $imageSize = getimagesize($path);
-        return [
-            'width' => $imageSize[0] ?? null,
-            'height' => $imageSize[1] ?? null,
-        ];
+        $processed = [];
+        foreach ($data as $key => $value) {
+            $keys = explode('.', $key);
+            $this->arraySet($processed, $keys, $value);
+        }
+        return $processed;
     }
 
-    public function generateThumbhash(string $path): string
+    private function arraySet(&$array, $keys, $value): void
     {
-        if (extension_loaded('imagick')) {
-            return $this->generateThumbhashWithImagick($path);
+        $key = array_shift($keys);
+        if (empty($keys)) {
+            if (isset($array[$key]) && is_array($array[$key])) {
+                $array[$key][] = $value;
+            } else {
+                $array[$key] = $value;
+            }
         } else {
-            return $this->generateThumbhashWithGd($path);
+            if (!isset($array[$key]) || !is_array($array[$key])) {
+                $array[$key] = [];
+            }
+            $this->arraySet($array[$key], $keys, $value);
         }
-    }
-
-    protected function generateThumbhashWithImagick(string $path): string
-    {
-        $imagick = new \Imagick($path);
-        $imagick->resizeImage(100, 0, \Imagick::FILTER_LANCZOS, 1);
-        $imagick->setImageFormat('png');
-        $blob = $imagick->getImageBlob();
-
-        [$width, $height, $pixels] = extract_size_and_pixels_with_imagick($blob);
-        $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
-        return Thumbhash::convertHashToString($hash);
-    }
-
-    protected function generateThumbhashWithGd(string $path): string
-    {
-        $imageManager = new ImageManager(new Driver());
-        $image = $imageManager->read($path);
-        $image->scale(width: 100);
-        $resizedImage = $image->toJpeg(quality: 85);
-
-        [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string)$resizedImage);
-        $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
-        return Thumbhash::convertHashToString($hash);
     }
 }

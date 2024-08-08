@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Services\MarkdownContentProcessor;
+use App\Services\MarkdownContentProcessingService;
 use Tests\Fakes\FakePost;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -15,13 +15,13 @@ class MarkdownContentProcessorTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    protected MarkdownContentProcessor $service;
+    protected MarkdownContentProcessingService $service;
     protected FakePost $post;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MarkdownContentProcessor();
+        $this->service = new MarkdownContentProcessingService();
         $this->post = FakePost::factory()->create();
         Storage::fake('local');
     }
@@ -120,7 +120,7 @@ class MarkdownContentProcessorTest extends TestCase
 
     public function test_resolve_media_path()
     {
-        $method = new \ReflectionMethod(MarkdownContentProcessor::class, 'resolveMediaPath');
+        $method = new \ReflectionMethod(MarkdownContentProcessingService::class, 'resolveMediaPath');
         $method->setAccessible(true);
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');

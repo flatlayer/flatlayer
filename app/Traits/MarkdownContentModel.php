@@ -3,7 +3,7 @@
 namespace App\Traits;
 
 use App\Markdown\CustomMarkdownRenderer;
-use App\Services\MarkdownContentProcessor;
+use App\Services\MarkdownContentProcessingService;
 use Illuminate\Database\Eloquent\Model;
 use Webuni\FrontMatter\FrontMatter;
 use Illuminate\Support\Str;
@@ -15,7 +15,7 @@ trait MarkdownContentModel
 
     public function initializeMarkdownModel()
     {
-        $this->markdownMediaService = app(MarkdownContentProcessor::class);
+        $this->markdownMediaService = app(MarkdownContentProcessingService::class);
     }
 
     public static function fromMarkdown(string $filename): self
