@@ -12,7 +12,7 @@ use Tests\TestCase;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
-class MarkdownContentProcessorTest extends TestCase
+class MarkdownContentProcessingServiceTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
