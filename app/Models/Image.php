@@ -71,7 +71,7 @@ class Image extends Model
         // Prioritize the 'fm' (format) transform if it exists
         $extension = $transforms['fm'] ?? pathinfo($this->path, PATHINFO_EXTENSION);
 
-        $route = route('media.transform', [
+        $route = route('image.transform', [
             'id' => $this->id,
             'extension' => !empty($extension) ? $extension : 'jpg'
         ]);
@@ -82,7 +82,7 @@ class Image extends Model
         }
 
         if (config('flatlayer.images.use_signatures', true)) {
-            return URL::signedRoute('media.transform', array_merge(
+            return URL::signedRoute('image.transform', array_merge(
                 ['id' => $this->id, 'extension' => $extension],
                 $transforms
             ));

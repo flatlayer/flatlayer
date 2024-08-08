@@ -8,7 +8,7 @@ use App\Query\EntryFilter;
 use App\Http\Requests\ListRequest;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class EntryController extends Controller
+class ContentController extends Controller
 {
     public function __construct(
         protected EntrySerializer $arrayConverter
