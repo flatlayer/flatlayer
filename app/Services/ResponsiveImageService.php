@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
 use Illuminate\Support\Str;
 
 class ResponsiveImageService
@@ -24,7 +24,7 @@ class ResponsiveImageService
         protected array $defaultTransforms = []
     ) {}
 
-    public function generateImgTag(MediaFile $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
+    public function generateImgTag(Asset $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {
         $parsedSizes = $this->parseSizes($sizes);
         $srcset = $this->generateSrcset($media, $isFluid, $displaySize);
@@ -32,7 +32,7 @@ class ResponsiveImageService
 
         $defaultAttributes = [
             'src' => $media->getUrl(array_merge($this->defaultTransforms, $this->getBaseTransforms($displaySize))),
-            'alt' => $media->custom_properties['alt'] ?? '',
+            'alt' => $this->getMediaAlt($media),
             'sizes' => $sizesAttribute,
             'srcset' => $srcset,
         ];
@@ -45,6 +45,15 @@ class ResponsiveImageService
         $mergedAttributes = array_merge($defaultAttributes, $attributes);
 
         return $this->buildImgTag($mergedAttributes);
+    }
+
+    protected function getMediaAlt(Asset $media): string
+    {
+        $customProperties = $media->custom_properties;
+        if (is_string($customProperties)) {
+            $customProperties = json_decode($customProperties, true);
+        }
+        return $customProperties['alt'] ?? '';
     }
 
     protected function parseSizes(array $sizes): array
@@ -86,9 +95,9 @@ class ResponsiveImageService
         throw new \InvalidArgumentException("Invalid size format: $size");
     }
 
-    protected function generateSrcset(MediaFile $media, bool $isFluid, ?array $displaySize = null): string
+    protected function generateSrcset(Asset $media, bool $isFluid, ?array $displaySize = null): string
     {
-        $maxWidth = $media->getWidth();
+        $maxWidth = $this->getMediaWidth($media);
         $srcset = [];
 
         if ($displaySize) {
@@ -145,7 +154,16 @@ class ResponsiveImageService
         return implode(', ', array_unique($srcset));
     }
 
-    protected function formatSrcsetEntry(MediaFile $media, int $width, ?int $height = null): string
+    protected function getMediaWidth(Asset $media): int
+    {
+        $dimensions = $media->dimensions;
+        if (is_string($dimensions)) {
+            $dimensions = json_decode($dimensions, true);
+        }
+        return $dimensions['width'] ?? 0;
+    }
+
+    protected function formatSrcsetEntry(Asset $media, int $width, ?int $height = null): string
     {
         $transforms = array_merge($this->defaultTransforms, ['w' => $width]);
         if ($height !== null) {

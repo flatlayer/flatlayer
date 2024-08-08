@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Services\JinaSearchService;
-use App\Services\MarkdownContentProcessor;
-use App\Services\ModelResolverService;
+use App\Services\MarkdownProcessingService;
+use App\Services\AssetService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,12 +21,8 @@ class AppServiceProvider extends ServiceProvider
             return new JinaSearchService($apiKey, $rerankModel, $embeddingModel);
         });
 
-        $this->app->singleton(MarkdownContentProcessor::class, function ($app) {
-            return new MarkdownContentProcessor();
-        });
-
-        $this->app->singleton(ModelResolverService::class, function ($app) {
-            return new ModelResolverService();
+        $this->app->singleton(MarkdownProcessingService::class, function ($app) {
+            return new MarkdownProcessingService($app->make(AssetService::class));
         });
     }
 

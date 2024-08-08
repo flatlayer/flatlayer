@@ -2,48 +2,71 @@
 
 namespace Tests\Feature;
 
-use App\Services\ModelResolverService;
+use App\Models\Entry;
+use App\Services\JinaSearchService;
+use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
-use Tests\Fakes\FakePost;
+use Mockery;
 
 class ContentSyncCommandTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected $syncConfigService;
 
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
 
-        $resolver = app(ModelResolverService::class);
-        $resolver->addNamespace('Tests\Fakes\\');
+        $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
+        $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
 
-        // Mock the configuration for FakePost
-        Config::set('flatlayer.models.' . FakePost::class, [
-            'path' => Storage::path('posts'),
-            'source' => '*.md'
-        ]);
+        JinaSearchService::fake();
     }
 
-    public function testMarkdownSyncCommand()
+    public function testContentSyncCommandWithPath()
     {
-        // Create some markdown files
-        Storage::disk('local')->put('posts/post1.md', "---\ntitle: Test Post 1\n---\nContent 1");
-        Storage::disk('local')->put('posts/post2.md', "---\ntitle: Test Post 2\n---\nContent 2");
+        $this->createTestFiles();
 
-        // Run the command
-        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'fake-post']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
-        // Assert that the command was successful
         $this->assertEquals(0, $exitCode);
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 1', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
+    }
 
-        // Assert that the posts were created in the database
-        $this->assertDatabaseHas('posts', ['title' => 'Test Post 1']);
-        $this->assertDatabaseHas('posts', ['title' => 'Test Post 2']);
+    public function testContentSyncCommandWithType()
+    {
+        $this->createTestFiles();
+
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('post')
+            ->andReturn(true);
+
+        $this->syncConfigService->shouldReceive('getConfig')
+            ->with('post')
+            ->andReturn([
+                'path' => Storage::path('posts'),
+                '--pattern' => '*.md',
+            ]);
+
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'post']);
+
+        $this->assertEquals(0, $exitCode);
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 1', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
+    }
+
+    public function testContentSyncCommandUpdatesAndDeletes()
+    {
+        $this->createTestFiles();
+        Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
         // Modify an existing file
         Storage::disk('local')->put('posts/post1.md', "---\ntitle: Updated Post 1\n---\nUpdated Content 1");
@@ -54,32 +77,42 @@ class ContentSyncCommandTest extends TestCase
         // Add a new file
         Storage::disk('local')->put('posts/post3.md', "---\ntitle: Test Post 3\n---\nContent 3");
 
-        // Run the command again
-        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'FakePost']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
-        // Assert that the command was successful
         $this->assertEquals(0, $exitCode);
-
-        // Assert the changes were reflected in the database
-        $this->assertDatabaseHas('posts', ['title' => 'Updated Post 1']);
-        $this->assertDatabaseMissing('posts', ['title' => 'Test Post 2']);
-        $this->assertDatabaseHas('posts', ['title' => 'Test Post 3']);
-
-        // Assert the total number of posts is correct
-        $this->assertEquals(2, FakePost::count());
+        $this->assertDatabaseCount('entries', 2);
+        $this->assertDatabaseHas('entries', ['title' => 'Updated Post 1', 'type' => 'post']);
+        $this->assertDatabaseMissing('entries', ['title' => 'Test Post 2', 'type' => 'post']);
+        $this->assertDatabaseHas('entries', ['title' => 'Test Post 3', 'type' => 'post']);
     }
 
-    public function testMarkdownSyncCommandWithInvalidModel()
+    public function testContentSyncCommandWithInvalidType()
     {
-        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'Invalid-model']);
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('invalid-type')
+            ->andReturn(false);
 
-        $this->assertNotEquals(0, $exitCode);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'invalid-type']);
+
+        $this->assertEquals(1, $exitCode);
     }
 
-    public function testMarkdownSyncCommandWithNonEloquentModel()
+    public function testContentSyncCommandWithInvalidPath()
     {
-        $exitCode = Artisan::call('flatlayer:content-sync', ['model' => 'stdClass']);
+        $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => '/non/existent/path']);
 
-        $this->assertNotEquals(0, $exitCode);
+        $this->assertEquals(1, $exitCode);
+    }
+
+    protected function createTestFiles()
+    {
+        Storage::disk('local')->put('posts/post1.md', "---\ntitle: Test Post 1\n---\nContent 1");
+        Storage::disk('local')->put('posts/post2.md', "---\ntitle: Test Post 2\n---\nContent 2");
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
     }
 }

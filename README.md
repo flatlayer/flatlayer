@@ -188,12 +188,12 @@ FlatLayer automatically processes images referenced in your Markdown files. Use 
 Create new models that use the `MarkdownModel` and `Searchable` traits to add support for new content types:
 
 ```php
-use App\Traits\MarkdownContentModel;
+use App\Traits\HasMarkdown;
 use App\Traits\Searchable;
 
 class CustomContent extends Model
 {
-    use MarkdownContentModel, Searchable;
+    use HasMarkdown, Searchable;
 
     // ... your model implementation
 }

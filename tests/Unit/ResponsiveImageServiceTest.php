@@ -2,9 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Models\MediaFile;
+use App\Models\Asset;
 use App\Services\ResponsiveImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Illuminate\Support\Facades\URL;
 
@@ -13,21 +14,36 @@ class ResponsiveImageServiceTest extends TestCase
     use RefreshDatabase;
 
     private ResponsiveImageService $service;
-    private MediaFile $media;
-    private MediaFile $thumbnail;
+    private Asset $media;
+    private Asset $thumbnail;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = new ResponsiveImageService(['q' => 80]);
-        $this->media = MediaFile::factory()->create([
-            'dimensions' => ['width' => 1600, 'height' => 900],
-            'path' => 'path/to/image.jpg',
+
+        // Create a fake storage disk
+        Storage::fake('public');
+
+        // Create test images
+        $this->createTestImage('image.jpg', 1600, 900);
+        $this->createTestImage('thumbnail.jpg', 600, 600);
+
+        $this->media = Asset::factory()->create([
+            'dimensions' => json_encode(['width' => 1600, 'height' => 900]),
+            'path' => Storage::disk('public')->path('image.jpg'),
         ]);
-        $this->thumbnail = MediaFile::factory()->create([
-            'dimensions' => ['width' => 600, 'height' => 600],
-            'path' => 'path/to/thumbnail.jpg',
+        $this->thumbnail = Asset::factory()->create([
+            'dimensions' => json_encode(['width' => 600, 'height' => 600]),
+            'path' => Storage::disk('public')->path('thumbnail.jpg'),
         ]);
+    }
+
+    protected function createTestImage($filename, $width, $height)
+    {
+        $img = imagecreatetruecolor($width, $height);
+        imagejpeg($img, Storage::disk('public')->path($filename));
+        imagedestroy($img);
     }
 
     public function test_parse_sizes()
@@ -118,7 +134,6 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_fluid()
     {
-        // Mock the URL facade for both route and signedRoute
         URL::shouldReceive('route')
             ->with('media.transform', \Mockery::any(), \Mockery::any())
             ->andReturn('https://example.com/url');
@@ -131,7 +146,7 @@ class ResponsiveImageServiceTest extends TestCase
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL
+        $this->assertStringContainsString('src="https://example.com/', $result);
         $this->assertStringContainsString('alt="', $result);
         $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);

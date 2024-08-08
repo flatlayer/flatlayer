@@ -2,37 +2,27 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\ModelListController;
-use App\Services\ModelResolverService;
+use App\Models\Entry;
+use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
-use Tests\Fakes\FakePost;
-use Mockery;
 
 class ListControllerTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    protected $modelResolver;
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        $this->modelResolver = Mockery::mock(ModelResolverService::class);
-        $this->app->instance(ModelResolverService::class, $this->modelResolver);
-
-        $this->modelResolver->shouldReceive('resolve')
-            ->with('fake-posts')
-            ->andReturn(FakePost::class);
+        JinaSearchService::fake();
     }
 
     public function test_index_returns_paginated_results()
     {
-        FakePost::factory()->count(20)->create();
+        Entry::factory()->count(20)->create(['type' => 'post']);
 
-        $response = $this->getJson('/fake-posts/list');
+        $response = $this->getJson('/content/post');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -46,38 +36,33 @@ class ListControllerTest extends TestCase
 
     public function test_index_respects_per_page_parameter()
     {
-        FakePost::factory()->count(20)->create();
+        Entry::factory()->count(20)->create(['type' => 'post']);
 
-        $response = $this->getJson('/fake-posts/list?per_page=10');
+        $response = $this->getJson('/content/post?per_page=10');
 
         $response->assertStatus(200)
             ->assertJsonCount(10, 'data');
     }
 
-    public function test_index_returns_error_for_invalid_model()
+    public function test_index_returns_error_for_invalid_type()
     {
-        $this->modelResolver->shouldReceive('resolve')
-            ->with('invalid-model')
-            ->andReturnNull();
+        $response = $this->getJson('/content/invalid-type');
 
-        $response = $this->getJson('/invalid-model/list');
-
-        $response->assertStatus(400)
-            ->assertJson(['error' => 'Invalid model']);
+        $response->assertStatus(404);
     }
 
     public function test_index_applies_tag_filters()
     {
-        $postA = FakePost::factory()->create(['title' => 'Post A']);
-        $postB = FakePost::factory()->create(['title' => 'Post B']);
-        $postC = FakePost::factory()->create(['title' => 'Post C']);
+        $postA = Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        $postB = Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
+        $postC = Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
 
         $postA->attachTag('tag1');
         $postB->attachTag('tag2');
         $postC->attachTag('tag1');
 
         $filter = json_encode(['$tags' => ['tag1']]);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response = $this->getJson("/content/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -85,14 +70,14 @@ class ListControllerTest extends TestCase
             ->assertJsonPath('data.1.title', 'Post C');
 
         $filter = json_encode(['$tags' => ['tag2']]);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response = $this->getJson("/content/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Post B');
 
         $filter = json_encode(['$tags' => ['non_existent_tag']]);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response = $this->getJson("/content/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(0, 'data');
@@ -100,11 +85,11 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_field_filters()
     {
-        FakePost::factory()->create(['title' => 'Post A']);
-        FakePost::factory()->create(['title' => 'Post B']);
+        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
 
         $filter = json_encode(['title' => 'Post A']);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response = $this->getJson("/content/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -113,28 +98,29 @@ class ListControllerTest extends TestCase
 
     public function test_index_applies_operator_field_filters()
     {
-        FakePost::factory()->create(['title' => 'AAA Post']);
-        FakePost::factory()->create(['title' => 'BBB Post']);
-        FakePost::factory()->create(['title' => 'CCC Post']);
+        Entry::factory()->create(['title' => 'AAA Post', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
 
         $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
-        $response = $this->getJson("/fake-posts/list?filter={$filter}");
+        $response = $this->getJson("/content/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'AAA Post')
-            ->assertJsonPath('data.1.title', 'BBB Post');
+            ->assertJsonPath('data.0.title', 'BBB Post')
+            ->assertJsonPath('data.1.title', 'AAA Post');
     }
 
     public function test_index_transforms_items_using_to_summary_array()
     {
-        $post = FakePost::factory()->create([
+        $post = Entry::factory()->create([
             'title' => 'Test Post',
             'content' => 'This content should not appear in summary',
             'slug' => 'test-post',
+            'type' => 'post',
         ]);
 
-        $response = $this->getJson('/fake-posts/list');
+        $response = $this->getJson('/content/post');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.0.id', $post->id)
@@ -143,9 +129,154 @@ class ListControllerTest extends TestCase
             ->assertJsonMissing(['data.0.content']);
     }
 
-    protected function tearDown(): void
+    public function test_index_filters_by_type()
     {
-        Mockery::close();
-        parent::tearDown();
+        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'Document B', 'type' => 'document']);
+
+        $response = $this->getJson('/content/post');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Post A');
+
+        $response = $this->getJson('/content/document');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Document B');
+    }
+
+    public function test_index_returns_only_specified_fields()
+    {
+        Entry::factory()->create([
+            'title' => 'Test Post',
+            'content' => 'This is the content',
+            'excerpt' => 'This is the excerpt',
+            'type' => 'post',
+        ]);
+
+        $fields = json_encode([
+            'title',
+        ]);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [['title']]])
+            ->assertJsonMissing(['content'])
+            ->assertJsonMissing(['excerpt'])
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_returns_nested_meta_fields()
+    {
+        Entry::factory()->create([
+            'title' => 'Test Post',
+            'type' => 'post',
+            'meta' => [
+                'author' => 'John Doe',
+                'seo' => [
+                    'description' => 'SEO description',
+                    'keywords' => ['key1', 'key2'],
+                ],
+            ],
+        ]);
+
+        $fields = json_encode(['title', 'meta.author', 'meta.seo.description']);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [[
+                'title',
+                'meta' => [
+                    'author',
+                    'seo' => ['description'],
+                ],
+            ]]])
+            ->assertJsonMissing(['meta' => ['seo' => ['keywords']]])
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_returns_formatted_images()
+    {
+        $post = Entry::factory()->create(['type' => 'post']);
+        $post->addAsset(base_path('tests/fixtures/test.png'), 'featured');
+
+        $fields = json_encode(['title', 'images.featured']);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'title',
+                        'images' => [
+                            'featured' => [
+                                '*' => [
+                                    'id',
+                                    'url',
+                                    'html',
+                                    'meta' => [
+                                        'width',
+                                        'height',
+                                        'aspect_ratio'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ])
+            ->assertJsonCount(1, 'data');
+
+        $responseData = $response->json('data.0');
+        $this->assertArrayHasKey('title', $responseData);
+        $this->assertArrayHasKey('images', $responseData);
+        $this->assertArrayHasKey('featured', $responseData['images']);
+
+        $featuredImage = $responseData['images']['featured'][0];
+        $this->assertIsInt($featuredImage['id']);
+        $this->assertIsString($featuredImage['url']);
+        $this->assertStringStartsWith('http://', $featuredImage['url']);
+        $this->assertIsString($featuredImage['html']);
+        $this->assertStringContainsString('<img', $featuredImage['html']);
+        $this->assertIsArray($featuredImage['meta']);
+        $this->assertArrayHasKey('width', $featuredImage['meta']);
+        $this->assertArrayHasKey('height', $featuredImage['meta']);
+        $this->assertArrayHasKey('aspect_ratio', $featuredImage['meta']);
+        $this->assertIsInt($featuredImage['meta']['width']);
+        $this->assertIsInt($featuredImage['meta']['height']);
+        $this->assertIsNumeric($featuredImage['meta']['aspect_ratio']);
+    }
+
+    public function test_index_respects_field_options()
+    {
+        Entry::factory()->create([
+            'title' => 'Test Post',
+            'type' => 'post',
+            'published_at' => now(),
+            'meta' => ['views' => '1000'],
+        ]);
+
+        $fields = json_encode([
+            ['published_at', 'date'],
+            ['meta.views', 'integer'],
+        ]);
+
+        $response = $this->getJson("/content/post?fields={$fields}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [[
+                'published_at',
+                'meta' => ['views'],
+            ]]])
+            ->assertJsonCount(1, 'data');
+
+        $responseData = $response->json('data.0');
+        $this->assertIsString($responseData['published_at']);
+        $this->assertIsInt($responseData['meta']['views']);
     }
 }
