@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Filter\AdvancedQueryFilter;
+use App\Query\QueryFilter;
 use App\Models\ContentItem;
 use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,7 +30,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['$tags' => ['type' => 'colors', 'values' => ['red', 'blue']]];
         $query = ContentItem::query();
-        $filteredQuery = (new AdvancedQueryFilter($query, $filters))->apply();
+        $filteredQuery = (new QueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Builder::class, $filteredQuery);
         $results = $filteredQuery->get();
@@ -54,7 +54,7 @@ class QueryFilterTest extends TestCase
 
         $filters = ['$search' => 'a post about John'];
         $query = ContentItem::query();
-        $filtered = (new AdvancedQueryFilter($query, $filters))->apply();
+        $filtered = (new QueryFilter($query, $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);
@@ -88,7 +88,7 @@ class QueryFilterTest extends TestCase
             '$search' => 'John'
         ];
 
-        $filtered = (new AdvancedQueryFilter(ContentItem::query(), $filters))->apply();
+        $filtered = (new QueryFilter(ContentItem::query(), $filters))->apply();
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);

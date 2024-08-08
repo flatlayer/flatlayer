@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentItem;
-use App\Filter\ContentItemArrayConverter;
+use App\Query\ContentISerializer;
 use App\Http\Requests\ListRequest;
 
 class ContentItemDetailController extends Controller
 {
     public function __construct(
-        protected ContentItemArrayConverter $arrayConverter
+        protected ContentISerializer $arrayConverter
     ) {}
 
     public function show(ListRequest $request, $type, $slug)

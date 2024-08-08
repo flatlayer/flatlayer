@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Filter;
+namespace App\Query;
 
 use App\Models\ContentItem;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
-class ContentItemArrayConverter
+class ContentISerializer
 {
     protected $defaultFields = [
         'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'

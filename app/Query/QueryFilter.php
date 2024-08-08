@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filter;
+namespace App\Query;
 
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class AdvancedQueryFilter
+class QueryFilter
 {
     protected ?string $search;
 

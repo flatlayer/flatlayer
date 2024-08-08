@@ -215,13 +215,15 @@ class ListControllerTest extends TestCase
                         'title',
                         'images' => [
                             'featured' => [
-                                'id',
-                                'url',
-                                'html',
-                                'meta' => [
-                                    'width',
-                                    'height',
-                                    'aspect_ratio'
+                                '*' => [
+                                    'id',
+                                    'url',
+                                    'html',
+                                    'meta' => [
+                                        'width',
+                                        'height',
+                                        'aspect_ratio'
+                                    ]
                                 ]
                             ]
                         ]
@@ -235,7 +237,7 @@ class ListControllerTest extends TestCase
         $this->assertArrayHasKey('images', $responseData);
         $this->assertArrayHasKey('featured', $responseData['images']);
 
-        $featuredImage = $responseData['images']['featured'];
+        $featuredImage = $responseData['images']['featured'][0];
         $this->assertIsInt($featuredImage['id']);
         $this->assertIsString($featuredImage['url']);
         $this->assertStringStartsWith('http://', $featuredImage['url']);

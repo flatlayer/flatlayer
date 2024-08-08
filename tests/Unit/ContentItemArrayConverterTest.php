@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Filter\ContentItemArrayConverter;
+use App\Query\ContentISerializer;
 use App\Models\ContentItem;
 use App\Models\MediaFile;
 use App\Services\JinaSearchService;
@@ -14,14 +14,14 @@ class ContentItemArrayConverterTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected ContentItemArrayConverter $converter;
+    protected ContentISerializer $converter;
     protected ContentItem $contentItem;
 
     protected function setUp(): void
     {
         parent::setUp();
         JinaSearchService::fake();
-        $this->converter = new ContentItemArrayConverter();
+        $this->converter = new ContentISerializer();
         $this->contentItem = $this->createContentItem();
     }
 

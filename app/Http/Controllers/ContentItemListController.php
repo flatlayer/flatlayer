@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Filter\AdvancedQueryFilter;
+use App\Query\QueryFilter;
 use App\Http\Requests\ListRequest;
 use App\Models\ContentItem;
-use App\Filter\ContentItemArrayConverter;
+use App\Query\ContentISerializer;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ContentItemListController extends Controller
 {
     public function __construct(
-        protected ContentItemArrayConverter $arrayConverter
+        protected ContentISerializer $arrayConverter
     ) {}
 
     public function index(ListRequest $request, $type = null)
@@ -27,7 +27,7 @@ class ContentItemListController extends Controller
             }
         }
 
-        $filter = new AdvancedQueryFilter($query, $request->getFilter());
+        $filter = new QueryFilter($query, $request->getFilter());
         $filteredResult = $filter->apply();
 
         $perPage = $request->input('per_page', 15);

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Filter\ContentItemArrayConverter;
+use App\Query\ContentISerializer;
 use App\Traits\HasMediaFiles;
 use App\Traits\MarkdownContentModel;
 use App\Traits\Searchable;
@@ -56,7 +56,7 @@ class ContentItem extends Model
 
     public function toArray($fields = null): array
     {
-        return (new ContentItemArrayConverter())->toArray($this, $fields);
+        return (new ContentISerializer())->toArray($this, $fields);
     }
 
     public static function findByTypeAndSlug($type, $slug)
