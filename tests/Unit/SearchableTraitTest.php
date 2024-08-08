@@ -2,58 +2,50 @@
 
 namespace Tests\Unit;
 
+use App\Models\ContentItem;
 use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Schema;
-use Tests\Fakes\FakeSearchableModel;
 use Tests\TestCase;
 
 class SearchableTraitTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $jinaService;
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        Schema::create('fake_searchable_models', function ($table) {
-            $table->id();
-            $table->string('title');
-            $table->text('content');
-            $table->text('embedding')->nullable();
-            $table->timestamps();
-        });
-
-        $this->jinaService = JinaSearchService::fake();
+        JinaSearchService::fake();
     }
 
     public function testUpdateSearchVector()
     {
-        $model = new FakeSearchableModel(['title' => 'Test', 'content' => 'Content']);
+        $contentItem = ContentItem::factory()->create([
+            'title' => 'Test Title',
+            'content' => 'Test Content',
+            'type' => 'post'
+        ]);
 
-        $model->save();
-
-        $this->assertNotEmpty($model->embedding);
-        $this->assertCount(768, $model->embedding);
+        $this->assertNotEmpty($contentItem->embedding);
+        $this->assertCount(768, $contentItem->embedding->toArray());
     }
 
     public function testSearch()
     {
         // Create test records
-        $first = FakeSearchableModel::create([
+        $first = ContentItem::factory()->create([
             'title' => 'First document',
             'content' => 'This is the first test document',
+            'type' => 'post'
         ]);
-        $second = FakeSearchableModel::create([
+        $second = ContentItem::factory()->create([
             'title' => 'Second document',
             'content' => 'This is the second test document',
+            'type' => 'post'
         ]);
 
         // Perform the search
-        $results = FakeSearchableModel::search('test document', 2, false);
+        $results = ContentItem::search('test document', 2, false);
 
         // Detailed assertions
         $this->assertCount(2, $results);
@@ -77,16 +69,24 @@ class SearchableTraitTest extends TestCase
     public function testSearchWithReranking()
     {
         // Create actual records in the database
-        FakeSearchableModel::create(['title' => 'First', 'content' => 'This is a test document']);
-        FakeSearchableModel::create(['title' => 'Second', 'content' => 'This is an actual real document']);
+        ContentItem::factory()->create([
+            'title' => 'First',
+            'content' => 'This is a test document',
+            'type' => 'post'
+        ]);
+        ContentItem::factory()->create([
+            'title' => 'Second',
+            'content' => 'This is an actual real document',
+            'type' => 'post'
+        ]);
 
-        $results = FakeSearchableModel::search('test document', 2, true);
+        $results = ContentItem::search('test document', 2, true);
 
         $this->assertEquals(2, $results->count());
-        $this->assertEquals(1, $results[0]->id);  // "another test document" has more overlapping words
-        $this->assertEquals(2, $results[1]->id);
+        $this->assertEquals('First', $results[0]->title);
+        $this->assertEquals('Second', $results[1]->title);
         $this->assertGreaterThanOrEqual(0.3, $results[0]->relevance);  // 3 overlapping words: "test", "document", "is"
-        $this->assertGreaterThanOrEqual(0.1, $results[1]->relevance);  // 2 overlapping words: "test", "document"
+        $this->assertGreaterThanOrEqual(0.1, $results[1]->relevance);  // 2 overlapping words: "document", "is"
         $this->assertGreaterThan($results[1]->relevance, $results[0]->relevance);
     }
 }
