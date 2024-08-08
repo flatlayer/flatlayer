@@ -3,127 +3,138 @@
 namespace Tests\Unit;
 
 use App\Jobs\ContentSyncJob;
-use Tests\Fakes\FakePost;
+use App\Models\ContentItem;
+use App\Services\JinaSearchService;
+use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
-use ReflectionClass;
+use Mockery;
 
 class ContentSyncJobTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected $syncConfigService;
 
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
 
-        Config::set('flatlayer.models.Tests\\Fakes\\FakePost', [
-            'path' => Storage::path('posts'),
-            'source' => '*.md'
-        ]);
+        $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
+        $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
+
+        JinaSearchService::fake();
     }
 
-    public function testMarkdownSyncJobCreatesNewModels()
+    public function testContentSyncJobCreatesNewModels()
     {
-        Storage::put('posts/test-post.md', "---\ntitle: Test Post\n---\nThis is a test post.");
+        $this->createTestFile('test-post.md', "---\ntitle: Test Post\n---\nThis is a test post.");
 
-        $job = new ContentSyncJob(FakePost::class);
-        $job->handle();
+        ContentSyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
-        $this->assertDatabaseHas('posts', [
+        $this->assertDatabaseHas('content_items', [
             'title' => 'Test Post',
             'content' => 'This is a test post.',
             'slug' => 'test-post',
+            'type' => 'post',
         ]);
     }
 
-    public function testMarkdownSyncJobUpdatesExistingModels()
+    public function testContentSyncJobUpdatesExistingModels()
     {
-        FakePost::create([
+        ContentItem::factory()->create([
             'title' => 'Existing Post',
             'content' => 'Old content',
             'slug' => 'existing-post',
+            'type' => 'post',
         ]);
 
-        Storage::put('posts/existing-post.md', "---\ntitle: Updated Post\n---\nThis is updated content.");
+        $this->createTestFile('existing-post.md', "---\ntitle: Updated Post\n---\nThis is updated content.");
 
-        $job = new ContentSyncJob(FakePost::class);
-        $job->handle();
+        ContentSyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
-        $this->assertDatabaseHas('posts', [
+        $this->assertDatabaseHas('content_items', [
             'title' => 'Updated Post',
             'content' => 'This is updated content.',
             'slug' => 'existing-post',
+            'type' => 'post',
         ]);
     }
 
-    public function testMarkdownSyncJobDeletesRemovedModels()
+    public function testContentSyncJobDeletesRemovedModels()
     {
-        FakePost::create([
+        ContentItem::factory()->create([
             'title' => 'Post to Delete',
             'content' => 'This post should be deleted',
             'slug' => 'post-to-delete',
+            'type' => 'post',
         ]);
 
-        Storage::put('posts/remaining-post.md', "---\ntitle: Remaining Post\n---\nThis post should remain.");
+        $this->createTestFile('remaining-post.md', "---\ntitle: Remaining Post\n---\nThis post should remain.");
 
-        $job = new ContentSyncJob(FakePost::class);
-        $job->handle();
+        ContentSyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
-        $this->assertDatabaseMissing('posts', [
+        $this->assertDatabaseMissing('content_items', [
             'slug' => 'post-to-delete',
+            'type' => 'post',
         ]);
 
-        $this->assertDatabaseHas('posts', [
+        $this->assertDatabaseHas('content_items', [
             'title' => 'Remaining Post',
             'content' => 'This post should remain.',
             'slug' => 'remaining-post',
+            'type' => 'post',
         ]);
     }
 
-    public function testMarkdownSyncJobHandlesMultipleFiles()
+    public function testContentSyncJobHandlesMultipleFiles()
     {
-        Storage::put('posts/post1.md', "---\ntitle: Post 1\n---\nContent 1");
-        Storage::put('posts/post2.md', "---\ntitle: Post 2\n---\nContent 2");
-        Storage::put('posts/post3.md', "---\ntitle: Post 3\n---\nContent 3");
+        $this->createTestFile('post1.md', "---\ntitle: Post 1\n---\nContent 1");
+        $this->createTestFile('post2.md', "---\ntitle: Post 2\n---\nContent 2");
+        $this->createTestFile('post3.md', "---\ntitle: Post 3\n---\nContent 3");
 
-        $job = new ContentSyncJob(FakePost::class);
-        $job->handle();
+        ContentSyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
-        $this->assertDatabaseCount('posts', 3);
-        $this->assertDatabaseHas('posts', ['title' => 'Post 1']);
-        $this->assertDatabaseHas('posts', ['title' => 'Post 2']);
-        $this->assertDatabaseHas('posts', ['title' => 'Post 3']);
+        $this->assertDatabaseCount('content_items', 3);
+        $this->assertDatabaseHas('content_items', ['title' => 'Post 1', 'type' => 'post']);
+        $this->assertDatabaseHas('content_items', ['title' => 'Post 2', 'type' => 'post']);
+        $this->assertDatabaseHas('content_items', ['title' => 'Post 3', 'type' => 'post']);
     }
 
     public function testChunkedDeletion()
     {
-        // Create a larger number of posts
-        for ($i = 0; $i < 50; $i++) {
-            FakePost::create([
-                'title' => "Post $i",
-                'content' => "Content $i",
-                'slug' => "post-$i",
-            ]);
-        }
+        // Create a larger number of content items
+        ContentItem::factory()->count(50)->create([
+            'type' => 'post',
+        ]);
 
         // Only create markdown files for some posts
         for ($i = 0; $i < 30; $i++) {
-            Storage::put("posts/post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
+            $this->createTestFile("post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
         }
 
-        $job = new ContentSyncJob(FakePost::class);
-        $job->handle();
+        ContentSyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
         // Check that only the posts with markdown files remain
-        $this->assertDatabaseCount('posts', 30);
+        $this->assertDatabaseCount('content_items', 30);
         for ($i = 0; $i < 30; $i++) {
-            $this->assertDatabaseHas('posts', ['slug' => "post-$i"]);
+            $this->assertDatabaseHas('content_items', ['slug' => "post-$i", 'type' => 'post']);
         }
         for ($i = 30; $i < 50; $i++) {
-            $this->assertDatabaseMissing('posts', ['slug' => "post-$i"]);
+            $this->assertDatabaseMissing('content_items', ['slug' => "post-$i", 'type' => 'post']);
         }
+    }
+
+    protected function createTestFile($filename, $content)
+    {
+        Storage::put("posts/$filename", $content);
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
     }
 }
