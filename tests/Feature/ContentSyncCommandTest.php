@@ -24,8 +24,6 @@ class ContentSyncCommandTest extends TestCase
 
         $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
         $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
-
-        JinaSearchService::fake();
     }
 
     public function testContentSyncCommandWithPath()

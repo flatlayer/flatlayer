@@ -32,8 +32,6 @@ class MediaTransformControllerTest extends TestCase
 
         Storage::fake($this->diskName);
 
-        JinaSearchService::fake();
-
         $this->tempImagePath = $this->createTempImage();
 
         $this->contentItem = Entry::factory()->create(['type' => 'post']);

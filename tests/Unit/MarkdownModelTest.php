@@ -30,9 +30,6 @@ class MarkdownModelTest extends TestCase
         Storage::disk('local')->put('thumbnail.png', 'fake image content');
         Storage::disk('local')->put('image1.jpg', 'fake image content');
         Storage::disk('local')->put('image3.png', 'fake image content');
-
-        // Fake the JinaSearchService
-        JinaSearchService::fake();
     }
 
     public function testFromMarkdown()

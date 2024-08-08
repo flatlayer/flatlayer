@@ -15,7 +15,6 @@ class ListControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        JinaSearchService::fake();
     }
 
     public function test_index_returns_paginated_results()

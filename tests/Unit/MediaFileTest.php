@@ -19,7 +19,6 @@ class MediaFileTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
-        JinaSearchService::fake();
     }
 
     public function testAddMediaToModel()

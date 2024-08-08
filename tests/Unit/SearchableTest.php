@@ -12,12 +12,6 @@ class SearchableTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        JinaSearchService::fake();
-    }
-
     public function testUpdateSearchVector()
     {
         $contentItem = Entry::factory()->create([

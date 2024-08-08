@@ -20,8 +20,6 @@ class EnhancedMarkdownRendererTest extends TestCase
     {
         parent::setUp();
 
-        JinaSearchService::fake();
-
         $this->contentItem = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',

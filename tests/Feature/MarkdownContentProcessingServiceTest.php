@@ -23,7 +23,6 @@ class MarkdownContentProcessingServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = app(MarkdownProcessingService::class);
-        JinaSearchService::fake();
         $this->contentItem = Entry::factory()->create(['type' => 'post']);
         Storage::fake('local');
     }

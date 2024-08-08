@@ -20,7 +20,6 @@ class ContentItemArrayConverterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        JinaSearchService::fake();
         $this->converter = new EntrySerializer();
         $this->contentItem = $this->createContentItem();
     }

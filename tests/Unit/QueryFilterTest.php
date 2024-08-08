@@ -18,7 +18,6 @@ class QueryFilterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        JinaSearchService::fake();
     }
 
     public function testTagFiltersWithType()

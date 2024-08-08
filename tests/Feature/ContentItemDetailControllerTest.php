@@ -14,7 +14,6 @@ class ContentItemDetailControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        JinaSearchService::fake();
     }
 
     public function test_can_retrieve_content_item_by_type_and_slug()
