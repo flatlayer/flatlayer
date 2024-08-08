@@ -10,9 +10,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/{modelSlug}/list', [ContentItemListController::class, 'index'])->name('list');
-Route::get('/{modelSlug}/show/{slug}', [ContentItemDetailController::class, 'show'])->name('show');
+// ContentItem routes
+Route::get('/content/{type}', [ContentItemListController::class, 'index'])->name('content.list');
+Route::get('/content/{type}/{slug}', [ContentItemDetailController::class, 'show'])->name('content.detail');
+
+// Media transform route
 Route::get('/media/{id}.{extension}', [MediaTransformController::class, 'transform'])->name('media.transform');
 
-Route::post('/{modelSlug}/webhook', [WebhookHandlerController::class, 'handle'])
-    ->middleware('throttle:10,1');
+// Webhook route
+Route::post('/webhook/{type}', [WebhookHandlerController::class, 'handle'])
+    ->middleware('throttle:10,1')
+    ->name('webhook.handle');
