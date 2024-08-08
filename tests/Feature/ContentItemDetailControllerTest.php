@@ -26,7 +26,7 @@ class ContentItemDetailControllerTest extends TestCase
             'content' => 'This is a test post.',
         ]);
 
-        $response = $this->getJson("/content/post/{$contentItem->slug}");
+        $response = $this->getJson("/entry/post/{$contentItem->slug}");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -39,7 +39,7 @@ class ContentItemDetailControllerTest extends TestCase
 
     public function test_returns_404_for_non_existent_content_item()
     {
-        $response = $this->getJson("/content/post/non-existent-slug");
+        $response = $this->getJson("/entry/post/non-existent-slug");
 
         $response->assertStatus(404);
     }
@@ -53,7 +53,7 @@ class ContentItemDetailControllerTest extends TestCase
             'content' => 'This is a test post.',
         ]);
 
-        $response = $this->getJson("/content/document/{$contentItem->slug}");
+        $response = $this->getJson("/entry/document/{$contentItem->slug}");
 
         $response->assertStatus(404);
     }
@@ -74,8 +74,8 @@ class ContentItemDetailControllerTest extends TestCase
             'content' => 'This is a test document.',
         ]);
 
-        $postResponse = $this->getJson("/content/post/{$post->slug}");
-        $documentResponse = $this->getJson("/content/document/{$document->slug}");
+        $postResponse = $this->getJson("/entry/post/{$post->slug}");
+        $documentResponse = $this->getJson("/entry/document/{$document->slug}");
 
         $postResponse->assertStatus(200)
             ->assertJson([

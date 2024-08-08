@@ -12,8 +12,8 @@ Route::get('/', function () {
 });
 
 // ContentItem routes
-Route::get('/content/{type}', [EntryListController::class, 'index'])->name('content.list');
-Route::get('/content/{type}/{slug}', [EntryDetailController::class, 'show'])->name('content.detail');
+Route::get('/entry/{type}', [EntryListController::class, 'index'])->name('content.list');
+Route::get('/entry/{type}/{slug}', [EntryDetailController::class, 'show'])->name('content.detail');
 
 // Media transform route
 Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('media.transform');
