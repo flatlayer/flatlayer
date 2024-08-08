@@ -134,14 +134,15 @@ class MarkdownModelTest extends TestCase
         $content .= "![Alt Text 3](image3.png)\n";
         Storage::disk('local')->put('test_images.md', $content);
 
-        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_images.md'));
+        $model = ContentItem::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
 
-        $this->assertStringContainsString('![Alt Text 1](image1.jpg)', $model->content);
+        $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('image1.jpg') . ')', $model->content);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
-        $this->assertStringContainsString('![Alt Text 3](image3.png)', $model->content);
+        $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('image3.png') . ')', $model->content);
 
         $this->assertEquals(2, $model->media()->count());
-        $this->assertTrue($model->media()->get()->contains('collection', 'images'));
+
+        $this->assertTrue($model->media()->get()->contains('collection', 'content'));
         $this->assertEquals('document', $model->type);
     }
 }
