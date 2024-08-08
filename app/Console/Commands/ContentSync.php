@@ -13,6 +13,7 @@ class ContentSync extends Command
                             {--type= : Content type (defaults to singular form of folder name)}
                             {--pattern=**/*.md : Glob pattern for finding content files}
                             {--pull : Pull latest changes from Git repository before syncing}
+                            {--skip : Skip syncing if no changes are detected}
                             {--dispatch : Dispatch the job to the queue}';
 
     protected $description = 'Sync files from source folder to ContentItems, optionally pulling latest changes.';
@@ -30,8 +31,9 @@ class ContentSync extends Command
         $type = $this->option('type') ?? Str::singular(basename($fullPath));
         $pattern = $this->option('pattern');
         $shouldPull = $this->option('pull');
+        $skipIfNoChanges = $this->option('skip');
 
-        $job = new ContentSyncJob($fullPath, $type, $pattern, $shouldPull);
+        $job = new ContentSyncJob($fullPath, $type, $pattern, $shouldPull, $skipIfNoChanges);
 
         if ($this->option('dispatch')) {
             dispatch($job);

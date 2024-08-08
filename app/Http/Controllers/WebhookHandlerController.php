@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ProcessGitHubWebhookJob;
-use App\Services\ModelResolverService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Str;
+use Symfony\Component\Console\Input\StringInput;
+use Symfony\Component\Console\Input\InputDefinition;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputArgument;
 
 class WebhookHandlerController extends Controller
 {
-    public function __construct(
-        protected ModelResolverService $modelResolver
-    ) {}
-
-    public function handle(Request $request, $modelSlug)
+    public function handle(Request $request, string $type)
     {
         $payload = $request->all();
         $signature = $request->header('X-Hub-Signature-256');
@@ -23,15 +23,27 @@ class WebhookHandlerController extends Controller
             return response('Invalid signature', 403);
         }
 
-        $modelClass = $this->modelResolver->resolve($modelSlug);
-        if (!$modelClass) {
-            Log::warning("Invalid model slug: $modelSlug");
-            return response('Invalid model slug', 400);
+        $envKey = 'FLATLAYER_SYNC_' . Str::upper(Str::replace('-', '_', $type));
+        $syncConfig = env($envKey);
+
+        if (!$syncConfig) {
+            Log::error("Environment variable {$envKey} not found");
+            return response("Configuration for {$type} not found", 400);
         }
 
-        ProcessGitHubWebhookJob::dispatch($payload, $modelClass);
+        try {
+            $args = $this->parseConfig($syncConfig);
+            $args['--type'] = $type;
+            $args['--pull'] = true;
+            $args['--skip'] = true;
+            $args['--dispatch'] = true;
 
-        return response('Webhook received', 202);
+            Artisan::call('flatlayer:content-sync', $args);
+            return response('Sync initiated', 202);
+        } catch (\Exception $e) {
+            Log::error("Error executing content sync: " . $e->getMessage());
+            return response('Error executing sync', 500);
+        }
     }
 
     private function verifySignature($payload, $signature)
@@ -40,4 +52,26 @@ class WebhookHandlerController extends Controller
         $computedSignature = 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
         return hash_equals($computedSignature, $signature);
     }
+
+    private function parseConfig($config)
+    {
+        $definition = new InputDefinition([
+            new InputArgument('path', InputArgument::REQUIRED),
+            new InputOption('pattern', null, InputOption::VALUE_OPTIONAL, '', '**/*.md'),
+        ]);
+
+        $input = new StringInput($config);
+        $input->bind($definition);
+
+        $args = [
+            'path' => $input->getArgument('path'),
+        ];
+
+        if ($input->getOption('pattern') !== '**/*.md') {
+            $args['--pattern'] = $input->getOption('pattern');
+        }
+
+        return $args;
+    }
 }
+
