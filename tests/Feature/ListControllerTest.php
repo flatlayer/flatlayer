@@ -66,8 +66,9 @@ class ListControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'Post A')
-            ->assertJsonPath('data.1.title', 'Post C');
+            ->assertJsonFragment(['title' => 'Post A'])
+            ->assertJsonFragment(['title' => 'Post C'])
+            ->assertJsonMissing(['title' => 'Post B']);
 
         // Test filtering by tag2
         $filter = json_encode(['$tags' => ['tag2']]);
