@@ -6,8 +6,10 @@ use App\Models\Image;
 use App\Models\Entry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use RuntimeException;
 use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
@@ -19,7 +21,15 @@ class ImageService
      */
     public function addImageToModel(Entry $model, string $path, string $collectionName = 'default', ?array $fileInfo = null): Image
     {
-        $fileInfo = $fileInfo ?? $this->getFileInfo($path);
+        try {
+            $fileInfo = $fileInfo ?? $this->getFileInfo($path);
+        } catch (RuntimeException $e) {
+            // Log the error
+            Log::error("Failed to get file info: " . $e->getMessage());
+
+            // Rethrow the exception or handle it as appropriate for your application
+            throw $e;
+        }
 
         return $model->images()->create([
             'collection' => $collectionName,
@@ -95,21 +105,31 @@ class ImageService
     /**
      * Get file information.
      *
+     * @param string $path The path to the image file
      * @return array{size: int, mime_type: string, dimensions: array{width: int|null, height: int|null}, thumbhash: string}
+     * @throws \RuntimeException If there's an error processing the file
      */
     public function getFileInfo(string $path): array
     {
-        $size = File::size($path);
-        $mimeType = File::mimeType($path);
-        $dimensions = $this->getImageDimensions($path);
-        $thumbhash = $this->generateThumbhash($path);
+        if (!file_exists($path) || !is_readable($path)) {
+            throw new RuntimeException("File does not exist or is not readable: $path");
+        }
 
-        return [
-            'size' => $size,
-            'mime_type' => $mimeType,
-            'dimensions' => $dimensions,
-            'thumbhash' => $thumbhash,
-        ];
+        try {
+            $size = File::size($path);
+            $mimeType = File::mimeType($path);
+            $dimensions = $this->getImageDimensions($path);
+            $thumbhash = $this->generateThumbhash($path);
+
+            return [
+                'size' => $size,
+                'mime_type' => $mimeType,
+                'dimensions' => $dimensions,
+                'thumbhash' => $thumbhash,
+            ];
+        } catch (\Exception $e) {
+            throw new RuntimeException("Error processing file $path: " . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
