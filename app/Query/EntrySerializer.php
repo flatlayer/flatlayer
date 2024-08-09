@@ -3,8 +3,10 @@
 namespace App\Query;
 
 use App\Models\Entry;
+use App\Models\Image;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class EntrySerializer
@@ -21,21 +23,33 @@ class EntrySerializer
         'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'
     ];
 
+    /**
+     * Convert an Entry to an array with specified or default fields.
+     */
     public function toArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultFields);
     }
 
+    /**
+     * Convert an Entry to a summary array with specified or default summary fields.
+     */
     public function toSummaryArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultSummaryFields);
     }
 
+    /**
+     * Convert an Entry to a detailed array with specified or default detail fields.
+     */
     public function toDetailArray(Entry $item, array $fields = []): array
     {
         return $this->convertToArray($item, $fields ?: $this->defaultDetailFields);
     }
 
+    /**
+     * Convert an Entry to an array based on the specified fields.
+     */
     protected function convertToArray(Entry $item, array $fields): array
     {
         $result = [];
@@ -59,7 +73,12 @@ class EntrySerializer
         return $result;
     }
 
-    protected function getFieldValue(Entry $item, string $field, $options = null)
+    /**
+     * Get the value of a field from an Entry.
+     *
+     * @param mixed $options Optional casting or formatting options
+     */
+    protected function getFieldValue(Entry $item, string $field, mixed $options = null): mixed
     {
         if (Str::startsWith($field, 'meta.')) {
             return $this->getMetaValue($item, Str::after($field, 'meta.'), $options);
@@ -82,13 +101,23 @@ class EntrySerializer
         }
     }
 
-    protected function getMetaValue(Entry $item, string $key, $options = null)
+    /**
+     * Get a meta value from an Entry.
+     *
+     * @param mixed $options Optional casting or formatting options
+     */
+    protected function getMetaValue(Entry $item, string $key, mixed $options = null): mixed
     {
         $value = Arr::get($item->meta, $key);
         return $value !== null ? $this->castValue($value, $options) : null;
     }
 
-    protected function getAllMetaValues(Entry $item, $options = null)
+    /**
+     * Get all meta values from an Entry.
+     *
+     * @param mixed $options Optional casting or formatting options
+     */
+    protected function getAllMetaValues(Entry $item, mixed $options = null): mixed
     {
         if (!is_array($options)) {
             return $item->meta;
@@ -104,7 +133,13 @@ class EntrySerializer
         return $result;
     }
 
-    protected function castValue($value, $options = null)
+    /**
+     * Cast a value based on the provided options.
+     *
+     * @param mixed $value The value to cast
+     * @param mixed $options The casting options
+     */
+    protected function castValue(mixed $value, mixed $options = null): mixed
     {
         if ($options === null || is_array($options)) {
             return $value;
@@ -133,21 +168,32 @@ class EntrySerializer
         }
     }
 
-    protected function castToDate($value)
+    /**
+     * Cast a value to a date string.
+     */
+    protected function castToDate(mixed $value): string
     {
         return $value instanceof Carbon
             ? $value->toDateString()
             : Carbon::parse($value)->toDateString();
     }
 
-    protected function castToDateTime($value)
+    /**
+     * Cast a value to a datetime string.
+     */
+    protected function castToDateTime(mixed $value): string
     {
         return $value instanceof Carbon
             ? $value->toDateTimeString()
             : Carbon::parse($value)->toDateTimeString();
     }
 
-    protected function getImage(Entry $item, string $collection, $options = null): array
+    /**
+     * Get images from a specific collection of an Entry.
+     *
+     * @param mixed $options Optional formatting options
+     */
+    protected function getImage(Entry $item, string $collection, mixed $options = null): array
     {
         $mediaItems = $item->getImages($collection);
         return $mediaItems->map(function ($mediaItem) use ($options) {
@@ -155,41 +201,59 @@ class EntrySerializer
         })->toArray();
     }
 
-    protected function getImages(Entry $item, $options = null): array
+    /**
+     * Get all images from an Entry.
+     *
+     * @param mixed $options Optional formatting options
+     */
+    /**
+     * Get formatted images for an entry.
+     *
+     * @param Entry $entry The entry to get images for
+     * @param mixed $options Formatting options for the images
+     * @return array An array of formatted images grouped by collection
+     */
+    protected function getImages(Entry $entry, mixed $options = null): array
     {
-        $images = [];
-        $collections = $item->images()->get()->groupBy('collection');
+        $formattedImages = [];
+        $collections = $entry->images()->get()->groupBy('collection');
 
-        foreach ($collections as $collection => $mediaItems) {
-            $images[$collection] = $mediaItems->map(function ($mediaItem) use ($options) {
-                return $this->formatImage($mediaItem, $options);
+        foreach ($collections as $collection => $imagesInCollection) {
+            $formattedImages[$collection] = $imagesInCollection->map(function ($image) use ($options) {
+                return $this->formatImage($image, $options);
             })->toArray();
         }
 
-        return $images;
+        return $formattedImages;
     }
 
-    protected function formatImage($mediaItem, $options = null): array
+    /**
+     * Format an image with the given options.
+     *
+     * @param Image $image The media item to format
+     * @param mixed $options Optional formatting options
+     */
+    protected function formatImage(Image $image, mixed $options = null): array
     {
         $sizes = $options['sizes'] ?? ['100vw'];
         $attributes = $options['attributes'] ?? [];
         $fluid = $options['fluid'] ?? true;
         $displaySize = $options['display_size'] ?? null;
 
-        $customProperties = is_string($mediaItem->custom_properties)
-            ? json_decode($mediaItem->custom_properties, true)
-            : ($mediaItem->custom_properties ?? []);
+        $customProperties = is_string($image->custom_properties)
+            ? json_decode($image->custom_properties, true)
+            : ($image->custom_properties ?? []);
 
         $meta = array_merge([
-            'width' => $mediaItem->getWidth(),
-            'height' => $mediaItem->getHeight(),
-            'aspect_ratio' => $mediaItem->getAspectRatio(),
+            'width' => $image->getWidth(),
+            'height' => $image->getHeight(),
+            'aspect_ratio' => $image->getAspectRatio(),
         ], $customProperties);
 
         return [
-            'id' => $mediaItem->id,
-            'url' => $mediaItem->getUrl(),
-            'html' => $mediaItem->getImgTag($sizes, $attributes, $fluid, $displaySize),
+            'id' => $image->id,
+            'url' => $image->getUrl(),
+            'html' => $image->getImgTag($sizes, $attributes, $fluid, $displaySize),
             'meta' => $meta,
         ];
     }

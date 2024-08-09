@@ -12,13 +12,34 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use CzProject\GitPhp\Git;
+use CzProject\GitPhp\GitRepository;
 
+/**
+ * Class EntrySyncJob
+ *
+ * This job synchronizes Markdown files with database entries.
+ * It can pull latest changes from a Git repository and process files.
+ *
+ * @package App\Jobs
+ */
 class EntrySyncJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    const CHUNK_SIZE = 100;
+    /**
+     * The chunk size for bulk operations.
+     */
+    private const CHUNK_SIZE = 100;
 
+    /**
+     * Create a new job instance.
+     *
+     * @param string $path The path to the content directory
+     * @param string $type The type of content being synced
+     * @param string $pattern The file pattern to match (default: '*.md')
+     * @param bool $shouldPull Whether to pull latest changes from Git (default: false)
+     * @param bool $skipIfNoChanges Whether to skip processing if no changes detected (default: false)
+     */
     public function __construct(
         protected string $path,
         protected string $type,
@@ -27,7 +48,12 @@ class EntrySyncJob implements ShouldQueue
         protected bool $skipIfNoChanges = false
     ) {}
 
-    public function handle(Git $git)
+    /**
+     * Execute the job.
+     *
+     * @param Git $git The Git instance for repository operations
+     */
+    public function handle(Git $git): void
     {
         Log::info("Starting content sync for type: {$this->type}");
 
@@ -61,18 +87,17 @@ class EntrySyncJob implements ShouldQueue
             }
         }
 
-        $slugsToDelete = $existingSlugs->diffKeys(array_flip($processedSlugs));
-        $deleteCount = $slugsToDelete->count();
-        Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
-
-        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) {
-            $deletedCount = Entry::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
-            Log::info("Deleted {$deletedCount} content items");
-        });
+        $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
 
         Log::info("Content sync completed for type: {$this->type}");
     }
 
+    /**
+     * Pull latest changes from the Git repository.
+     *
+     * @param Git $git The Git instance
+     * @return bool True if changes were detected, false otherwise
+     */
     protected function pullLatestChanges(Git $git): bool
     {
         try {
@@ -98,11 +123,40 @@ class EntrySyncJob implements ShouldQueue
         }
     }
 
-    private function getSlugFromFilename($filename)
+    /**
+     * Get a slug from a filename.
+     *
+     * @param string $filename The filename to process
+     * @return string The generated slug
+     */
+    private function getSlugFromFilename(string $filename): string
     {
         return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
     }
 
+    /**
+     * Delete entries that no longer have corresponding files.
+     *
+     * @param \Illuminate\Support\Collection $existingSlugs
+     * @param array $processedSlugs
+     */
+    private function deleteRemovedEntries(\Illuminate\Support\Collection $existingSlugs, array $processedSlugs): void
+    {
+        $slugsToDelete = $existingSlugs->diffKeys(array_flip($processedSlugs));
+        $deleteCount = $slugsToDelete->count();
+        Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
+
+        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) {
+            $deletedCount = Entry::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
+            Log::info("Deleted {$deletedCount} content items");
+        });
+    }
+
+    /**
+     * Get the job configuration.
+     *
+     * @return array The job configuration
+     */
     public function getJobConfig(): array
     {
         return [

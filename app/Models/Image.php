@@ -5,8 +5,25 @@ namespace App\Models;
 use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\URL;
 
+/**
+ * Class Image
+ *
+ * Represents an image associated with an entry.
+ *
+ * @property int $id
+ * @property int $entry_id
+ * @property string $collection
+ * @property string $filename
+ * @property string $path
+ * @property string $mime_type
+ * @property int $size
+ * @property array $dimensions
+ * @property array $custom_properties
+ * @property string $thumbhash
+ */
 class Image extends Model
 {
     use HasFactory;
@@ -29,21 +46,33 @@ class Image extends Model
         'custom_properties' => 'array',
     ];
 
-    public function model()
+    /**
+     * Get the parent model (polymorphic).
+     */
+    public function model(): MorphTo
     {
         return $this->morphTo();
     }
 
+    /**
+     * Get the width of the image.
+     */
     public function getWidth(): ?int
     {
         return $this->dimensions['width'] ?? null;
     }
 
+    /**
+     * Get the height of the image.
+     */
     public function getHeight(): ?int
     {
         return $this->dimensions['height'] ?? null;
     }
 
+    /**
+     * Get the aspect ratio of the image.
+     */
     public function getAspectRatio(): ?float
     {
         if ($this->getWidth() && $this->getHeight()) {
@@ -52,6 +81,9 @@ class Image extends Model
         return null;
     }
 
+    /**
+     * Generate an HTML img tag for the image.
+     */
     public function getImgTag(array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
     {
         $service = app(ResponsiveImageService::class);
@@ -66,6 +98,9 @@ class Image extends Model
         return $service->generateImgTag($this, $sizes, $attributes, $isFluid, $displaySize);
     }
 
+    /**
+     * Get the URL for the image with optional transformations.
+     */
     public function getUrl(array $transforms = []): string
     {
         // Prioritize the 'fm' (format) transform if it exists

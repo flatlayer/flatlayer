@@ -11,13 +11,25 @@ use Pgvector\Vector;
 
 class SearchService
 {
-    protected $jinaService;
+    protected JinaSearchService $jinaService;
 
+    /**
+     * @param JinaSearchService $jinaService The Jina search service
+     */
     public function __construct(JinaSearchService $jinaService)
     {
         $this->jinaService = $jinaService;
     }
 
+    /**
+     * Perform a search query.
+     *
+     * @param string $query The search query
+     * @param int $limit The maximum number of results to return
+     * @param bool $rerank Whether to rerank the results
+     * @param Builder|null $builder An optional query builder to start with
+     * @return Collection The search results
+     */
     public function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
     {
         $embedding = $this->jinaService->embed([$query])[0]['embedding'];
@@ -37,6 +49,14 @@ class SearchService
         return $results;
     }
 
+    /**
+     * Perform a vector search using PostgreSQL.
+     *
+     * @param Builder $builder The query builder
+     * @param array $embedding The query embedding
+     * @param int $limit The maximum number of results to return
+     * @return Collection The search results
+     */
     protected function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
     {
         $vector = new Vector($embedding);
@@ -47,6 +67,14 @@ class SearchService
             ->get();
     }
 
+    /**
+     * Perform a fallback search using cosine similarity.
+     *
+     * @param Builder $builder The query builder
+     * @param array $embedding The query embedding
+     * @param int $limit The maximum number of results to return
+     * @return Collection The search results
+     */
     protected function fallbackSearch(Builder $builder, array $embedding, int $limit): Collection
     {
         return $builder->get()
@@ -58,12 +86,27 @@ class SearchService
             ->take($limit);
     }
 
+    /**
+     * Get the embedding for a given text.
+     *
+     * @param string $text The text to embed
+     * @return array The embedding
+     * @throws \Exception
+     */
     public function getEmbedding(string $text): array
     {
         $embeddings = $this->jinaService->embed([$text]);
         return $embeddings[0]['embedding'];
     }
 
+    /**
+     * Rerank the search results.
+     *
+     * @param string $query The original search query
+     * @param Collection $results The initial search results
+     * @return Collection The reranked results
+     * @throws \Exception
+     */
     protected function rerankResults(string $query, Collection $results): Collection
     {
         $results = $results->map(function($result){

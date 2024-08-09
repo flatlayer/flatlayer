@@ -7,19 +7,38 @@ use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
 use League\CommonMark\MarkdownConverter;
+use League\CommonMark\Output\RenderedContentInterface;
 
+/**
+ * Class EnhancedMarkdownRenderer
+ *
+ * This class provides enhanced Markdown rendering capabilities,
+ * including custom image rendering for Eloquent models.
+ *
+ * @package App\Markdown
+ */
 class EnhancedMarkdownRenderer
 {
-    protected $environment;
-    protected $converter;
+    protected Environment $environment;
 
-    public function __construct(protected Model $model, Environment $environment = null)
+    protected MarkdownConverter $converter;
+
+    /**
+     * @param Model $model The Eloquent model associated with the renderer
+     * @param Environment|null $environment Optional custom environment
+     */
+    public function __construct(protected Model $model, ?Environment $environment = null)
     {
         $this->environment = $environment ?? $this->createDefaultEnvironment();
         $this->environment->addRenderer(Image::class, new CustomImageRenderer($this->model, $this->environment));
         $this->converter = new MarkdownConverter($this->environment);
     }
 
+    /**
+     * Create a default CommonMark environment.
+     *
+     * @return Environment
+     */
     protected function createDefaultEnvironment(): Environment
     {
         $environment = new Environment([
@@ -30,7 +49,13 @@ class EnhancedMarkdownRenderer
         return $environment;
     }
 
-    public function convertToHtml($markdown)
+    /**
+     * Convert Markdown to HTML.
+     *
+     * @param string $markdown The Markdown content to convert
+     * @return RenderedContentInterface The rendered HTML content
+     */
+    public function convertToHtml(string $markdown): RenderedContentInterface
     {
         return $this->converter->convert($markdown);
     }

@@ -13,12 +13,26 @@ class JinaSearchService
     private const EMBEDDING_ENDPOINT = 'https://api.jina.ai/v1/embeddings';
     private const RERANK_ENDPOINT = 'https://api.jina.ai/v1/rerank';
 
+    /**
+     * @param string $apiKey The API key for Jina AI
+     * @param string $rerankModel The model to use for reranking
+     * @param string $embeddingModel The model to use for embedding
+     */
     public function __construct(
         protected string $apiKey,
         protected string $rerankModel,
         protected string $embeddingModel = 'jina-embeddings-v2-base-en'
     ) {}
 
+    /**
+     * Rerank documents based on a query.
+     *
+     * @param string $query The query to rerank documents against
+     * @param array $documents The documents to rerank
+     * @param int $topN The number of top results to return
+     * @return array The reranked documents
+     * @throws \Exception If the API request fails
+     */
     public function rerank(string $query, array $documents, int $topN = 40): array
     {
         $response = Http::withHeaders([
@@ -38,6 +52,13 @@ class JinaSearchService
         throw new \Exception('Jina API rerank request failed: ' . $response->body());
     }
 
+    /**
+     * Generate embeddings for the given texts.
+     *
+     * @param array $texts The texts to generate embeddings for
+     * @return array The generated embeddings
+     * @throws \Exception If the API request fails
+     */
     public function embed(array $texts): array
     {
         $response = Http::withHeaders([
@@ -57,11 +78,17 @@ class JinaSearchService
         throw new \Exception('Jina API embedding request failed: ' . $response->body());
     }
 
+    /**
+     * Crop a document to the maximum allowed length.
+     */
     protected function cropDocument(string $document): string
     {
         return Str::limit($document, self::MAX_CHARS, '');
     }
 
+    /**
+     * Create a fake instance of the JinaSearchService for testing.
+     */
     public static function fake(): FakeJinaSearchService
     {
         $fake = new FakeJinaSearchService();

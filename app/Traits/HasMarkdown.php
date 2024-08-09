@@ -6,26 +6,48 @@ use App\Markdown\EnhancedMarkdownRenderer;
 use App\Services\MarkdownProcessingService;
 use Spatie\Tags\HasTags;
 
+/**
+ * Trait HasMarkdown
+ *
+ * This trait provides functionality for working with Markdown content in models.
+ * It allows creating and syncing models from Markdown files, and parsing Markdown content.
+ */
 trait HasMarkdown
 {
     protected MarkdownProcessingService $markdownContentService;
 
-    public function initializeMarkdownModel()
+    /**
+     * Initialize the Markdown model.
+     */
+    public function initializeMarkdownModel(): void
     {
         $this->markdownContentService = app(MarkdownProcessingService::class);
     }
 
-    public static function createFromMarkdown(string $filename, string $type='post'): self
+    /**
+     * Create a new model instance from a Markdown file.
+     *
+     * @param string $filename The filename of the Markdown file
+     * @param string $type The type of the model (default: 'post')
+     */
+    public static function createFromMarkdown(string $filename, string $type = 'post'): self
     {
         $model = new static(['type' => $type]);
         $model->initializeMarkdownModel();
         return $model->fillFromMarkdown($filename, $type);
     }
 
-    public static function syncFromMarkdown(string $filename, string $type='post', bool $autoSave = false): self
+    /**
+     * Sync an existing model or create a new one from a Markdown file.
+     *
+     * @param string $filename The filename of the Markdown file
+     * @param string $type The type of the model (default: 'post')
+     * @param bool $autoSave Whether to automatically save the model
+     */
+    public static function syncFromMarkdown(string $filename, string $type = 'post', bool $autoSave = false): self
     {
         $model = static::where('type', $type)->where('slug', static::generateSlugFromFilename($filename))->first();
-        if(!$model) {
+        if (!$model) {
             // Create a new model
             return static::createFromMarkdown($filename, $type);
         }
@@ -40,12 +62,18 @@ trait HasMarkdown
         return $model;
     }
 
+    /**
+     * Fill the model attributes from a Markdown file.
+     *
+     * @param string $filename The filename of the Markdown file
+     * @param string $type The type of the model
+     */
     protected function fillFromMarkdown(string $filename, string $type): self
     {
         $processedData = $this->markdownContentService->processMarkdownFile($filename, $type, $this->fillable);
 
         foreach ($processedData as $key => $value) {
-            if($key === 'tags') {
+            if ($key === 'tags') {
                 continue;
             }
             if ($this->isFillable($key)) {
@@ -67,11 +95,22 @@ trait HasMarkdown
         return $this;
     }
 
+    /**
+     * Generate a slug from a filename.
+     *
+     * @param string $filename The filename to generate the slug from
+     * @return string The generated slug
+     */
     protected static function generateSlugFromFilename(string $filename): string
     {
         return app(MarkdownProcessingService::class)->generateSlugFromFilename($filename);
     }
 
+    /**
+     * Get the parsed HTML content of the Markdown.
+     *
+     * @return string The parsed HTML content
+     */
     public function getParsedContent(): string
     {
         $markdownRenderer = new EnhancedMarkdownRenderer($this);

@@ -12,6 +12,22 @@ use Illuminate\Database\Eloquent\Model;
 use Pgvector\Laravel\Vector;
 use Spatie\Tags\HasTags;
 
+/**
+ * Class Entry
+ *
+ * Represents a content entry in the application.
+ *
+ * @property int $id
+ * @property string $type
+ * @property string $title
+ * @property string $slug
+ * @property string $content
+ * @property string|null $excerpt
+ * @property array $meta
+ * @property \DateTime|null $published_at
+ * @property string $filename
+ * @property Vector $embedding
+ */
 class Entry extends Model
 {
     use HasFactory, HasImages, HasTags, Searchable, HasMarkdown;
@@ -33,33 +49,51 @@ class Entry extends Model
         'embedding' => Vector::class,
     ];
 
-    public function scopePublished($query)
+    /**
+     * Scope a query to only include published entries.
+     */
+    public function scopePublished(Builder $query): Builder
     {
         return $query->whereNotNull('published_at')
             ->where('published_at', '<=', now());
     }
 
-    public function scopeOfType($query, $type)
+    /**
+     * Scope a query to entries of a specific type.
+     */
+    public function scopeOfType(Builder $query, string $type): Builder
     {
         return $query->where('type', $type);
     }
 
+    /**
+     * Get the searchable text representation of the entry.
+     */
     public function toSearchableText(): string
     {
         return $this->title . "\n\n" . $this->content;
     }
 
+    /**
+     * Get the field name that contains the Markdown content.
+     */
     public function getMarkdownContentField(): string
     {
         return 'content';
     }
 
-    public function toArray($fields = null): array
+    /**
+     * Convert the model instance to an array.
+     */
+    public function toArray(?array $fields = null): array
     {
         return (new EntrySerializer())->toArray($this, $fields);
     }
 
-    public static function findByTypeAndSlug($type, $slug)
+    /**
+     * Find an entry by its type and slug.
+     */
+    public static function findByTypeAndSlug(string $type, string $slug): self
     {
         return static::where('type', $type)->where('slug', $slug)->firstOrFail();
     }

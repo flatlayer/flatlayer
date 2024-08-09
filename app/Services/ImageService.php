@@ -14,7 +14,10 @@ use function Thumbhash\extract_size_and_pixels_with_imagick;
 
 class ImageService
 {
-    public function addImageToModel(Entry $model, string $path, string $collectionName = 'default', array $fileInfo = null): Image
+    /**
+     * Add an image to a model.
+     */
+    public function addImageToModel(Entry $model, string $path, string $collectionName = 'default', ?array $fileInfo = null): Image
     {
         $fileInfo = $fileInfo ?? $this->getFileInfo($path);
 
@@ -29,12 +32,13 @@ class ImageService
         ]);
     }
 
+    /**
+     * Synchronize images for a model.
+     */
     public function syncImages(Model $model, array $filenames, string $collectionName = 'default'): void
     {
         $existingMedia = $model->images()->where('collection', $collectionName)->get()->keyBy('filename');
-        $newFilenames = collect($filenames)->keyBy(function ($path) {
-            return basename($path);
-        });
+        $newFilenames = collect($filenames)->keyBy(fn(string $path): string => basename($path));
 
         // Remove media that no longer exists in the new filenames
         $existingMedia->diffKeys($newFilenames)->each->delete();
@@ -52,6 +56,9 @@ class ImageService
         }
     }
 
+    /**
+     * Update or create an image for a model.
+     */
     public function updateOrCreateImage(Model $model, string $fullPath, string $collectionName = 'default'): Image
     {
         $fileInfo = $this->getFileInfo($fullPath);
@@ -66,6 +73,9 @@ class ImageService
         return $this->addImageToModel($model, $fullPath, $collectionName, $fileInfo);
     }
 
+    /**
+     * Update image if needed based on file info.
+     */
     protected function updateImageIfNeeded(Image $media, array $fileInfo): void
     {
         $needsUpdate = false;
@@ -82,6 +92,11 @@ class ImageService
         }
     }
 
+    /**
+     * Get file information.
+     *
+     * @return array{size: int, mime_type: string, dimensions: array{width: int|null, height: int|null}, thumbhash: string}
+     */
     public function getFileInfo(string $path): array
     {
         $size = File::size($path);
@@ -97,6 +112,13 @@ class ImageService
         ];
     }
 
+    /**
+     * Get image dimensions of an image file.
+     *
+     * @param string $path The path to the image file
+     *
+     * @return array{width: int|null, height: int|null}
+     */
     protected function getImageDimensions(string $path): array
     {
         $imageSize = getimagesize($path);
@@ -106,6 +128,11 @@ class ImageService
         ];
     }
 
+    /**
+     * Generate thumbhash for an image file.
+     *
+     * @param string $path The path to the image file
+     */
     public function generateThumbhash(string $path): string
     {
         if (extension_loaded('imagick')) {
@@ -115,6 +142,9 @@ class ImageService
         }
     }
 
+    /**
+     * Generate thumbhash using Imagick.
+     */
     protected function generateThumbhashWithImagick(string $path): string
     {
         $imagick = new \Imagick($path);
@@ -127,6 +157,9 @@ class ImageService
         return Thumbhash::convertHashToString($hash);
     }
 
+    /**
+     * Generate thumbhash using GD.
+     */
     protected function generateThumbhashWithGd(string $path): string
     {
         $imageManager = new ImageManager(new Driver());

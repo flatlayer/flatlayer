@@ -4,14 +4,17 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Handles validation for image transformation requests.
+ */
 class ImageTransformRequest extends FormRequest
 {
-    public function authorize()
+    public function authorize(): bool
     {
         return true;
     }
 
-    public function rules()
+    public function rules(): array
     {
         return [
             'w' => 'sometimes|integer|min:1',
@@ -21,7 +24,7 @@ class ImageTransformRequest extends FormRequest
         ];
     }
 
-    public function validationData()
+    public function validationData(): array
     {
         return array_merge($this->query(), $this->route()->parameters());
     }

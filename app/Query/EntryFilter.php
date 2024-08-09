@@ -21,6 +21,9 @@ class EntryFilter
         unset($this->filters['$search']);
     }
 
+    /**
+     * Apply all filters and search to the query builder.
+     */
     public function apply(): Builder|Collection
     {
         $this->applyFilters($this->filters);
@@ -29,7 +32,12 @@ class EntryFilter
         return $this->builder;
     }
 
-    protected function applyFilters(array $filters, $operator = 'and'): void
+    /**
+     * Apply filters recursively to the query builder.
+     *
+     * @param string $operator The logical operator to use ('and' or 'or')
+     */
+    protected function applyFilters(array $filters, string $operator = 'and'): void
     {
         $method = $operator === 'or' ? 'orWhere' : 'where';
 
@@ -56,7 +64,10 @@ class EntryFilter
         });
     }
 
-    protected function applyFieldFilter($query, string $field, $value): void
+    /**
+     * Apply a filter to a specific field.
+     */
+    protected function applyFieldFilter(Builder $query, string $field, mixed $value): void
     {
         if (Str::contains($field, '.')) {
             $this->applyJsonFieldFilter($query, $field, $value);
@@ -78,7 +89,10 @@ class EntryFilter
         }
     }
 
-    protected function applyJsonFieldFilter($query, string $field, $value): void
+    /**
+     * Apply a filter to a JSON field.
+     */
+    protected function applyJsonFieldFilter(Builder $query, string $field, mixed $value): void
     {
         [$jsonField, $jsonKey] = explode('.', $field, 2);
 
@@ -91,7 +105,10 @@ class EntryFilter
         }
     }
 
-    protected function applyJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    /**
+     * Apply a JSON operator to a field.
+     */
+    protected function applyJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
         $databaseDriver = DB::getDriverName();
 
@@ -102,20 +119,29 @@ class EntryFilter
         }
     }
 
-    protected function applyPostgresJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    /**
+     * Apply a PostgreSQL JSON operator.
+     */
+    protected function applyPostgresJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
         $jsonOperator = $this->mapJsonOperator($operator);
         $castType = is_numeric($value) ? '::numeric' : '';
         $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} {$jsonOperator} ?", [$value]);
     }
 
-    protected function applySqliteJsonOperator($query, string $jsonField, string $jsonKey, string $operator, $value): void
+    /**
+     * Apply a SQLite JSON operator.
+     */
+    protected function applySqliteJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
         $jsonOperator = $this->mapJsonOperator($operator);
         $query->whereRaw("JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') {$jsonOperator} ?", [$value]);
     }
 
-    protected function applyJsonExactMatch($query, string $jsonField, string $jsonKey, $value): void
+    /**
+     * Apply an exact match filter to a JSON field.
+     */
+    protected function applyJsonExactMatch(Builder $query, string $jsonField, string $jsonKey, mixed $value): void
     {
         $databaseDriver = DB::getDriverName();
 
@@ -126,7 +152,10 @@ class EntryFilter
         }
     }
 
-    protected function applyOperator($query, string $field, string $operator, $value): void
+    /**
+     * Apply an operator to a field.
+     */
+    protected function applyOperator(Builder $query, string $field, string $operator, mixed $value): void
     {
         switch ($operator) {
             case '$gt':
@@ -149,6 +178,9 @@ class EntryFilter
         }
     }
 
+    /**
+     * Map a JSON operator to its SQL equivalent.
+     */
     protected function mapJsonOperator(string $operator): string
     {
         switch ($operator) {
@@ -167,7 +199,10 @@ class EntryFilter
         }
     }
 
-    protected function applyTagFilters($tags): void
+    /**
+     * Apply tag filters to the query.
+     */
+    protected function applyTagFilters(array|string $tags): void
     {
         if (is_array($tags) && !isset($tags['type'])) {
             $this->builder->withAnyTags($tags);
@@ -176,6 +211,9 @@ class EntryFilter
         }
     }
 
+    /**
+     * Apply search to the query if the model is searchable.
+     */
     protected function applySearch(): void
     {
         if ($this->search && $this->isSearchable()) {
@@ -188,6 +226,9 @@ class EntryFilter
         }
     }
 
+    /**
+     * Apply ordering to the query if not in search mode.
+     */
     protected function applyOrder(): void
     {
         if (!$this->isSearch() && !empty($this->order)) {
@@ -197,12 +238,18 @@ class EntryFilter
         }
     }
 
+    /**
+     * Check if the model is searchable.
+     */
     protected function isSearchable(): bool
     {
         $model = $this->builder->getModel();
         return in_array(Searchable::class, class_uses_recursive($model));
     }
 
+    /**
+     * Check if the query is in search mode.
+     */
     public function isSearch(): bool
     {
         return $this->search !== null;

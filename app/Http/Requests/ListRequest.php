@@ -5,6 +5,9 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Handles validation and preparation for list requests.
+ */
 class ListRequest extends FormRequest
 {
     public function authorize(): bool
@@ -31,28 +34,38 @@ class ListRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('filter') && is_string($this->input('filter'))) {
-            $decodedFilter = json_decode($this->input('filter'), true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $this->merge(['filter' => $decodedFilter]);
-            }
-        }
+        $this->decodeJsonInput('filter');
+        $this->decodeJsonInput('fields');
+    }
 
-        if ($this->has('fields') && is_string($this->input('fields'))) {
-            $decodedFields = json_decode($this->input('fields'), true);
+    /**
+     * Decode JSON input if it's a string.
+     *
+     * @param string $field
+     * @return void
+     */
+    private function decodeJsonInput(string $field): void
+    {
+        if ($this->has($field) && is_string($this->input($field))) {
+            $decoded = json_decode($this->input($field), true);
             if (json_last_error() === JSON_ERROR_NONE) {
-                $this->merge(['fields' => $decodedFields]);
+                $this->merge([$field => $decoded]);
             }
         }
     }
 
-    public function messages()
+    public function messages(): array
     {
         return [
             'fields.json' => 'The fields must be a valid JSON string.',
         ];
     }
 
+    /**
+     * Get the filter array from the request.
+     *
+     * @return array<string, mixed>
+     */
     public function getFilter(): array
     {
         $filter = $this->input('filter', []);
@@ -62,6 +75,11 @@ class ListRequest extends FormRequest
         return $filter;
     }
 
+    /**
+     * Get the fields array from the request.
+     *
+     * @return array<string, mixed>
+     */
     public function getFields(): array
     {
         return $this->input('fields', []);
