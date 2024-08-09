@@ -43,7 +43,7 @@ class ListControllerTest extends TestCase
             ->assertJsonCount(10, 'data');
     }
 
-    public function test_index_returns_error_for_invalid_type()
+    public function test_index_returns_404_for_invalid_type()
     {
         $response = $this->getJson('/content/invalid-type');
 
@@ -60,6 +60,7 @@ class ListControllerTest extends TestCase
         $postB->attachTag('tag2');
         $postC->attachTag('tag1');
 
+        // Test filtering by tag1
         $filter = json_encode(['$tags' => ['tag1']]);
         $response = $this->getJson("/content/post?filter={$filter}");
 
@@ -68,6 +69,7 @@ class ListControllerTest extends TestCase
             ->assertJsonPath('data.0.title', 'Post A')
             ->assertJsonPath('data.1.title', 'Post C');
 
+        // Test filtering by tag2
         $filter = json_encode(['$tags' => ['tag2']]);
         $response = $this->getJson("/content/post?filter={$filter}");
 
@@ -75,6 +77,7 @@ class ListControllerTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Post B');
 
+        // Test filtering by non-existent tag
         $filter = json_encode(['$tags' => ['non_existent_tag']]);
         $response = $this->getJson("/content/post?filter={$filter}");
 
@@ -101,6 +104,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
         Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
 
+        // Test 'less than' operator
         $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
         $response = $this->getJson("/content/post?filter={$filter}");
 
@@ -110,7 +114,7 @@ class ListControllerTest extends TestCase
             ->assertJsonPath('data.1.title', 'AAA Post');
     }
 
-    public function test_index_transforms_items_using_to_summary_array()
+    public function test_index_transforms_items_to_summary()
     {
         $post = Entry::factory()->create([
             'title' => 'Test Post',
@@ -155,9 +159,7 @@ class ListControllerTest extends TestCase
             'type' => 'post',
         ]);
 
-        $fields = json_encode([
-            'title',
-        ]);
+        $fields = json_encode(['title']);
 
         $response = $this->getJson("/content/post?fields={$fields}");
 

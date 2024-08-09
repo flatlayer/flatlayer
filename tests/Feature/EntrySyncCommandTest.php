@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Mockery;
 
-class ContentSyncCommandTest extends TestCase
+class EntrySyncCommandTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,7 +26,7 @@ class ContentSyncCommandTest extends TestCase
         $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
     }
 
-    public function testContentSyncCommandWithPath()
+    public function test_entry_sync_command_with_path()
     {
         $this->createTestFiles();
 
@@ -38,10 +38,11 @@ class ContentSyncCommandTest extends TestCase
         $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
     }
 
-    public function testContentSyncCommandWithType()
+    public function test_entry_sync_command_with_type()
     {
         $this->createTestFiles();
 
+        // Mock SyncConfigurationService for 'post' type
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('post')
             ->andReturn(true);
@@ -61,18 +62,14 @@ class ContentSyncCommandTest extends TestCase
         $this->assertDatabaseHas('entries', ['title' => 'Test Post 2', 'type' => 'post']);
     }
 
-    public function testContentSyncCommandUpdatesAndDeletes()
+    public function test_entry_sync_command_updates_and_deletes()
     {
         $this->createTestFiles();
         Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
 
-        // Modify an existing file
+        // Simulate file changes
         Storage::disk('local')->put('posts/post1.md', "---\ntitle: Updated Post 1\n---\nUpdated Content 1");
-
-        // Delete a file
         Storage::disk('local')->delete('posts/post2.md');
-
-        // Add a new file
         Storage::disk('local')->put('posts/post3.md', "---\ntitle: Test Post 3\n---\nContent 3");
 
         $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => Storage::path('posts')]);
@@ -84,7 +81,7 @@ class ContentSyncCommandTest extends TestCase
         $this->assertDatabaseHas('entries', ['title' => 'Test Post 3', 'type' => 'post']);
     }
 
-    public function testContentSyncCommandWithInvalidType()
+    public function test_entry_sync_command_with_invalid_type()
     {
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('invalid-type')
@@ -95,7 +92,7 @@ class ContentSyncCommandTest extends TestCase
         $this->assertEquals(1, $exitCode);
     }
 
-    public function testContentSyncCommandWithInvalidPath()
+    public function test_entry_sync_command_with_invalid_path()
     {
         $exitCode = Artisan::call('flatlayer:entry-sync', ['path' => '/non/existent/path']);
 

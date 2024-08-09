@@ -16,20 +16,14 @@ class JinaSearchServiceTest extends TestCase
         $this->jinaService = new JinaSearchService('fake-api-key', 'jina-reranker-v2-base-multilingual', 'jina-embeddings-v2-base-en');
     }
 
-    public function testEmbedSuccess()
+    public function test_embed_success()
     {
         Http::fake([
             'https://api.jina.ai/v1/embeddings' => Http::response([
                 'model' => 'jina-embeddings-v2-base-en',
                 'data' => [
-                    [
-                        'embedding' => array_fill(0, 768, 0.1),
-                        'index' => 0
-                    ],
-                    [
-                        'embedding' => array_fill(0, 768, 0.2),
-                        'index' => 1
-                    ]
+                    ['embedding' => array_fill(0, 768, 0.1), 'index' => 0],
+                    ['embedding' => array_fill(0, 768, 0.2), 'index' => 1]
                 ]
             ], 200)
         ]);
@@ -42,7 +36,7 @@ class JinaSearchServiceTest extends TestCase
         $this->assertCount(768, $result[1]['embedding']);
     }
 
-    public function testEmbedFailure()
+    public function test_embed_failure()
     {
         Http::fake([
             'https://api.jina.ai/v1/embeddings' => Http::response('Error message', 400)
@@ -56,26 +50,15 @@ class JinaSearchServiceTest extends TestCase
         $this->jinaService->embed($texts);
     }
 
-    public function testRerankSuccess()
+    public function test_rerank_success()
     {
         Http::fake([
             'https://api.jina.ai/v1/rerank' => Http::response([
                 'model' => 'jina-reranker-v2-base-multilingual',
-                'usage' => [
-                    'total_tokens' => 815,
-                    'prompt_tokens' => 815
-                ],
+                'usage' => ['total_tokens' => 815, 'prompt_tokens' => 815],
                 'results' => [
-                    [
-                        'index' => 0,
-                        'document' => ['text' => 'Document 1'],
-                        'relevance_score' => 0.9
-                    ],
-                    [
-                        'index' => 1,
-                        'document' => ['text' => 'Document 2'],
-                        'relevance_score' => 0.7
-                    ],
+                    ['index' => 0, 'document' => ['text' => 'Document 1'], 'relevance_score' => 0.9],
+                    ['index' => 1, 'document' => ['text' => 'Document 2'], 'relevance_score' => 0.7],
                 ]
             ], 200)
         ]);
@@ -92,7 +75,7 @@ class JinaSearchServiceTest extends TestCase
         $this->assertEquals(0.9, $result['results'][0]['relevance_score']);
     }
 
-    public function testRerankFailure()
+    public function test_rerank_failure()
     {
         Http::fake([
             'https://api.jina.ai/v1/rerank' => Http::response('Error message', 400)
@@ -107,7 +90,7 @@ class JinaSearchServiceTest extends TestCase
         $this->jinaService->rerank($query, $documents);
     }
 
-    public function testCorrectEmbedRequestParameters()
+    public function test_embed_request_parameters()
     {
         Http::fake([
             'https://api.jina.ai/v1/embeddings' => Http::response([
@@ -120,31 +103,23 @@ class JinaSearchServiceTest extends TestCase
         ]);
 
         $texts = ['Text 1', 'Text 2'];
-
-        $result = $this->jinaService->embed($texts);
-
-        $this->assertIsArray($result);
+        $this->jinaService->embed($texts);
 
         Http::assertSent(function ($request) use ($texts) {
-            $this->assertEquals('https://api.jina.ai/v1/embeddings', $request->url());
-            $this->assertEquals('POST', $request->method());
-            $this->assertEquals('jina-embeddings-v2-base-en', $request['model']);
-            $this->assertEquals($texts, $request['input']);
-            $this->assertEquals('Bearer fake-api-key', $request->header('Authorization')[0]);
-
-            return true;
+            return $request->url() == 'https://api.jina.ai/v1/embeddings'
+                && $request->method() == 'POST'
+                && $request['model'] == 'jina-embeddings-v2-base-en'
+                && $request['input'] == $texts
+                && $request->header('Authorization')[0] == 'Bearer fake-api-key';
         });
     }
 
-    public function testCorrectRerankRequestParameters()
+    public function test_rerank_request_parameters()
     {
         Http::fake([
             'https://api.jina.ai/v1/rerank' => Http::response([
                 'model' => 'jina-reranker-v2-base-multilingual',
-                'usage' => [
-                    'total_tokens' => 815,
-                    'prompt_tokens' => 815
-                ],
+                'usage' => ['total_tokens' => 815, 'prompt_tokens' => 815],
                 'results' => []
             ], 200)
         ]);
@@ -156,20 +131,16 @@ class JinaSearchServiceTest extends TestCase
         ];
         $topN = 3;
 
-        $result = $this->jinaService->rerank($query, $documents, $topN);
-
-        $this->assertIsArray($result);
+        $this->jinaService->rerank($query, $documents, $topN);
 
         Http::assertSent(function ($request) use ($query, $documents, $topN) {
-            $this->assertEquals('https://api.jina.ai/v1/rerank', $request->url());
-            $this->assertEquals('POST', $request->method());
-            $this->assertEquals('jina-reranker-v2-base-multilingual', $request['model']);
-            $this->assertEquals($query, $request['query']);
-            $this->assertEquals($documents, $request['documents']);
-            $this->assertEquals($topN, $request['top_n']);
-            $this->assertEquals('Bearer fake-api-key', $request->header('Authorization')[0]);
-
-            return true;
+            return $request->url() == 'https://api.jina.ai/v1/rerank'
+                && $request->method() == 'POST'
+                && $request['model'] == 'jina-reranker-v2-base-multilingual'
+                && $request['query'] == $query
+                && $request['documents'] == $documents
+                && $request['top_n'] == $topN
+                && $request->header('Authorization')[0] == 'Bearer fake-api-key';
         });
     }
 }

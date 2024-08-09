@@ -22,10 +22,8 @@ class ResponsiveImageServiceTest extends TestCase
         parent::setUp();
         $this->service = new ResponsiveImageService(['q' => 80]);
 
-        // Create a fake storage disk
         Storage::fake('public');
 
-        // Create test images
         $this->createTestImage('image.jpg', 1600, 900);
         $this->createTestImage('thumbnail.jpg', 600, 600);
 
@@ -85,11 +83,7 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('1440w', $result);
         $this->assertStringContainsString('1296w', $result);
         $this->assertStringContainsString('110w', $result);
-
-        // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('1601w', $result);
-
-        // Check the order of sizes (should be descending)
         $this->assertMatchesRegularExpression('/1600w.*1440w.*1296w.*110w/', $result);
     }
 
@@ -103,13 +97,9 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('300w', $result);
         $this->assertStringContainsString('600w', $result);
 
-        // Split the result into individual srcset entries
         $srcsetEntries = explode(', ', $result);
-
-        // Ensure only two sizes are generated
         $this->assertCount(2, $srcsetEntries);
 
-        // Check that each entry has the correct format
         foreach ($srcsetEntries as $entry) {
             $this->assertMatchesRegularExpression('/^https?:\/\/.*\s\d+w$/', $entry);
         }
@@ -134,13 +124,7 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_fluid()
     {
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
+        $this->mockUrlMethods();
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
         $result = $this->service->generateImgTag($this->media, $sizes, ['class' => 'my-image'], true);
@@ -157,20 +141,13 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_generate_img_tag_fixed()
     {
-        // Mock both route and signedRoute methods
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
+        $this->mockUrlMethods();
 
         $sizes = ['100vw'];
         $result = $this->service->generateImgTag($this->thumbnail, $sizes, ['class' => 'my-thumbnail'], false, [300, 300]);
 
         $this->assertStringContainsString('<img', $result);
-        $this->assertStringContainsString('src="https://example.com/', $result); // Check for either URL
+        $this->assertStringContainsString('src="https://example.com/', $result);
         $this->assertStringContainsString('alt="', $result);
         $this->assertStringContainsString('sizes="100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);
@@ -178,7 +155,6 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('300w', $result);
         $this->assertStringContainsString('600w', $result);
 
-        // Count the number of srcset entries instead of 'w' occurrences
         $srcsetEntries = explode(', ', substr($result, strpos($result, 'srcset="') + 8));
         $this->assertCount(2, $srcsetEntries);
     }
@@ -204,33 +180,19 @@ class ResponsiveImageServiceTest extends TestCase
 
     public function test_format_srcset_entry()
     {
+        $this->mockUrlMethods();
+
         $method = new \ReflectionMethod(ResponsiveImageService::class, 'formatSrcsetEntry');
         $method->setAccessible(true);
 
-        // Mock both route and signedRoute methods
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
-
         $result = $method->invoke($this->service, $this->media, 800);
 
-        // Use a more flexible assertion that works for both route and signedRoute
         $this->assertMatchesRegularExpression('/^https:\/\/example\.com\/(url|signed-url)(\?.*)?&w=800 800w$/', $result);
     }
 
     public function test_generate_img_tag_with_display_size_fixed()
     {
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
+        $this->mockUrlMethods();
 
         $sizes = ['100vw'];
         $displaySize = [150, 150];
@@ -243,24 +205,14 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('sizes="100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);
         $this->assertStringContainsString('class="my-image"', $result);
-
-        // Check for both 1x and 2x versions
         $this->assertStringContainsString('150w', $result);
         $this->assertStringContainsString('300w', $result);
-
-        // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('301w', $result);
     }
 
     public function test_generate_img_tag_with_display_size_fluid()
     {
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
+        $this->mockUrlMethods();
 
         $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
         $displaySize = [1200, 400];
@@ -273,24 +225,14 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);
         $this->assertStringContainsString('class="my-image"', $result);
-
-        // Check for various sizes
         $this->assertStringContainsString('1600w', $result);
         $this->assertStringContainsString('1200w', $result);
-
-        // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('1601w', $result);
     }
 
     public function test_generate_img_tag_with_small_display_size()
     {
-        URL::shouldReceive('route')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/url');
-
-        URL::shouldReceive('signedRoute')
-            ->with('image.transform', \Mockery::any(), \Mockery::any())
-            ->andReturn('https://example.com/signed-url');
+        $this->mockUrlMethods();
 
         $sizes = ['100vw'];
         $displaySize = [150, 150];
@@ -303,12 +245,20 @@ class ResponsiveImageServiceTest extends TestCase
         $this->assertStringContainsString('sizes="100vw"', $result);
         $this->assertStringContainsString('srcset="', $result);
         $this->assertStringContainsString('class="my-thumbnail"', $result);
-
-        // Check for both 1x and 2x versions
         $this->assertStringContainsString('150w', $result);
         $this->assertStringContainsString('300w', $result);
-
-        // Ensure no larger sizes are generated
         $this->assertStringNotContainsString('301w', $result);
+    }
+
+    // Helper method to mock URL facade methods
+    private function mockUrlMethods()
+    {
+        URL::shouldReceive('route')
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/url');
+
+        URL::shouldReceive('signedRoute')
+            ->with('image.transform', \Mockery::any(), \Mockery::any())
+            ->andReturn('https://example.com/signed-url');
     }
 }

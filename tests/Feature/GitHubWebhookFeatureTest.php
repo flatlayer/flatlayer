@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Artisan;
+use Mockery\MockInterface;
 use Tests\TestCase;
 use Mockery;
 
@@ -18,8 +19,8 @@ class GitHubWebhookFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $syncConfigService;
-    protected $logMessages = [];
+    protected MockInterface|SyncConfigurationService $syncConfigService;
+    protected array $logMessages = [];
 
     protected function setUp(): void
     {
@@ -39,7 +40,7 @@ class GitHubWebhookFeatureTest extends TestCase
         });
     }
 
-    public function testValidWebhookRequest()
+    public function test_valid_webhook_request_triggers_sync()
     {
         $tempDir = Storage::path('temp_posts');
         mkdir($tempDir, 0755, true);
@@ -65,6 +66,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertStatus(202);
         $response->assertSee('Sync initiated');
 
+        // Verify that the correct job was pushed to the queue
         Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
             $config = $job->getJobConfig();
             return $config['type'] === 'post' &&
@@ -77,7 +79,7 @@ class GitHubWebhookFeatureTest extends TestCase
         rmdir($tempDir);
     }
 
-    public function testInvalidSignature()
+    public function test_invalid_signature_returns_403()
     {
         $payload = ['repository' => ['name' => 'test-repo']];
         $invalidSignature = 'sha256=invalid_signature';
@@ -93,7 +95,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), "Expected log message not found");
     }
 
-    public function testInvalidContentType()
+    public function test_invalid_content_type_returns_400()
     {
         $payload = ['repository' => ['name' => 'test-repo']];
         $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
@@ -113,7 +115,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), "Expected log message not found");
     }
 
-    public function testContentSyncJob()
+    public function test_entry_sync_job_logs_correctly()
     {
         $gitMock = Mockery::mock(Git::class);
         $this->app->instance(Git::class, $gitMock);
@@ -130,18 +132,18 @@ class GitHubWebhookFeatureTest extends TestCase
         $job = new EntrySyncJob($path, $type, $pattern, true, true);
         $job->handle($gitMock);
 
+        // Check for start and completion log messages
         $this->assertTrue(
             in_array("Starting content sync for type: {$type}", $this->logMessages),
-            "Expected log message not found"
+            "Expected start log message not found"
         );
-
         $this->assertTrue(
             in_array("Content sync completed for type: {$type}", $this->logMessages),
-            "Expected log message not found"
+            "Expected completion log message not found"
         );
     }
 
-    public function testHandleSyncError()
+    public function test_sync_error_returns_500()
     {
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('post')
@@ -154,6 +156,7 @@ class GitHubWebhookFeatureTest extends TestCase
                 '--pattern' => '**/*.md',
             ]);
 
+        // Simulate a sync error
         Artisan::shouldReceive('call')
             ->andThrow(new \Exception('Sync error'));
 

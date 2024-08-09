@@ -5,28 +5,26 @@ namespace Tests\Unit;
 use App\Query\EntrySerializer;
 use App\Models\Entry;
 use App\Models\Image;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
-class ContentItemArrayConverterTest extends TestCase
+class EntrySerializerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected EntrySerializer $converter;
-    protected Entry $contentItem;
+    protected EntrySerializer $serializer;
+    protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->converter = new EntrySerializer();
-        $this->contentItem = $this->createContentItem();
+        $this->serializer = new EntrySerializer();
+        $this->entry = $this->createEntry();
     }
 
-    protected function createContentItem(): Entry
+    protected function createEntry(): Entry
     {
-        $contentItem = Entry::factory()->create([
+        $entry = Entry::factory()->create([
             'title' => 'Test Content',
             'slug' => 'test-content',
             'content' => 'This is test content.',
@@ -47,18 +45,18 @@ class ContentItemArrayConverterTest extends TestCase
             ],
         ]);
 
-        $contentItem->attachTag('tag1');
-        $contentItem->attachTag('tag2');
+        $entry->attachTag('tag1');
+        $entry->attachTag('tag2');
 
-        $this->addMediaToContentItem($contentItem);
+        $this->addImageToEntry($entry);
 
-        return $contentItem;
+        return $entry;
     }
 
-    protected function addMediaToContentItem(Entry $contentItem): void
+    protected function addImageToEntry(Entry $entry): void
     {
-        $mediaFile = Image::factory()->create([
-            'entry_id' => $contentItem->id,
+        $image = Image::factory()->create([
+            'entry_id' => $entry->id,
             'collection' => 'featured',
             'filename' => 'test-image.jpg',
             'mime_type' => 'image/jpeg',
@@ -66,63 +64,49 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 800, 'height' => 600],
         ]);
 
-        $contentItem->images()->save($mediaFile);
-        $contentItem->load('images');
+        $entry->images()->save($image);
+        $entry->load('images');
     }
 
-    public function testToArrayWithDefaultFields()
+    public function test_to_array_with_default_fields()
     {
-        $result = $this->converter->toArray($this->contentItem);
+        $result = $this->serializer->toArray($this->entry);
 
-        $this->assertArrayHasKey('id', $result);
-        $this->assertArrayHasKey('type', $result);
-        $this->assertArrayHasKey('title', $result);
-        $this->assertArrayHasKey('slug', $result);
-        $this->assertArrayHasKey('content', $result);
-        $this->assertArrayHasKey('excerpt', $result);
-        $this->assertArrayHasKey('published_at', $result);
-        $this->assertArrayHasKey('meta', $result);
-        $this->assertArrayHasKey('tags', $result);
-        $this->assertArrayHasKey('images', $result);
+        $expectedFields = ['id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'];
+        foreach ($expectedFields as $field) {
+            $this->assertArrayHasKey($field, $result);
+        }
     }
 
-    public function testToSummaryArray()
+    public function test_to_summary_array()
     {
-        $result = $this->converter->toSummaryArray($this->contentItem);
+        $result = $this->serializer->toSummaryArray($this->entry);
 
-        $this->assertArrayHasKey('id', $result);
-        $this->assertArrayHasKey('type', $result);
-        $this->assertArrayHasKey('title', $result);
-        $this->assertArrayHasKey('slug', $result);
-        $this->assertArrayHasKey('excerpt', $result);
-        $this->assertArrayHasKey('published_at', $result);
-        $this->assertArrayHasKey('tags', $result);
-        $this->assertArrayHasKey('images', $result);
+        $expectedFields = ['id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images'];
+        $unexpectedFields = ['content', 'meta'];
 
-        $this->assertArrayNotHasKey('content', $result);
-        $this->assertArrayNotHasKey('meta', $result);
+        foreach ($expectedFields as $field) {
+            $this->assertArrayHasKey($field, $result);
+        }
+        foreach ($unexpectedFields as $field) {
+            $this->assertArrayNotHasKey($field, $result);
+        }
     }
 
-    public function testToDetailArray()
+    public function test_to_detail_array()
     {
-        $result = $this->converter->toDetailArray($this->contentItem);
+        $result = $this->serializer->toDetailArray($this->entry);
 
-        $this->assertArrayHasKey('id', $result);
-        $this->assertArrayHasKey('type', $result);
-        $this->assertArrayHasKey('title', $result);
-        $this->assertArrayHasKey('slug', $result);
-        $this->assertArrayHasKey('content', $result);
-        $this->assertArrayHasKey('excerpt', $result);
-        $this->assertArrayHasKey('published_at', $result);
-        $this->assertArrayHasKey('meta', $result);
-        $this->assertArrayHasKey('tags', $result);
-        $this->assertArrayHasKey('images', $result);
+        $expectedFields = ['id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'];
+        foreach ($expectedFields as $field) {
+            $this->assertArrayHasKey($field, $result);
+        }
     }
 
-    public function testCustomFieldSelection()
+    public function test_custom_field_selection()
     {
         $fields = ['id', 'title', 'meta.author'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertArrayHasKey('id', $result);
         $this->assertArrayHasKey('title', $result);
@@ -133,7 +117,7 @@ class ContentItemArrayConverterTest extends TestCase
         $this->assertArrayNotHasKey('content', $result);
     }
 
-    public function testMetaFieldsCasting()
+    public function test_meta_fields_casting()
     {
         $fields = [
             ['meta.views', 'integer'],
@@ -142,7 +126,7 @@ class ContentItemArrayConverterTest extends TestCase
             ['meta.categories', 'array'],
         ];
 
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertIsInt($result['meta']['views']);
         $this->assertEquals(1000, $result['meta']['views']);
@@ -157,59 +141,59 @@ class ContentItemArrayConverterTest extends TestCase
         $this->assertEquals(['tech', 'news'], $result['meta']['categories']);
     }
 
-    public function testDateCasting()
+    public function test_date_casting()
     {
         $fields = [
             ['published_at', 'date'],
         ];
 
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertIsString($result['published_at']);
         $this->assertEquals('2023-05-15', $result['published_at']);
     }
 
-    public function testDateTimeCasting()
+    public function test_datetime_casting()
     {
         $fields = [
             ['published_at', 'datetime'],
         ];
 
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertIsString($result['published_at']);
         $this->assertEquals('2023-05-15 10:00:00', $result['published_at']);
     }
 
-    public function testTagsRetrieval()
+    public function test_tags_retrieval()
     {
         $fields = ['tags'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertIsArray($result['tags']);
         $this->assertContains('tag1', $result['tags']);
         $this->assertContains('tag2', $result['tags']);
     }
 
-    public function testImageRetrieval()
+    public function test_image_retrieval()
     {
         $fields = ['images'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertArrayHasKey('featured', $result['images']);
         $this->assertCount(1, $result['images']['featured']);
 
         $image = $result['images']['featured'][0];
-        $this->assertArrayHasKey('id', $image);
-        $this->assertArrayHasKey('url', $image);
-        $this->assertArrayHasKey('html', $image);
-        $this->assertArrayHasKey('meta', $image);
+        $expectedImageKeys = ['id', 'url', 'html', 'meta'];
+        foreach ($expectedImageKeys as $key) {
+            $this->assertArrayHasKey($key, $image);
+        }
 
         $this->assertEquals(800, $image['meta']['width']);
         $this->assertEquals(600, $image['meta']['height']);
     }
 
-    public function testImageCropping()
+    public function test_image_cropping()
     {
         $fields = [
             ['images.featured', [
@@ -220,7 +204,7 @@ class ContentItemArrayConverterTest extends TestCase
             ]]
         ];
 
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertIsArray($result['images']['featured']);
         $this->assertNotEmpty($result['images']['featured']);
@@ -232,20 +216,20 @@ class ContentItemArrayConverterTest extends TestCase
         $this->assertStringContainsString('sizes="100vw"', $image['html']);
     }
 
-    public function testNonExistentField()
+    public function test_non_existent_field_handling()
     {
         $fields = ['non_existent_field'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertArrayNotHasKey('non_existent_field', $result);
     }
 
-    public function testNestedMetaFields()
+    public function test_nested_meta_fields()
     {
-        $this->contentItem->save();
+        $this->entry->save();
 
         $fields = ['meta.nested.level1.level2'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertArrayHasKey('meta', $result);
         $this->assertArrayHasKey('nested', $result['meta']);
@@ -254,10 +238,10 @@ class ContentItemArrayConverterTest extends TestCase
         $this->assertEquals('nested value', $result['meta']['nested']['level1']['level2']);
     }
 
-    public function testMultipleImagesInDifferentCollections()
+    public function test_multiple_images_in_different_collections()
     {
-        $secondMediaFile = Image::factory()->create([
-            'entry_id' => $this->contentItem->id,
+        $galleryImage = Image::factory()->create([
+            'entry_id' => $this->entry->id,
             'collection' => 'gallery',
             'filename' => 'gallery-image.jpg',
             'mime_type' => 'image/jpeg',
@@ -265,10 +249,10 @@ class ContentItemArrayConverterTest extends TestCase
             'dimensions' => ['width' => 1024, 'height' => 768],
         ]);
 
-        $this->contentItem->images()->save($secondMediaFile);
+        $this->entry->images()->save($galleryImage);
 
         $fields = ['images'];
-        $result = $this->converter->toArray($this->contentItem, $fields);
+        $result = $this->serializer->toArray($this->entry, $fields);
 
         $this->assertArrayHasKey('featured', $result['images']);
         $this->assertArrayHasKey('gallery', $result['images']);

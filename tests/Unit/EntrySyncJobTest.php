@@ -4,14 +4,13 @@ namespace Tests\Unit;
 
 use App\Jobs\EntrySyncJob;
 use App\Models\Entry;
-use App\Services\JinaSearchService;
 use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Mockery;
 
-class ContentSyncJobTest extends TestCase
+class EntrySyncJobTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,7 +25,7 @@ class ContentSyncJobTest extends TestCase
         $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
     }
 
-    public function testContentSyncJobCreatesNewModels()
+    public function test_sync_job_creates_new_entries()
     {
         $this->createTestFile('test-post.md', "---\ntitle: Test Post\n---\nThis is a test post.");
 
@@ -40,7 +39,7 @@ class ContentSyncJobTest extends TestCase
         ]);
     }
 
-    public function testContentSyncJobUpdatesExistingModels()
+    public function test_sync_job_updates_existing_entries()
     {
         Entry::factory()->create([
             'title' => 'Existing Post',
@@ -61,7 +60,7 @@ class ContentSyncJobTest extends TestCase
         ]);
     }
 
-    public function testContentSyncJobDeletesRemovedModels()
+    public function test_sync_job_deletes_removed_entries()
     {
         Entry::factory()->create([
             'title' => 'Post to Delete',
@@ -87,7 +86,7 @@ class ContentSyncJobTest extends TestCase
         ]);
     }
 
-    public function testContentSyncJobHandlesMultipleFiles()
+    public function test_sync_job_handles_multiple_files()
     {
         $this->createTestFile('post1.md', "---\ntitle: Post 1\n---\nContent 1");
         $this->createTestFile('post2.md', "---\ntitle: Post 2\n---\nContent 2");
@@ -101,21 +100,19 @@ class ContentSyncJobTest extends TestCase
         $this->assertDatabaseHas('entries', ['title' => 'Post 3', 'type' => 'post']);
     }
 
-    public function testChunkedDeletion()
+    public function test_sync_job_performs_chunked_deletion()
     {
-        // Create a larger number of content items
-        Entry::factory()->count(50)->create([
-            'type' => 'post',
-        ]);
+        // Create a large number of entries
+        Entry::factory()->count(50)->create(['type' => 'post']);
 
-        // Only create markdown files for some posts
+        // Create markdown files for only some of the entries
         for ($i = 0; $i < 30; $i++) {
             $this->createTestFile("post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
         }
 
         EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
 
-        // Check that only the posts with markdown files remain
+        // Verify that only entries with corresponding markdown files remain
         $this->assertDatabaseCount('entries', 30);
         for ($i = 0; $i < 30; $i++) {
             $this->assertDatabaseHas('entries', ['slug' => "post-$i", 'type' => 'post']);

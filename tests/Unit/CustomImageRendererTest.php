@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use App\Markdown\CustomImageRenderer;
 use App\Models\Image;
 use App\Models\Entry;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use League\CommonMark\Environment\Environment;
@@ -20,14 +19,14 @@ class CustomImageRendererTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $contentItem;
+    protected $entry;
     protected $environment;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->contentItem = Entry::factory()->create([
+        $this->entry = Entry::factory()->create([
             'type' => 'post',
             'title' => 'Test Post',
         ]);
@@ -38,7 +37,6 @@ class CustomImageRendererTest extends TestCase
 
         Storage::fake('public');
 
-        // Create a test image
         $this->createTestImage();
     }
 
@@ -57,11 +55,11 @@ class CustomImageRendererTest extends TestCase
         Storage::disk('public')->put('test-image.jpg', $image->toJpeg());
     }
 
-    public function testEnhancedImageRendering()
+    public function test_render_local_image()
     {
-        $media = $this->contentItem->addImage(Storage::disk('public')->path('test-image.jpg'), 'images');
+        $media = $this->entry->addImage(Storage::disk('public')->path('test-image.jpg'), 'images');
 
-        $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
+        $renderer = new CustomImageRenderer($this->entry, $this->environment);
         $imageNode = new ImageNode(
             Storage::disk('public')->path('test-image.jpg'),
             'Test Image'
@@ -70,7 +68,7 @@ class CustomImageRendererTest extends TestCase
         $childRenderer = Mockery::mock(ChildNodeRendererInterface::class);
         $childRenderer->shouldReceive('renderNodes')->andReturn('');
 
-        $result = $enhancedRenderer->render($imageNode, $childRenderer);
+        $result = $renderer->render($imageNode, $childRenderer);
 
         $this->assertInstanceOf(\League\CommonMark\Util\HtmlElement::class, $result);
         $this->assertEquals('div', $result->getTagName());
@@ -79,15 +77,15 @@ class CustomImageRendererTest extends TestCase
         $this->assertStringContainsString('alt="Test Image"', $result->getContents());
     }
 
-    public function testExternalImageFallback()
+    public function test_render_external_image()
     {
-        $enhancedRenderer = new CustomImageRenderer($this->contentItem, $this->environment);
+        $renderer = new CustomImageRenderer($this->entry, $this->environment);
         $imageNode = new ImageNode('https://example.com/image.jpg', 'External Image');
 
         $childRenderer = Mockery::mock(ChildNodeRendererInterface::class);
         $childRenderer->shouldReceive('renderNodes')->andReturn('');
 
-        $result = $enhancedRenderer->render($imageNode, $childRenderer);
+        $result = $renderer->render($imageNode, $childRenderer);
 
         $this->assertInstanceOf(\League\CommonMark\Util\HtmlElement::class, $result);
         $this->assertEquals('img', $result->getTagName());
@@ -95,4 +93,9 @@ class CustomImageRendererTest extends TestCase
         $this->assertEquals('External Image', $result->getAttribute('alt'));
     }
 
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
+    }
 }

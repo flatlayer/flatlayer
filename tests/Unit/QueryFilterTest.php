@@ -20,7 +20,7 @@ class QueryFilterTest extends TestCase
         parent::setUp();
     }
 
-    public function testTagFiltersWithType()
+    public function test_tag_filters_with_type()
     {
         $post1 = Entry::factory()->create(['type' => 'post']);
         $post2 = Entry::factory()->create(['type' => 'post']);
@@ -43,7 +43,7 @@ class QueryFilterTest extends TestCase
         }));
     }
 
-    public function testSearch()
+    public function test_search_filter()
     {
         Entry::factory()->create([
             'title' => 'John Doe',
@@ -57,11 +57,13 @@ class QueryFilterTest extends TestCase
 
         $this->assertInstanceOf(Collection::class, $filtered);
         $this->assertCount(1, $filtered);
+        // Check if the relevance score is present and above a threshold
         $this->assertGreaterThanOrEqual(0.1, $filtered->first()->relevance);
     }
 
-    public function testCombinedFilters()
+    public function test_combined_filters()
     {
+        // Create an older post
         $olderJohn = Entry::factory()->create([
             'title' => 'John Smith',
             'type' => 'post',
@@ -71,6 +73,7 @@ class QueryFilterTest extends TestCase
         ]);
         $olderJohn->attachTag('important');
 
+        // Create a younger post
         $youngerJohn = Entry::factory()->create([
             'title' => 'John Smith',
             'type' => 'post',
@@ -80,6 +83,7 @@ class QueryFilterTest extends TestCase
         ]);
         $youngerJohn->attachTag('important');
 
+        // Apply multiple filters
         $filters = [
             'meta.age' => ['$gte' => 25, '$lt' => 40],
             'published_at' => ['$gte' => now()->subDays(20)->toDateTimeString()],

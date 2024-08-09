@@ -16,11 +16,11 @@ class MediaTransformControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $tempImagePath;
-    protected $contentItem;
-    protected $media;
-    protected $diskName = 'public';
-    protected $imageService;
+    protected string $tempImagePath;
+    protected Entry $entry;
+    protected Image $image;
+    protected string $diskName = 'public';
+    protected ImageTransformationService $imageService;
 
     protected function setUp(): void
     {
@@ -34,9 +34,9 @@ class MediaTransformControllerTest extends TestCase
 
         $this->tempImagePath = $this->createTempImage();
 
-        $this->contentItem = Entry::factory()->create(['type' => 'post']);
+        $this->entry = Entry::factory()->create(['type' => 'post']);
 
-        $this->media = $this->contentItem->addImage($this->tempImagePath, 'featured_image');
+        $this->image = $this->entry->addImage($this->tempImagePath, 'featured_image');
     }
 
     protected function clearImageCache()
@@ -75,10 +75,10 @@ class MediaTransformControllerTest extends TestCase
         return $tempPath;
     }
 
-    public function test_image_transformation()
+    public function test_image_transform_returns_correct_dimensions_and_format()
     {
         $response = $this->get(route('image.transform', [
-            'id' => $this->media->id,
+            'id' => $this->image->id,
             'extension' => 'jpg',
             'w' => 500,
             'h' => 300,
@@ -91,15 +91,17 @@ class MediaTransformControllerTest extends TestCase
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
 
+        // Check if the image is cached
         $cacheKey = $this->imageService->generateCacheKey(
-            $this->media->id,
+            $this->image->id,
             ['w' => 500, 'h' => 300]
         );
         $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
+        // Test WebP format
         $response = $this->get(route('image.transform', [
-            'id' => $this->media->id,
+            'id' => $this->image->id,
             'extension' => 'webp',
             'fm' => 'webp',
         ]));
@@ -107,8 +109,9 @@ class MediaTransformControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/webp');
 
+        // Test quality parameter
         $response = $this->get(route('image.transform', [
-            'id' => $this->media->id,
+            'id' => $this->image->id,
             'extension' => 'jpg',
             'q' => 50,
         ]));
@@ -117,6 +120,7 @@ class MediaTransformControllerTest extends TestCase
         $response->assertHeader('Content-Type', 'image/jpeg');
         $this->assertLessThan(filesize($this->tempImagePath), strlen($response->getContent()));
 
+        // Test non-existent image
         $response = $this->get(route('image.transform', [
             'id' => 9999,
             'extension' => 'jpg',
@@ -125,33 +129,38 @@ class MediaTransformControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    public function test_image_caching()
+    public function test_image_caching_returns_same_content_for_identical_requests()
     {
         $params = [
-            'id' => $this->media->id,
+            'id' => $this->image->id,
             'extension' => 'jpg',
             'w' => 500,
             'h' => 300,
         ];
 
+        // First request
         $response1 = $this->get(route('image.transform', $params));
         $response1->assertStatus(200);
         $response1->assertHeader('Content-Type', 'image/jpeg');
 
         $content1 = $response1->getContent();
 
-        $cacheKey = $this->imageService->generateCacheKey($this->media->id, ['w' => 500, 'h' => 300]);
+        // Check if the image is cached
+        $cacheKey = $this->imageService->generateCacheKey($this->image->id, ['w' => 500, 'h' => 300]);
         $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
 
+        // Second request
         $response2 = $this->get(route('image.transform', $params));
         $response2->assertStatus(200);
         $response2->assertHeader('Content-Type', 'image/jpeg');
 
         $content2 = $response2->getContent();
 
+        // Compare contents
         $this->assertEquals($content1, $content2);
 
+        // Verify dimensions
         $resultImage = (new ImageManager(new Driver()))->read($content2);
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());

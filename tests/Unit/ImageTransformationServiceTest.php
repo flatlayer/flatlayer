@@ -49,7 +49,7 @@ class ImageTransformationServiceTest extends TestCase
         return $tempPath;
     }
 
-    public function testTransformImage()
+    public function test_transform_image_with_dimensions()
     {
         $params = ['w' => 500, 'h' => 300, 'q' => 80];
         $result = $this->imageService->transformImage($this->tempImagePath, $params);
@@ -61,7 +61,7 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals(300, $resultImage->height());
     }
 
-    public function testGenerateCacheKey()
+    public function test_generate_cache_key()
     {
         $id = 1;
         $params = ['w' => 500, 'h' => 300, 'q' => 80];
@@ -71,7 +71,7 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals(32, strlen($cacheKey)); // MD5 hash length
     }
 
-    public function testGetCachePath()
+    public function test_get_cache_path()
     {
         $cacheKey = md5('test');
         $format = 'jpg';
@@ -80,7 +80,7 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals("cache/images/{$cacheKey}.{$format}", $cachePath);
     }
 
-    public function testCacheImage()
+    public function test_cache_image()
     {
         $cachePath = 'cache/images/test.jpg';
         $imageData = 'fake image data';
@@ -91,7 +91,7 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals($imageData, Storage::disk($this->diskName)->get($cachePath));
     }
 
-    public function testGetCachedImage()
+    public function test_get_cached_image()
     {
         $cachePath = 'cache/images/test.jpg';
         $imageData = 'fake image data';
@@ -102,7 +102,7 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals($imageData, $result);
     }
 
-    public function testCreateImageResponse()
+    public function test_create_image_response()
     {
         $imageData = 'fake image data';
         $format = 'jpg';
@@ -114,7 +114,6 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals('image/jpeg', $response->headers->get('Content-Type'));
         $this->assertEquals(strlen($imageData), $response->headers->get('Content-Length'));
 
-        // Update this assertion to be more flexible
         $cacheControl = $response->headers->get('Cache-Control');
         $this->assertStringContainsString('public', $cacheControl);
         $this->assertStringContainsString('max-age=31536000', $cacheControl);

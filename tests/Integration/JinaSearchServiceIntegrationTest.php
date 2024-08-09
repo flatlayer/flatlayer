@@ -24,7 +24,7 @@ class JinaSearchServiceIntegrationTest extends TestCase
         $this->jinaService = new JinaSearchService($apiKey, $rerankModel, $embedModel);
     }
 
-    public function testEmbedIntegration()
+    public function test_embed_integration()
     {
         $texts = [
             "Organic skincare for sensitive skin with aloe vera and chamomile.",
@@ -38,12 +38,12 @@ class JinaSearchServiceIntegrationTest extends TestCase
 
         foreach ($result as $embedding) {
             $this->assertArrayHasKey('embedding', $embedding);
-            $this->assertCount(768, $embedding['embedding']);
+            $this->assertCount(768, $embedding['embedding']); // Ensure 768-dimensional embedding
             $this->assertContainsOnly('float', $embedding['embedding']);
         }
     }
 
-    public function testRerankIntegration()
+    public function test_rerank_integration()
     {
         $query = 'Organic skincare products for sensitive skin';
         $documents = [
@@ -69,14 +69,14 @@ class JinaSearchServiceIntegrationTest extends TestCase
             $this->assertLessThanOrEqual(1, $item['relevance_score']);
         }
 
-        // Check if the results are sorted by relevance_score in descending order
+        // Check if results are sorted by relevance_score in descending order
         $scores = array_column($result['results'], 'relevance_score');
         $sortedScores = $scores;
         rsort($sortedScores);
         $this->assertEquals($sortedScores, $scores, "Results should be sorted by relevance_score in descending order");
     }
 
-    public function testEmbedAndRerankIntegration()
+    public function test_embed_and_rerank_integration()
     {
         $query = 'Organic skincare products for sensitive skin';
         $documents = [
@@ -84,7 +84,7 @@ class JinaSearchServiceIntegrationTest extends TestCase
             "New makeup trends focus on bold colors and innovative techniques."
         ];
 
-        // First, embed the query and documents
+        // Embed the query and documents
         $queryEmbedding = $this->jinaService->embed([$query])[0]['embedding'];
         $documentEmbeddings = $this->jinaService->embed($documents);
 
@@ -94,14 +94,14 @@ class JinaSearchServiceIntegrationTest extends TestCase
             $this->assertCount(768, $embedding['embedding']);
         }
 
-        // Now, use these embeddings for reranking
+        // Rerank using the embeddings
         $result = $this->jinaService->rerank($query, $documents);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('results', $result);
         $this->assertCount(2, $result['results']);
 
-        // The first result should be more relevant to the query
+        // Verify that the first result is more relevant to the query
         $this->assertGreaterThan(
             $result['results'][1]['relevance_score'],
             $result['results'][0]['relevance_score'],

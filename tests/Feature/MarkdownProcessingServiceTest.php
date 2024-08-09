@@ -12,22 +12,22 @@ use Tests\TestCase;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
-class MarkdownContentProcessingServiceTest extends TestCase
+class MarkdownProcessingServiceTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
     protected MarkdownProcessingService $service;
-    protected Entry $contentItem;
+    protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = app(MarkdownProcessingService::class);
-        $this->contentItem = Entry::factory()->create(['type' => 'post']);
+        $this->entry = Entry::factory()->create(['type' => 'post']);
         Storage::fake('local');
     }
 
-    public function test_handle_media_from_front_matter()
+    public function test_handle_media_from_front_matter_creates_images()
     {
         $data = [
             'images' => [
@@ -38,39 +38,33 @@ class MarkdownContentProcessingServiceTest extends TestCase
 
         $imageManager = new ImageManager(new Driver());
 
-        // Create a real image for featured.jpg
-        $featuredImage = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#ff0000');
-        });
-        Storage::disk('local')->put('posts/featured.jpg', $featuredImage->toJpeg());
+        // Create test images
+        $featuredImage = $imageManager->create(100, 100)->fill('#ff0000');
+        $thumbnailImage = $imageManager->create(50, 50)->fill('#00ff00');
 
-        // Create a real image for thumbnail.png
-        $thumbnailImage = $imageManager->create(50, 50, function ($draw) {
-            $draw->background('#00ff00');
-        });
+        Storage::disk('local')->put('posts/featured.jpg', $featuredImage->toJpeg());
         Storage::disk('local')->put('posts/thumbnail.png', $thumbnailImage->toPng());
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
-        $this->service->handleMediaFromFrontMatter($this->contentItem, $data['images'], $markdownPath);
+        $this->service->handleMediaFromFrontMatter($this->entry, $data['images'], $markdownPath);
 
         $this->assertDatabaseHas('images', [
-            'entry_id' => $this->contentItem->id,
+            'entry_id' => $this->entry->id,
             'collection' => 'featured',
             'filename' => 'featured.jpg',
         ]);
 
         $this->assertDatabaseHas('images', [
-            'entry_id' => $this->contentItem->id,
+            'entry_id' => $this->entry->id,
             'collection' => 'thumbnail',
             'filename' => 'thumbnail.png',
         ]);
 
-        // Verify that the media was actually created
-        $this->assertEquals(2, $this->contentItem->images()->count());
+        $this->assertEquals(2, $this->entry->images()->count());
     }
 
-    public function test_process_markdown_images()
+    public function test_process_markdown_images_creates_and_updates_image_paths()
     {
         $imageManager = new ImageManager(new Driver());
 
@@ -81,43 +75,39 @@ class MarkdownContentProcessingServiceTest extends TestCase
         ![Alt Text 3](image3.png)
     ";
 
-        // Create a real JPEG image
-        $image1 = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#ff0000');
-        });
-        Storage::disk('local')->put('posts/image1.jpg', $image1->toJpeg());
+        // Create test images
+        $image1 = $imageManager->create(100, 100)->fill('#ff0000');
+        $image3 = $imageManager->create(100, 100)->fill('#00ff00');
 
-        // Create a real PNG image
-        $image3 = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#00ff00');
-        });
+        Storage::disk('local')->put('posts/image1.jpg', $image1->toJpeg());
         Storage::disk('local')->put('posts/image3.png', $image3->toPng());
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
 
-        $result = $this->service->processMarkdownImages($this->contentItem, $markdownContent, $markdownPath);
+        $result = $this->service->processMarkdownImages($this->entry, $markdownContent, $markdownPath);
 
+        // Check if image paths are updated correctly
         $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('posts/image1.jpg') . ')', $result);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
         $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('posts/image3.png') . ')', $result);
 
+        // Verify image records in database
         $this->assertDatabaseHas('images', [
-            'entry_id' => $this->contentItem->id,
+            'entry_id' => $this->entry->id,
             'collection' => 'content',
             'filename' => 'image1.jpg',
         ]);
 
         $this->assertDatabaseHas('images', [
-            'entry_id' => $this->contentItem->id,
+            'entry_id' => $this->entry->id,
             'collection' => 'content',
             'filename' => 'image3.png',
         ]);
 
-        // Verify that the correct number of media items were created
-        $this->assertEquals(2, $this->contentItem->images()->count());
+        $this->assertEquals(2, $this->entry->images()->count());
     }
 
-    public function test_resolve_media_path()
+    public function test_resolve_media_path_returns_correct_path()
     {
         $method = new \ReflectionMethod(MarkdownProcessingService::class, 'resolveMediaPath');
         $method->setAccessible(true);
@@ -125,9 +115,11 @@ class MarkdownContentProcessingServiceTest extends TestCase
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
         Storage::disk('local')->put('posts/image.jpg', 'fake image content');
 
+        // Test with existing file
         $result = $method->invoke($this->service, 'image.jpg', $markdownPath);
         $this->assertEquals(Storage::disk('local')->path('posts/image.jpg'), $result);
 
+        // Test with non-existent file
         $result = $method->invoke($this->service, 'non_existent.jpg', $markdownPath);
         $this->assertEquals('non_existent.jpg', $result);
     }
