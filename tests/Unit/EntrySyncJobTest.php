@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Jobs\EntrySyncJob;
 use App\Models\Entry;
+use App\Models\Image;
 use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -120,6 +121,54 @@ class EntrySyncJobTest extends TestCase
         for ($i = 30; $i < 50; $i++) {
             $this->assertDatabaseMissing('entries', ['slug' => "post-$i", 'type' => 'post']);
         }
+    }
+
+    public function test_sync_job_handles_entries_with_tags_and_images()
+    {
+        // Create test images using ImageFactory
+        $image1 = Image::factory()->withRealImage(640, 480)->create();
+        $image2 = Image::factory()->withRealImage(800, 600)->create();
+        $image3 = Image::factory()->withRealImage(1024, 768)->create();
+
+        // Move the created images to the posts directory
+        Storage::disk('local')->put('posts/' . $image1->filename, file_get_contents($image1->path));
+        Storage::disk('local')->put('posts/' . $image2->filename, file_get_contents($image2->path));
+        Storage::disk('local')->put('posts/' . $image3->filename, file_get_contents($image3->path));
+
+        // Create the markdown file with references to the real images
+        $this->createTestFile('post-with-tags-and-images.md', "---
+title: Test Post
+tags: [tag1, tag2]
+images.featured: {$image1->filename}
+images.gallery: [{$image2->filename}, {$image3->filename}]
+---
+This is a test post with tags and images.");
+
+        EntrySyncJob::dispatch(Storage::disk('local')->path('posts'), 'post', '*.md');
+
+        $entry = Entry::where('slug', 'post-with-tags-and-images')->first();
+
+        $this->assertNotNull($entry);
+        $this->assertEquals('Test Post', $entry->title);
+        $this->assertEquals(['tag1', 'tag2'], $entry->tags->pluck('name')->toArray());
+
+        $this->assertEquals(3, $entry->images()->count());
+        $this->assertDatabaseHas('images', ['entry_id' => $entry->id, 'collection' => 'featured']);
+        $this->assertDatabaseHas('images', ['entry_id' => $entry->id, 'collection' => 'gallery']);
+
+        // Additional checks for image properties
+        $featuredImage = $entry->images()->where('collection', 'featured')->first();
+        $this->assertEquals(640, $featuredImage->dimensions['width']);
+        $this->assertEquals(480, $featuredImage->dimensions['height']);
+
+        $galleryImages = $entry->images()->where('collection', 'gallery')->get();
+        $this->assertCount(2, $galleryImages);
+        $this->assertTrue($galleryImages->contains(function ($image) {
+            return $image->dimensions['width'] == 800 && $image->dimensions['height'] == 600;
+        }));
+        $this->assertTrue($galleryImages->contains(function ($image) {
+            return $image->dimensions['width'] == 1024 && $image->dimensions['height'] == 768;
+        }));
     }
 
     protected function createTestFile($filename, $content)
