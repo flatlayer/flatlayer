@@ -16,10 +16,8 @@
         "markrogoyski/math-php": "^2.10",
         "pgvector/pgvector": "^0.2.0",
         "spatie/image-optimizer": "^1.7",
-        "spatie/laravel-tags": "^4.6",
         "srwiez/thumbhash": "^1.2",
         "webuni/front-matter": "^2.0",
-        "ext-imagick": "*",
         "ext-gd": "*"
     },
     "require-dev": {

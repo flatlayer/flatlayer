@@ -5,12 +5,12 @@ namespace App\Models;
 use App\Query\EntrySerializer;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
+use App\Traits\HasTags;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Pgvector\Laravel\Vector;
-use Spatie\Tags\HasTags;
 
 /**
  * Class Entry
