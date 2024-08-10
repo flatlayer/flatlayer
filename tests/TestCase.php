@@ -31,7 +31,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function logSqlResult(Builder|EloquentBuilder $filtered)
     {
-        if($this->loggingToPrint) {
+        if(!$this->loggingToPrint) {
             $this->logToPrint();
         }
 

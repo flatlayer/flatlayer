@@ -129,7 +129,9 @@ class EntryFilter
      */
     protected function applyFieldFilter(Builder $query, string $field, mixed $value): void
     {
-        if (Str::contains($field, '.')) {
+        if ($field === '$tags') {
+            $this->applyTagFilters($value, $query);
+        } elseif (Str::contains($field, '.')) {
             [$jsonField, $jsonKey] = explode('.', $field, 2);
             if (is_array($value)) {
                 foreach ($value as $operator => $operand) {
@@ -351,10 +353,10 @@ class EntryFilter
      * @param array|string $tags The tags to filter by.
      * @throws InvalidFilterException
      */
-    protected function applyTagFilters(array $tags): void
+    protected function applyTagFilters(array $tags, Builder $query): void
     {
-        $this->builder->whereHas('tags', function ($query) use ($tags) {
-            $query->whereIn('name', $tags);
+        $query->whereHas('tags', function ($subQuery) use ($tags) {
+            $subQuery->whereIn('name', $tags);
         });
     }
 
