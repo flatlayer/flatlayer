@@ -4,6 +4,7 @@ namespace App\Query;
 
 use App\Models\Entry;
 use App\Models\Image;
+use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -57,14 +58,14 @@ class EntrySerializer
         foreach ($fields as $field) {
             if (is_string($field)) {
                 $value = $this->getFieldValue($item, $field);
-                if ($value !== null) {
+                if ($value !== null || (Str::startsWith($field, 'meta.') && Arr::has($item->meta, Str::after($field, 'meta.')))) {
                     Arr::set($result, $field, $value);
                 }
             } elseif (is_array($field) && count($field) >= 2) {
                 $fieldName = $field[0];
                 $options = $field[1];
                 $value = $this->getFieldValue($item, $fieldName, $options);
-                if ($value !== null) {
+                if ($value !== null || (Str::startsWith($fieldName, 'meta.') && Arr::has($item->meta, Str::after($fieldName, 'meta.')))) {
                     Arr::set($result, $fieldName, $value);
                 }
             }
@@ -97,7 +98,7 @@ class EntrySerializer
                 return $this->getAllMetaValues($item, $options);
             default:
                 $value = $item->$field;
-                return $options ? $this->castValue($value, $options) : $value;
+                return $options !== null ? $this->castValue($value, $options) : $value;
         }
     }
 
@@ -109,7 +110,12 @@ class EntrySerializer
     protected function getMetaValue(Entry $item, string $key, mixed $options = null): mixed
     {
         $value = Arr::get($item->meta, $key);
-        return $value !== null ? $this->castValue($value, $options) : null;
+
+        if ($value === null && !Arr::has($item->meta, $key)) {
+            return null;
+        }
+
+        return $options !== null ? $this->castValue($value, $options) : $value;
     }
 
     /**
@@ -141,7 +147,15 @@ class EntrySerializer
      */
     protected function castValue(mixed $value, mixed $options = null): mixed
     {
-        if ($options === null || is_array($options)) {
+        if ($options === null) {
+            return $value;
+        }
+
+        if ($options instanceof Closure) {
+            return $options($value);
+        }
+
+        if (is_array($options)) {
             return $value;
         }
 
@@ -173,9 +187,13 @@ class EntrySerializer
      */
     protected function castToDate(mixed $value): string
     {
-        return $value instanceof Carbon
-            ? $value->toDateString()
-            : Carbon::parse($value)->toDateString();
+        if ($value instanceof Carbon) {
+            return $value->toDateString();
+        }
+        if (is_string($value)) {
+            return Carbon::parse($value)->toDateString();
+        }
+        return '';
     }
 
     /**
@@ -248,6 +266,7 @@ class EntrySerializer
             'width' => $image->getWidth(),
             'height' => $image->getHeight(),
             'aspect_ratio' => $image->getAspectRatio(),
+            'filename' => $image->filename,
         ], $customProperties);
 
         return [

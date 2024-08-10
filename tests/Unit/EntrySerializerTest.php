@@ -41,7 +41,10 @@ class EntrySerializerTest extends TestCase
                     'level1' => [
                         'level2' => 'nested value'
                     ]
-                ]
+                ],
+                'array_field' => ['item1', 'item2', 'item3'],
+                'empty_field' => '',
+                'null_field' => null
             ],
         ]);
 
@@ -258,5 +261,146 @@ class EntrySerializerTest extends TestCase
         $this->assertArrayHasKey('gallery', $result['images']);
         $this->assertCount(1, $result['images']['featured']);
         $this->assertCount(1, $result['images']['gallery']);
+    }
+
+    public function test_complex_field_combination()
+    {
+        $fields = [
+            'id',
+            'title',
+            ['meta.author', 'string'],
+            ['meta.views', 'integer'],
+            ['meta.rating', 'float'],
+            ['meta.is_featured', 'boolean'],
+            ['meta.categories', 'array'],
+            'meta.nested.level1.level2',
+            ['published_at', 'date'],
+            'tags',
+            ['images.featured', [
+                'sizes' => ['100vw', 'md:50vw'],
+                'attributes' => ['class' => 'featured-image', 'loading' => 'lazy'],
+                'fluid' => true,
+                'display_size' => [400, 300]
+            ]]
+        ];
+
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertIsInt($result['id']);
+        $this->assertIsString($result['title']);
+        $this->assertIsString($result['meta']['author']);
+        $this->assertIsInt($result['meta']['views']);
+        $this->assertIsFloat($result['meta']['rating']);
+        $this->assertIsBool($result['meta']['is_featured']);
+        $this->assertIsArray($result['meta']['categories']);
+        $this->assertEquals('nested value', $result['meta']['nested']['level1']['level2']);
+        $this->assertIsString($result['published_at']);
+        $this->assertIsArray($result['tags']);
+        $this->assertArrayHasKey('featured', $result['images']);
+        $this->assertStringContainsString('sizes="(min-width: 768px) 50vw, 100vw"', $result['images']['featured'][0]['html']);
+        $this->assertStringContainsString('class="featured-image"', $result['images']['featured'][0]['html']);
+        $this->assertStringContainsString('loading="lazy"', $result['images']['featured'][0]['html']);
+        $this->assertStringContainsString('width="400"', $result['images']['featured'][0]['html']);
+        $this->assertStringContainsString('height="300"', $result['images']['featured'][0]['html']);
+    }
+
+    public function test_multiple_image_collections()
+    {
+        $galleryImage1 = Image::factory()->create([
+            'entry_id' => $this->entry->id,
+            'collection' => 'gallery',
+            'filename' => 'gallery-image-1.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 2048,
+            'dimensions' => ['width' => 1024, 'height' => 768],
+        ]);
+
+        $galleryImage2 = Image::factory()->create([
+            'entry_id' => $this->entry->id,
+            'collection' => 'gallery',
+            'filename' => 'gallery-image-2.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 3072,
+            'dimensions' => ['width' => 1280, 'height' => 960],
+        ]);
+
+        $this->entry->images()->saveMany([$galleryImage1, $galleryImage2]);
+
+        $fields = ['images'];
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertArrayHasKey('featured', $result['images']);
+        $this->assertArrayHasKey('gallery', $result['images']);
+        $this->assertCount(1, $result['images']['featured']);
+        $this->assertCount(2, $result['images']['gallery']);
+
+        $this->assertEquals('gallery-image-1.jpg', $result['images']['gallery'][0]['meta']['filename']);
+        $this->assertEquals('gallery-image-2.jpg', $result['images']['gallery'][1]['meta']['filename']);
+    }
+
+    public function test_custom_field_casting_options()
+    {
+        $fields = [
+            ['meta.views', function($value) { return $value . ' views'; }],
+            ['meta.rating', function($value) { return number_format((float)$value, 1) . ' stars'; }],
+            ['meta.categories', function($value) { return strtoupper($value); }],
+        ];
+
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertEquals('1000 views', $result['meta']['views']);
+        $this->assertEquals('4.5 stars', $result['meta']['rating']);
+        $this->assertEquals('TECH,NEWS', $result['meta']['categories']);
+    }
+
+    public function test_handling_of_empty_and_null_fields()
+    {
+        $fields = ['meta.empty_field', 'meta.null_field', 'meta.non_existent_field'];
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertArrayHasKey('empty_field', $result['meta']);
+        $this->assertEmpty($result['meta']['empty_field']);
+        $this->assertArrayHasKey('null_field', $result['meta']);
+        $this->assertNull($result['meta']['null_field']);
+        $this->assertArrayNotHasKey('non_existent_field', $result['meta']);
+    }
+
+    public function test_nested_array_field()
+    {
+        $fields = ['meta.array_field'];
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertIsArray($result['meta']['array_field']);
+        $this->assertCount(3, $result['meta']['array_field']);
+        $this->assertEquals(['item1', 'item2', 'item3'], $result['meta']['array_field']);
+    }
+
+    public function test_image_with_custom_properties()
+    {
+        $image = $this->entry->images()->where('collection', 'featured')->first();
+        $image->update([
+            'custom_properties' => [
+                'alt' => 'Custom alt text',
+                'caption' => 'A beautiful image'
+            ]
+        ]);
+
+        $fields = ['images.featured'];
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertArrayHasKey('alt', $result['images']['featured'][0]['meta']);
+        $this->assertEquals('Custom alt text', $result['images']['featured'][0]['meta']['alt']);
+        $this->assertArrayHasKey('caption', $result['images']['featured'][0]['meta']);
+        $this->assertEquals('A beautiful image', $result['images']['featured'][0]['meta']['caption']);
+    }
+
+    public function test_serialization_with_non_existent_image_collection()
+    {
+        $fields = ['images.non_existent_collection'];
+        $result = $this->serializer->toArray($this->entry, $fields);
+
+        $this->assertArrayHasKey('images', $result);
+        $this->assertArrayHasKey('non_existent_collection', $result['images']);
+        $this->assertEmpty($result['images']['non_existent_collection']);
     }
 }
