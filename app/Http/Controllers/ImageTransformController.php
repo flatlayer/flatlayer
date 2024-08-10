@@ -12,7 +12,7 @@ class ImageTransformController extends Controller
         protected ImageTransformationService $imageService
     ) {}
 
-    public function transform(ImageTransformRequest $request, $id)
+    public function transform(ImageTransformRequest $request, int $id, string $extension)
     {
         if (config('flatlayer.images.use_signatures') && !$request->hasValidSignature()) {
             abort(401);
@@ -20,7 +20,7 @@ class ImageTransformController extends Controller
 
         $media = Image::findOrFail($id);
 
-        $format = $request->input('fm', pathinfo($media->path, PATHINFO_EXTENSION));
+        $format = $request->input('fm', $extension);
         $cacheKey = $this->imageService->generateCacheKey($id, $request->all());
         $cachePath = $this->imageService->getCachePath($cacheKey, $format);
 
