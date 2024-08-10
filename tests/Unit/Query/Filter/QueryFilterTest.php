@@ -1,15 +1,14 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Query\Filter;
 
-use App\Query\EntryFilter;
 use App\Models\Entry;
-use App\Services\JinaSearchService;
+use App\Query\EntryFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
-use Tests\TestCase;
 use Mockery;
+use Tests\TestCase;
 
 class QueryFilterTest extends TestCase
 {
