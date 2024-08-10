@@ -48,32 +48,51 @@ class EntryFilter
      * @param string $operator
      * @throws InvalidFilterException
      */
-    protected function applyFilters(array $filters, string $operator = 'and'): void
+    protected function applyFilters(array $filters, string $boolean = 'and', $query = null): void
     {
-        $method = $operator === 'or' ? 'orWhere' : 'where';
+        $query = $query ?? $this->builder;
+        $method = $boolean === 'or' ? 'orWhere' : 'where';
 
-        $this->builder->$method(function ($query) use ($filters) {
+        $query->$method(function ($subQuery) use ($filters) {
             foreach ($filters as $field => $value) {
-                switch ($field) {
-                    case '$and':
-                        $query->where(function ($q) use ($value) {
-                            foreach ($value as $andCondition) {
-                                $this->applyFilters($andCondition, 'and');
-                            }
-                        });
-                        break;
-                    case '$or':
-                        $query->orWhere(function ($q) use ($value) {
-                            foreach ($value as $orCondition) {
-                                $this->applyFilters($orCondition, 'or');
-                            }
-                        });
-                        break;
-                    case '$tags':
-                        $this->applyTagFilters($value);
-                        break;
-                    default:
-                        $this->applyFieldFilter($query, $field, $value);
+                if ($field === '$or') {
+                    $this->applyOrConditions($value);
+                } elseif ($field === '$and') {
+                    $this->applyAndConditions($value);
+                } elseif ($field === '$tags') {
+                    $this->applyTagFilters($value);
+                } else {
+                    $this->applyFieldFilter($subQuery, $field, $value);
+                }
+            }
+        });
+    }
+
+    protected function applyOrConditions(array $conditions): void
+    {
+        $this->builder->where(function ($query) use ($conditions) {
+            foreach ($conditions as $index => $condition) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $query->$method(function ($subQuery) use ($condition) {
+                    foreach ($condition as $field => $value) {
+                        if ($field === '$and') {
+                            $this->applyAndConditions($value, $subQuery);
+                        } else {
+                            $this->applyFieldFilter($subQuery, $field, $value);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    protected function applyAndConditions(array $conditions, $query = null): void
+    {
+        $query = $query ?? $this->builder;
+        $query->where(function ($subQuery) use ($conditions) {
+            foreach ($conditions as $condition) {
+                foreach ($condition as $field => $value) {
+                    $this->applyFieldFilter($subQuery, $field, $value);
                 }
             }
         });
@@ -90,18 +109,18 @@ class EntryFilter
     protected function applyFieldFilter(Builder $query, string $field, mixed $value): void
     {
         if (Str::contains($field, '.')) {
-            $this->applyJsonFieldFilter($query, $field, $value);
+            [$jsonField, $jsonKey] = explode('.', $field, 2);
+            if (is_array($value)) {
+                foreach ($value as $operator => $operand) {
+                    $this->applyJsonOperator($query, $jsonField, $jsonKey, $operator, $operand);
+                }
+            } else {
+                $query->whereJsonContains($jsonField, [$jsonKey => $value]);
+            }
         } else {
             if (is_array($value)) {
-                if (isset($value['$in'])) {
-                    $query->whereIn($field, $value['$in']);
-                } elseif (isset($value['$exists'])) {
-                    $method = $value['$exists'] ? 'whereNotNull' : 'whereNull';
-                    $query->$method($field);
-                } else {
-                    foreach ($value as $operator => $operand) {
-                        $this->applyOperator($query, $field, $operator, $operand);
-                    }
+                foreach ($value as $operator => $operand) {
+                    $this->applyOperator($query, $field, $operator, $operand);
                 }
             } else {
                 $query->where($field, $value);
