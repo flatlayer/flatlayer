@@ -66,7 +66,7 @@ trait HasTags
         return $this;
     }
 
-    protected function getTagModels(Arrayable|array $tagNames): Collection
+    protected function getTagModels(Arrayable|array|string $tagNames): Collection
     {
         return collect($tagNames)->map(function ($tagName) {
             return Tag::firstOrCreate(['name' => $tagName]);
