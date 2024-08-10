@@ -4,7 +4,6 @@ namespace App\Traits;
 
 use App\Markdown\EnhancedMarkdownRenderer;
 use App\Services\MarkdownProcessingService;
-use Spatie\Tags\HasTags;
 
 /**
  * Trait HasMarkdown

@@ -351,15 +351,11 @@ class EntryFilter
      * @param array|string $tags The tags to filter by.
      * @throws InvalidFilterException
      */
-    protected function applyTagFilters(array|string $tags): void
+    protected function applyTagFilters(array $tags): void
     {
-        if (is_array($tags) && !isset($tags['type'])) {
-            $this->builder->withAllTags($tags);
-        } elseif (is_array($tags) && isset($tags['type']) && isset($tags['values'])) {
-            $this->builder->withAllTags($tags['values'], $tags['type']);
-        } else {
-            throw new InvalidFilterException("Invalid tag filter format");
-        }
+        $this->builder->whereHas('tags', function ($query) use ($tags) {
+            $query->whereIn('name', $tags);
+        });
     }
 
     /**
