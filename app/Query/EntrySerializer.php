@@ -9,6 +9,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class EntrySerializer
 {
@@ -176,6 +177,10 @@ class EntrySerializer
             default:
                 if (is_callable($options)) {
                     return $options($value);
+                }
+                else {
+                    // Throw an invalid cast exception
+                    throw new InvalidArgumentException("Invalid cast option: $options");
                 }
                 return $value;
         }
