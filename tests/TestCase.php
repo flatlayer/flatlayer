@@ -10,14 +10,15 @@ use Illuminate\Support\Facades\Log;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected $loggingToPrint = false;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         JinaSearchService::fake();
 
-        // Set up the Log facade to just print the log messages
-        //$this->logToPrint();
+        $this->loggingToPrint = false;
     }
 
     protected function logToPrint()
@@ -25,10 +26,15 @@ abstract class TestCase extends BaseTestCase
         Log::shouldReceive('info')->andReturnUsing(function ($message) {
             echo $message . "\n";
         });
+        $this->loggingToPrint = true;
     }
 
     protected function logSqlResult(Builder|EloquentBuilder $filtered)
     {
+        if($this->loggingToPrint) {
+            $this->logToPrint();
+        }
+
         // Log the SQL query and bindings
         Log::info('Generated SQL: ' . $filtered->toSql() . "\n");
         Log::info('SQL Bindings: ' . json_encode($filtered->getBindings()) . "\n");

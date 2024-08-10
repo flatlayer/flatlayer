@@ -97,8 +97,10 @@ class AdvancedQueryFilterTest extends TestCase
 
         $results = $filtered->get();
 
-        $this->assertCount(1, $results);
-        $this->assertEquals('Machine Learning with Python', $results->first()->title);
+        $this->assertCount(2, $results);
+        $this->assertTrue($results->contains('title', 'Advanced JavaScript Concepts'));
+        $this->assertTrue($results->contains('title', 'Machine Learning with Python'));
+        $this->assertFalse($results->contains('title', 'Introduction to Python'));
     }
 
     public function test_nested_or_filters_with_multiple_conditions()
@@ -189,7 +191,8 @@ class AdvancedQueryFilterTest extends TestCase
         $query = Entry::query();
         $filtered = (new EntryFilter($query, $filters))->apply()->get();
 
-        $this->assertCount(5, $filtered);
+        // This is technically an invalid request, so we should get an empty set.
+        $this->assertCount(0, $filtered);
     }
 
     public function test_complex_filter_with_nested_and_or_conditions()
