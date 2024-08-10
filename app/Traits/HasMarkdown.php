@@ -76,6 +76,9 @@ trait HasMarkdown
             if ($key === 'tags') {
                 continue;
             }
+            if ($key === 'published_at' && $value === true) {
+                continue;
+            }
             if ($this->isFillable($key)) {
                 $this->$key = $value;
             }

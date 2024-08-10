@@ -143,4 +143,42 @@ class MarkdownModelTest extends TestCase
         $this->assertTrue($model->images()->get()->contains('collection', 'content'));
         $this->assertEquals('document', $model->type);
     }
+
+    public function test_published_at_is_set_when_true_in_front_matter()
+    {
+        $content = '---
+title: Test Published Post
+published_at: true
+---
+This is a test post with published_at set to true.';
+
+        Storage::disk('local')->put('test_published.md', $content);
+
+        $entry = Entry::createFromMarkdown(Storage::disk('local')->path('test_published.md'), 'post');
+
+        $this->assertNotNull($entry->published_at);
+        $this->assertEqualsWithDelta(now(), $entry->published_at, 1); // Allow 1 second difference
+    }
+
+    public function test_published_at_is_not_updated_for_existing_published_entries()
+    {
+        $content = '---
+title: Test Already Published Post
+published_at: true
+---
+This is a test post that was already published.';
+
+        Storage::disk('local')->put('test_already_published.md', $content);
+
+        $entry = Entry::createFromMarkdown(Storage::disk('local')->path('test_already_published.md'), 'post');
+        $originalPublishedAt = $entry->published_at;
+
+        // Simulate passage of time
+        $this->travel(1)->hours();
+
+        // Sync the entry again
+        $updatedEntry = Entry::syncFromMarkdown(Storage::disk('local')->path('test_already_published.md'), 'post', true);
+
+        $this->assertEquals($originalPublishedAt, $updatedEntry->published_at);
+    }
 }
