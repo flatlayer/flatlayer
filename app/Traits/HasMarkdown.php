@@ -81,6 +81,11 @@ trait HasMarkdown
             }
         }
 
+        // Handle published_at attribute
+        if (isset($processedData['published_at']) && $processedData['published_at'] === true && $this->published_at === null) {
+            $this->published_at = now();
+        }
+
         $this->save();
 
         if (method_exists($this, 'addImage') && isset($processedData['images'])) {
