@@ -6,8 +6,9 @@ use App\Http\Controllers\WebhookHandlerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    // Treat this as a health check
-    return response()->json(['message' => 'OK']);
+    return response()->json([
+        'status' => 'OK',
+    ]);
 });
 
 // ContentItem routes
