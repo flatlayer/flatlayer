@@ -13,12 +13,13 @@ class TagsAndImagesTest extends TestCase
     use RefreshDatabase;
 
     protected EntrySerializer $serializer;
+
     protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->serializer = new EntrySerializer();
+        $this->serializer = new EntrySerializer;
         $this->entry = $this->createEntry();
     }
 
@@ -28,6 +29,7 @@ class TagsAndImagesTest extends TestCase
         $entry->attachTag('tag1');
         $entry->attachTag('tag2');
         $this->addImageToEntry($entry);
+
         return $entry;
     }
 
@@ -81,8 +83,8 @@ class TagsAndImagesTest extends TestCase
                 'sizes' => ['100vw'],
                 'attributes' => ['class' => 'featured-image'],
                 'fluid' => false,
-                'display_size' => [150, 150]
-            ]]
+                'display_size' => [150, 150],
+            ]],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);
@@ -125,8 +127,8 @@ class TagsAndImagesTest extends TestCase
         $image->update([
             'custom_properties' => [
                 'alt' => 'Custom alt text',
-                'caption' => 'A beautiful image'
-            ]
+                'caption' => 'A beautiful image',
+            ],
         ]);
 
         $fields = ['images.featured'];

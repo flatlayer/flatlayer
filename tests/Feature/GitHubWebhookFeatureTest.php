@@ -6,20 +6,21 @@ use App\Jobs\EntrySyncJob;
 use App\Services\SyncConfigurationService;
 use CzProject\GitPhp\Git;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
-use Mockery;
 
 class GitHubWebhookFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
     protected MockInterface|SyncConfigurationService $syncConfigService;
+
     protected array $logMessages = [];
 
     protected function setUp(): void
@@ -35,7 +36,7 @@ class GitHubWebhookFeatureTest extends TestCase
 
         Queue::fake();
 
-        Log::listen(function($message) {
+        Log::listen(function ($message) {
             $this->logMessages[] = $message->message;
         });
     }
@@ -46,7 +47,7 @@ class GitHubWebhookFeatureTest extends TestCase
         mkdir($tempDir, 0755, true);
 
         $payload = ['repository' => ['name' => 'test-repo']];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('post')
@@ -69,6 +70,7 @@ class GitHubWebhookFeatureTest extends TestCase
         // Verify that the correct job was pushed to the queue
         Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
             $config = $job->getJobConfig();
+
             return $config['type'] === 'post' &&
                 $config['path'] === $tempDir &&
                 $config['pattern'] === '*.md' &&
@@ -92,13 +94,13 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertSee('Invalid signature');
 
         Queue::assertNotPushed(EntrySyncJob::class);
-        $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), "Expected log message not found");
+        $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), 'Expected log message not found');
     }
 
     public function test_invalid_content_type_returns_400()
     {
         $payload = ['repository' => ['name' => 'test-repo']];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('invalid-type')
@@ -112,7 +114,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertSee('Configuration for invalid-type not found');
 
         Queue::assertNotPushed(EntrySyncJob::class);
-        $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), "Expected log message not found");
+        $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), 'Expected log message not found');
     }
 
     public function test_entry_sync_job_logs_correctly()
@@ -135,11 +137,11 @@ class GitHubWebhookFeatureTest extends TestCase
         // Check for start and completion log messages
         $this->assertTrue(
             in_array("Starting content sync for type: {$type}", $this->logMessages),
-            "Expected start log message not found"
+            'Expected start log message not found'
         );
         $this->assertTrue(
             in_array("Content sync completed for type: {$type}", $this->logMessages),
-            "Expected completion log message not found"
+            'Expected completion log message not found'
         );
     }
 
@@ -161,7 +163,7 @@ class GitHubWebhookFeatureTest extends TestCase
             ->andThrow(new \Exception('Sync error'));
 
         $payload = ['repository' => ['name' => 'test-repo']];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $response = $this->postJson('/webhook/post', $payload, [
             'X-Hub-Signature-256' => $signature,

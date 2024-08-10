@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Entry;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
@@ -224,13 +223,13 @@ class ListControllerTest extends TestCase
                                     'meta' => [
                                         'width',
                                         'height',
-                                        'aspect_ratio'
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                                        'aspect_ratio',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ])
             ->assertJsonCount(1, 'data');
 

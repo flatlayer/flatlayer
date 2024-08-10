@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Jobs\EntrySyncJob;
 use App\Services\SyncConfigurationService;
+use CzProject\GitPhp\Git;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
-use CzProject\GitPhp\Git;
 
 class EntrySyncCommand extends Command
 {
@@ -33,14 +33,16 @@ class EntrySyncCommand extends Command
         $path = $this->argument('path');
         $type = $this->option('type');
 
-        if (!$path && !$type) {
+        if (! $path && ! $type) {
             $this->error("Either 'path' argument or '--type' option must be provided.");
+
             return Command::FAILURE;
         }
 
-        if (!$path) {
-            if (!$this->syncConfigService->hasConfig($type)) {
+        if (! $path) {
+            if (! $this->syncConfigService->hasConfig($type)) {
                 $this->error("Configuration for type '{$type}' not found.");
+
                 return Command::FAILURE;
             }
             $config = $this->syncConfigService->getConfig($type);
@@ -53,8 +55,9 @@ class EntrySyncCommand extends Command
 
         $fullPath = realpath($path);
 
-        if (!$fullPath || !is_dir($fullPath)) {
-            $this->error("The provided path does not exist or is not a directory.");
+        if (! $fullPath || ! is_dir($fullPath)) {
+            $this->error('The provided path does not exist or is not a directory.');
+
             return Command::FAILURE;
         }
 

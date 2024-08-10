@@ -39,18 +39,14 @@ trait Searchable
 
     /**
      * Check if this is a new searchable record.
-     *
-     * @return bool
      */
     protected function isNewSearchableRecord(): bool
     {
-        return !$this->exists || $this->wasRecentlyCreated;
+        return ! $this->exists || $this->wasRecentlyCreated;
     }
 
     /**
      * Check if there are searchable changes.
-     *
-     * @return bool
      */
     protected function hasSearchableChanges(): bool
     {
@@ -63,13 +59,11 @@ trait Searchable
 
     /**
      * Creates a new model instance with original attributes for search-related change detection.
-     *
-     * @return static
      */
     protected function getOriginalSearchableModel(): static
     {
         $originalAttributes = $this->getOriginal();
-        $tempModel = new static();
+        $tempModel = new static;
         $tempModel->setRawAttributes($originalAttributes);
         $tempModel->exists = true;
 
@@ -87,18 +81,16 @@ trait Searchable
 
     /**
      * Convert the model to searchable text.
-     *
-     * @return string
      */
     abstract public function toSearchableText(): string;
 
     /**
      * Perform a search query.
      *
-     * @param string $query The search query
-     * @param int $limit The maximum number of results to return
-     * @param bool $rerank Whether to rerank the results
-     * @param Builder|null $builder An optional query builder to start with
+     * @param  string  $query  The search query
+     * @param  int  $limit  The maximum number of results to return
+     * @param  bool  $rerank  Whether to rerank the results
+     * @param  Builder|null  $builder  An optional query builder to start with
      * @return Collection The search results
      */
     public static function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
@@ -109,8 +101,8 @@ trait Searchable
     /**
      * Scope a query to search for similar records based on embedding.
      *
-     * @param Builder $query
-     * @param array $embedding
+     * @param  Builder  $query
+     * @param  array  $embedding
      * @return Builder
      */
     public function scopeSearchSimilar($query, $embedding)

@@ -35,7 +35,7 @@ class CombinedFilterTest extends TestCase
             'meta.age' => ['$gte' => 25, '$lt' => 40],
             'published_at' => ['$gte' => now()->subDays(20)->toDateTimeString()],
             '$tags' => ['important'],
-            '$search' => 'John'
+            '$search' => 'John',
         ];
 
         $filtered = (new EntryFilter(Entry::query(), $filters))->apply();

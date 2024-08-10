@@ -2,14 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Entry;
-use App\Services\JinaSearchService;
 use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
 use Mockery;
+use Tests\TestCase;
 
 class EntrySyncCommandTest extends TestCase
 {

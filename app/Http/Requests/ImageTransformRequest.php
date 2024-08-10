@@ -19,8 +19,8 @@ class ImageTransformRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'w' => 'sometimes|integer|min:1|max:' . config('flatlayer.images.max_width', 5000),
-            'h' => 'sometimes|integer|min:1|max:' . config('flatlayer.images.max_height', 5000),
+            'w' => 'sometimes|integer|min:1|max:'.config('flatlayer.images.max_width', 5000),
+            'h' => 'sometimes|integer|min:1|max:'.config('flatlayer.images.max_height', 5000),
             'q' => 'sometimes|integer|between:1,100',
             'fm' => 'sometimes|in:jpg,jpeg,png,webp,gif',
         ];
@@ -44,7 +44,7 @@ class ImageTransformRequest extends FormRequest
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(response()->json([
-            'error' => $validator->errors()->first()
+            'error' => $validator->errors()->first(),
         ], 400));
     }
 

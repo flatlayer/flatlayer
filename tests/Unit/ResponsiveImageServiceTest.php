@@ -6,15 +6,17 @@ use App\Models\Image;
 use App\Services\ResponsiveImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
 use Illuminate\Support\Facades\URL;
+use Tests\TestCase;
 
 class ResponsiveImageServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private ResponsiveImageService $service;
+
     private Image $media;
+
     private Image $thumbnail;
 
     protected function setUp(): void

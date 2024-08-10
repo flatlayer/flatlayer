@@ -3,12 +3,12 @@
 namespace App\Services;
 
 use App\Models\Entry;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use Illuminate\Support\Collection;
 use Webuni\FrontMatter\FrontMatter;
-use Illuminate\Contracts\Support\Arrayable;
 
 class MarkdownProcessingService
 {
@@ -16,22 +16,22 @@ class MarkdownProcessingService
 
     public function __construct(protected ImageService $imageProcessingService)
     {
-        $this->imagePaths = new Collection();
+        $this->imagePaths = new Collection;
     }
 
     /**
      * Process a markdown file and extract its content and metadata.
      *
-     * @param string $filename The path to the markdown file
-     * @param string $type The type of content
-     * @param array $fillable List of fillable attributes
+     * @param  string  $filename  The path to the markdown file
+     * @param  string  $type  The type of content
+     * @param  array  $fillable  List of fillable attributes
      * @return array Processed markdown data
      */
     public function processMarkdownFile(string $filename, string $type, array $fillable = []): array
     {
         $content = file_get_contents($filename);
 
-        $frontMatter = new FrontMatter();
+        $frontMatter = new FrontMatter;
         $document = $frontMatter->parse($content);
 
         $data = $document->getData();
@@ -54,8 +54,8 @@ class MarkdownProcessingService
     /**
      * Process front matter data.
      *
-     * @param array $data Raw front matter data
-     * @param array $fillable List of fillable attributes
+     * @param  array  $data  Raw front matter data
+     * @param  array  $fillable  List of fillable attributes
      * @return array Processed front matter data
      */
     public function processFrontMatter(array $data, array $fillable = []): array
@@ -101,15 +101,15 @@ class MarkdownProcessingService
     /**
      * Process images in markdown content.
      *
-     * @param Entry $entry The entry to associate images with
-     * @param string $markdownContent The markdown content to process
-     * @param string $filename The path to the markdown file
+     * @param  Entry  $entry  The entry to associate images with
+     * @param  string  $markdownContent  The markdown content to process
+     * @param  string  $filename  The path to the markdown file
      * @return string Processed markdown content
      */
     public function processMarkdownImages(Entry $entry, string $markdownContent, string $filename): string
     {
         $pattern = '/!\[(.*?)\]\((.*?)\)/';
-        $imagePaths = new Collection();
+        $imagePaths = new Collection;
 
         $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename, &$imagePaths) {
             $altText = $matches[1];
@@ -124,6 +124,7 @@ class MarkdownProcessingService
 
             if (File::exists($fullImagePath)) {
                 $imagePaths->push($fullImagePath);
+
                 return "![{$altText}]({$fullImagePath})";
             }
 
@@ -141,16 +142,17 @@ class MarkdownProcessingService
      */
     protected function resolveMediaPath(string $mediaItem, string $markdownFilename): string
     {
-        $fullPath = dirname($markdownFilename) . '/' . $mediaItem;
+        $fullPath = dirname($markdownFilename).'/'.$mediaItem;
+
         return File::exists($fullPath) ? $fullPath : $mediaItem;
     }
 
     /**
      * Sync images for a specific collection.
      *
-     * @param Entry $entry The entry to sync images for
-     * @param Arrayable|array $newImagePaths The new image paths to sync
-     * @param string $collectionName The name of the image collection
+     * @param  Entry  $entry  The entry to sync images for
+     * @param  Arrayable|array  $newImagePaths  The new image paths to sync
+     * @param  string  $collectionName  The name of the image collection
      */
     protected function syncImagesCollection(Entry $entry, Arrayable|array $newImagePaths, string $collectionName): void
     {
@@ -185,9 +187,9 @@ class MarkdownProcessingService
     /**
      * Set a value in a nested array using dot notation.
      *
-     * @param array $array The array to modify
-     * @param array $keys The keys in dot notation
-     * @param mixed $value The value to set
+     * @param  array  $array  The array to modify
+     * @param  array  $keys  The keys in dot notation
+     * @param  mixed  $value  The value to set
      */
     protected function arraySet(array &$array, array $keys, mixed $value): void
     {
@@ -199,7 +201,7 @@ class MarkdownProcessingService
                 $array[$key] = $value;
             }
         } else {
-            if (!isset($array[$key]) || !is_array($array[$key])) {
+            if (! isset($array[$key]) || ! is_array($array[$key])) {
                 $array[$key] = [];
             }
             $this->arraySet($array[$key], $keys, $value);
@@ -209,7 +211,7 @@ class MarkdownProcessingService
     /**
      * Extract title from content.
      *
-     * @param string $content The content to extract title from
+     * @param  string  $content  The content to extract title from
      * @return array{0: string|null, 1: string} An array containing the title and remaining content
      */
     protected function extractTitleFromContent(string $content): array
@@ -220,6 +222,7 @@ class MarkdownProcessingService
         if (str_starts_with($firstLine, '# ')) {
             $title = trim(substr($firstLine, 2));
             array_shift($lines);
+
             return [$title, trim(implode("\n", $lines))];
         }
 

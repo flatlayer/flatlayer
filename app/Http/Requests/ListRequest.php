@@ -42,9 +42,6 @@ class ListRequest extends FormRequest
 
     /**
      * Decode JSON input if it's a string.
-     *
-     * @param string $field
-     * @return void
      */
     private function decodeJsonInput(string $field): void
     {
@@ -66,7 +63,7 @@ class ListRequest extends FormRequest
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(response()->json([
-            'error' => $validator->errors()->first()
+            'error' => $validator->errors()->first(),
         ], 400));
     }
 
@@ -81,6 +78,7 @@ class ListRequest extends FormRequest
         if ($this->has('search')) {
             $filter['$search'] = $this->input('search');
         }
+
         return $filter;
     }
 

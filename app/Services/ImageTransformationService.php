@@ -2,33 +2,35 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
-use Intervention\Image\ImageManager;
+use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use Spatie\ImageOptimizer\OptimizerChain;
 use Spatie\ImageOptimizer\OptimizerChainFactory;
-use Illuminate\Http\Response;
-use Carbon\Carbon;
 
 class ImageTransformationService
 {
     protected ImageManager $manager;
+
     protected OptimizerChain $optimizer;
+
     protected string $diskName = 'public';
+
     protected string $cachePrefix = 'image_last_access:';
 
     public function __construct()
     {
-        $this->manager = new ImageManager(new Driver());
+        $this->manager = new ImageManager(new Driver);
         $this->optimizer = OptimizerChainFactory::create();
     }
 
     /**
      * Transform an image based on the given parameters.
      *
-     * @param string $imagePath The path to the original image
-     * @param array $params Transformation parameters (w, h, q, fm)
+     * @param  string  $imagePath  The path to the original image
+     * @param  array  $params  Transformation parameters (w, h, q, fm)
      * @return string The transformed image data
      */
     public function transformImage(string $imagePath, array $params): string
@@ -38,8 +40,8 @@ class ImageTransformationService
         $originalWidth = $image->width();
         $originalHeight = $image->height();
 
-        $requestedWidth = isset($params['w']) ? (int)$params['w'] : null;
-        $requestedHeight = isset($params['h']) ? (int)$params['h'] : null;
+        $requestedWidth = isset($params['w']) ? (int) $params['w'] : null;
+        $requestedHeight = isset($params['h']) ? (int) $params['h'] : null;
 
         $this->validateDimensions($originalWidth, $originalHeight, $requestedWidth, $requestedHeight);
 
@@ -74,10 +76,11 @@ class ImageTransformationService
     /**
      * Validate the dimensions of the image transformation request.
      *
-     * @param int $originalWidth The width of the original image
-     * @param int $originalHeight The height of the original image
-     * @param int|null $requestedWidth The requested width for the transformed image (null if not specified)
-     * @param int|null $requestedHeight The requested height for the transformed image (null if not specified)
+     * @param  int  $originalWidth  The width of the original image
+     * @param  int  $originalHeight  The height of the original image
+     * @param  int|null  $requestedWidth  The requested width for the transformed image (null if not specified)
+     * @param  int|null  $requestedHeight  The requested height for the transformed image (null if not specified)
+     *
      * @throws \Exception If the resulting width or height would exceed the maximum allowed dimensions
      */
     private function validateDimensions(int $originalWidth, int $originalHeight, ?int $requestedWidth, ?int $requestedHeight): void
@@ -93,10 +96,10 @@ class ImageTransformationService
             $outputHeight = $requestedHeight;
         } elseif ($requestedWidth) {
             $outputWidth = $requestedWidth;
-            $outputHeight = (int)round($requestedWidth / $originalAspectRatio);
+            $outputHeight = (int) round($requestedWidth / $originalAspectRatio);
         } elseif ($requestedHeight) {
             $outputHeight = $requestedHeight;
-            $outputWidth = (int)round($requestedHeight * $originalAspectRatio);
+            $outputWidth = (int) round($requestedHeight * $originalAspectRatio);
         } else {
             $outputWidth = $originalWidth;
             $outputHeight = $originalHeight;
@@ -114,34 +117,35 @@ class ImageTransformationService
     /**
      * Generate a cache key for the given image ID and parameters.
      *
-     * @param mixed $id The image ID
-     * @param array $params Transformation parameters
+     * @param  mixed  $id  The image ID
+     * @param  array  $params  Transformation parameters
      * @return string The generated cache key
      */
     public function generateCacheKey(mixed $id, array $params): string
     {
         ksort($params);
-        $params = array_map(fn($value) => is_numeric($value) ? (int) $value : $value, $params);
-        return md5($id . serialize($params));
+        $params = array_map(fn ($value) => is_numeric($value) ? (int) $value : $value, $params);
+
+        return md5($id.serialize($params));
     }
 
     /**
      * Get the cache path for a given cache key and format.
      *
-     * @param string $cacheKey The cache key
-     * @param string $format The image format
+     * @param  string  $cacheKey  The cache key
+     * @param  string  $format  The image format
      * @return string The cache path
      */
     public function getCachePath(string $cacheKey, string $format): string
     {
-        return 'cache/images/' . $cacheKey . '.' . $format;
+        return 'cache/images/'.$cacheKey.'.'.$format;
     }
 
     /**
      * Cache an image and update its last access time.
      *
-     * @param string $cachePath The path to cache the image
-     * @param string $imageData The image data to cache
+     * @param  string  $cachePath  The path to cache the image
+     * @param  string  $imageData  The image data to cache
      */
     public function cacheImage(string $cachePath, string $imageData): void
     {
@@ -152,28 +156,31 @@ class ImageTransformationService
     /**
      * Get a cached image if it exists and update its last access time.
      *
-     * @param string $cachePath The path of the cached image
+     * @param  string  $cachePath  The path of the cached image
      * @return string|null The cached image data or null if not found
      */
     public function getCachedImage(string $cachePath): ?string
     {
         if (Storage::disk($this->diskName)->exists($cachePath)) {
             $this->updateLastAccessTime($cachePath);
+
             return Storage::disk($this->diskName)->get($cachePath);
         }
+
         return null;
     }
 
     /**
      * Create an HTTP response for an image.
      *
-     * @param string $imageData The image data
-     * @param string $format The image format
+     * @param  string  $imageData  The image data
+     * @param  string  $format  The image format
      * @return Response The HTTP response
      */
     public function createImageResponse(string $imageData, string $format): Response
     {
         $contentType = $this->getContentType($format);
+
         return new Response($imageData, 200, [
             'Content-Type' => $contentType,
             'Content-Length' => strlen($imageData),
@@ -185,7 +192,7 @@ class ImageTransformationService
     /**
      * Get the content type for a given image format.
      *
-     * @param string $format The image format
+     * @param  string  $format  The image format
      * @return string The corresponding content type
      */
     private function getContentType(string $format): string
@@ -202,17 +209,17 @@ class ImageTransformationService
     /**
      * Update the last access time for a cached image.
      *
-     * @param string $cachePath The path of the cached image
+     * @param  string  $cachePath  The path of the cached image
      */
     private function updateLastAccessTime(string $cachePath): void
     {
-        Cache::put($this->cachePrefix . $cachePath, now()->timestamp);
+        Cache::put($this->cachePrefix.$cachePath, now()->timestamp);
     }
 
     /**
      * Clear old cached images.
      *
-     * @param int $days The number of days to consider an image as old
+     * @param  int  $days  The number of days to consider an image as old
      * @return int The number of cleared cache entries
      */
     public function clearOldCache(int $days): int
@@ -222,11 +229,11 @@ class ImageTransformationService
         $cutoffTime = now()->subDays($days)->timestamp;
 
         foreach ($files as $file) {
-            $lastAccessed = Cache::get($this->cachePrefix . $file);
+            $lastAccessed = Cache::get($this->cachePrefix.$file);
 
-            if (!$lastAccessed || $lastAccessed < $cutoffTime) {
+            if (! $lastAccessed || $lastAccessed < $cutoffTime) {
                 Storage::disk($this->diskName)->delete($file);
-                Cache::forget($this->cachePrefix . $file);
+                Cache::forget($this->cachePrefix.$file);
                 $count++;
             }
         }

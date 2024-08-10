@@ -3,23 +3,23 @@
 namespace Tests\Unit;
 
 use App\Markdown\CustomImageRenderer;
-use App\Models\Image;
 use App\Models\Entry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image as ImageNode;
 use League\CommonMark\Renderer\ChildNodeRendererInterface;
 use Mockery;
 use Tests\TestCase;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
 
 class CustomImageRendererTest extends TestCase
 {
     use RefreshDatabase;
 
     protected $entry;
+
     protected $environment;
 
     protected function setUp(): void
@@ -42,7 +42,7 @@ class CustomImageRendererTest extends TestCase
 
     protected function createTestImage()
     {
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->create(100, 100, function ($draw) {
             $draw->background('#000000');
             $draw->text('Test', 50, 50, function ($font) {

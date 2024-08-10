@@ -7,7 +7,6 @@ use App\Models\Image;
 use App\Query\Exceptions\CastException;
 use App\Query\Exceptions\InvalidCastException;
 use App\Query\Exceptions\QueryException;
-use Closure;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -17,15 +16,15 @@ use Illuminate\Support\Str;
 class EntrySerializer
 {
     protected $defaultFields = [
-        'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'
+        'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
     ];
 
     protected $defaultSummaryFields = [
-        'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images'
+        'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images',
     ];
 
     protected $defaultDetailFields = [
-        'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images'
+        'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
     ];
 
     /**
@@ -43,7 +42,7 @@ class EntrySerializer
             throw $e;
         } catch (\Exception $e) {
             // Wrap other exceptions in a QueryException
-            throw new QueryException("Error converting Entry to array: " . $e->getMessage(), 0, $e);
+            throw new QueryException('Error converting Entry to array: '.$e->getMessage(), 0, $e);
         }
     }
 
@@ -98,7 +97,8 @@ class EntrySerializer
     /**
      * Get the value of a field from an Entry.
      *
-     * @param mixed $options Optional casting or formatting options
+     * @param  mixed  $options  Optional casting or formatting options
+     *
      * @throws InvalidCastException
      */
     protected function getFieldValue(Entry $item, string $field, mixed $options = null): mixed
@@ -120,6 +120,7 @@ class EntrySerializer
                 return $this->getAllMetaValues($item, $options);
             default:
                 $value = $item->$field;
+
                 return $options !== null ? $this->castValue($value, $options) : $value;
         }
     }
@@ -127,14 +128,15 @@ class EntrySerializer
     /**
      * Get a meta value from an Entry.
      *
-     * @param mixed $options Optional casting or formatting options
+     * @param  mixed  $options  Optional casting or formatting options
+     *
      * @throws InvalidCastException
      */
     protected function getMetaValue(Entry $item, string $key, mixed $options = null): mixed
     {
         $value = Arr::get($item->meta, $key);
 
-        if ($value === null && !Arr::has($item->meta, $key)) {
+        if ($value === null && ! Arr::has($item->meta, $key)) {
             return null;
         }
 
@@ -144,12 +146,13 @@ class EntrySerializer
     /**
      * Get all meta values from an Entry.
      *
-     * @param mixed $options Optional casting or formatting options
+     * @param  mixed  $options  Optional casting or formatting options
+     *
      * @throws InvalidCastException
      */
     protected function getAllMetaValues(Entry $item, mixed $options = null): mixed
     {
-        if (!is_array($options)) {
+        if (! is_array($options)) {
             return $item->meta;
         }
 
@@ -160,14 +163,16 @@ class EntrySerializer
                 Arr::set($result, $key, $value);
             }
         }
+
         return $result;
     }
 
     /**
      * Cast a value based on the provided options.
      *
-     * @param mixed $value The value to cast
-     * @param mixed $options The casting options
+     * @param  mixed  $value  The value to cast
+     * @param  mixed  $options  The casting options
+     *
      * @throws InvalidCastException|CastException
      */
     protected function castValue(mixed $value, mixed $options = null): mixed
@@ -211,7 +216,7 @@ class EntrySerializer
             throw $e;
         } catch (Exception $e) {
             // Wrap other exceptions in a CastException
-            throw new CastException("Error casting value: " . $e->getMessage(), 0, $e);
+            throw new CastException('Error casting value: '.$e->getMessage(), 0, $e);
         }
     }
 
@@ -229,10 +234,10 @@ class EntrySerializer
             try {
                 return Carbon::parse($value)->toDateString();
             } catch (Exception $e) {
-                throw new CastException("Unable to parse date string: " . $e->getMessage(), 0, $e);
+                throw new CastException('Unable to parse date string: '.$e->getMessage(), 0, $e);
             }
         }
-        throw new CastException("Unable to cast value to date");
+        throw new CastException('Unable to cast value to date');
     }
 
     /**
@@ -249,20 +254,21 @@ class EntrySerializer
             try {
                 return Carbon::parse($value)->toDateTimeString();
             } catch (Exception $e) {
-                throw new CastException("Unable to parse datetime string: " . $e->getMessage(), 0, $e);
+                throw new CastException('Unable to parse datetime string: '.$e->getMessage(), 0, $e);
             }
         }
-        throw new CastException("Unable to cast value to datetime");
+        throw new CastException('Unable to cast value to datetime');
     }
 
     /**
      * Get images from a specific collection of an Entry.
      *
-     * @param mixed $options Optional formatting options
+     * @param  mixed  $options  Optional formatting options
      */
     protected function getImage(Entry $item, string $collection, mixed $options = null): array
     {
         $mediaItems = $item->getImages($collection);
+
         return $mediaItems->map(function ($mediaItem) use ($options) {
             return $this->formatImage($mediaItem, $options);
         })->toArray();
@@ -271,8 +277,8 @@ class EntrySerializer
     /**
      * Get formatted images for an entry.
      *
-     * @param Entry $entry The entry to get images for
-     * @param mixed $options Formatting options for the images
+     * @param  Entry  $entry  The entry to get images for
+     * @param  mixed  $options  Formatting options for the images
      * @return array An array of formatted images grouped by collection
      */
     protected function getImages(Entry $entry, mixed $options = null): array
@@ -292,8 +298,8 @@ class EntrySerializer
     /**
      * Format an image with the given options.
      *
-     * @param Image $image The media item to format
-     * @param mixed $options Optional formatting options
+     * @param  Image  $image  The media item to format
+     * @param  mixed  $options  Optional formatting options
      */
     protected function formatImage(Image $image, mixed $options = null): array
     {

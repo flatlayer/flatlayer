@@ -4,10 +4,9 @@ namespace Database\Factories;
 
 use App\Models\Entry;
 use App\Models\Image;
-use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EntryFactory extends Factory
 {
@@ -16,13 +15,14 @@ class EntryFactory extends Factory
     public function definition(): array
     {
         $title = $this->faker->sentence;
+
         return [
             'type' => $this->faker->randomElement(['post', 'document']),
             'title' => $title,
             'slug' => Str::slug($title),
             'content' => $this->generateMarkdownLikeContent(),
             'excerpt' => $this->faker->paragraph,
-            'filename' => $this->faker->word . '.md',
+            'filename' => $this->faker->word.'.md',
             'meta' => [
                 'author' => $this->faker->name,
                 'reading_time' => $this->faker->numberBetween(1, 20),
@@ -41,15 +41,16 @@ class EntryFactory extends Factory
 
     protected function generateMarkdownLikeContent(): string
     {
-        $content = "# " . $this->faker->sentence . "\n\n";
-        $content .= $this->faker->paragraph . "\n\n";
-        $content .= "## " . $this->faker->sentence . "\n\n";
-        $content .= "- " . $this->faker->sentence . "\n";
-        $content .= "- " . $this->faker->sentence . "\n";
-        $content .= "- " . $this->faker->sentence . "\n\n";
-        $content .= $this->faker->paragraph . "\n\n";
-        $content .= "### " . $this->faker->sentence . "\n\n";
+        $content = '# '.$this->faker->sentence."\n\n";
+        $content .= $this->faker->paragraph."\n\n";
+        $content .= '## '.$this->faker->sentence."\n\n";
+        $content .= '- '.$this->faker->sentence."\n";
+        $content .= '- '.$this->faker->sentence."\n";
+        $content .= '- '.$this->faker->sentence."\n\n";
+        $content .= $this->faker->paragraph."\n\n";
+        $content .= '### '.$this->faker->sentence."\n\n";
         $content .= $this->faker->paragraph;
+
         return $content;
     }
 
@@ -88,7 +89,7 @@ class EntryFactory extends Factory
         });
     }
 
-    public function withTags(array $tags = null): self
+    public function withTags(?array $tags = null): self
     {
         return $this->afterCreating(function (Entry $entry) use ($tags) {
             $tagsToAttach = $tags ?? $this->faker->words(3);
@@ -102,9 +103,9 @@ class EntryFactory extends Factory
             $content = $this->generateMarkdownContent($numberOfImages);
             $frontMatter = $this->generateFrontMatter($entry, $numberOfImages);
 
-            $markdownContent = $frontMatter . "\n\n" . $content;
+            $markdownContent = $frontMatter."\n\n".$content;
 
-            $filename = $entry->slug . '.md';
+            $filename = $entry->slug.'.md';
             $path = Storage::disk('local')->path($filename);
 
             file_put_contents($path, $markdownContent);
@@ -125,15 +126,15 @@ class EntryFactory extends Factory
 
     protected function generateMarkdownContent(int $numberOfImages): string
     {
-        $content = "# " . $this->faker->sentence . "\n\n";
-        $content .= $this->faker->paragraphs(3, true) . "\n\n";
+        $content = '# '.$this->faker->sentence."\n\n";
+        $content .= $this->faker->paragraphs(3, true)."\n\n";
 
         for ($i = 1; $i <= $numberOfImages; $i++) {
             $content .= "![Image $i](image$i.jpg)\n\n";
-            $content .= $this->faker->paragraph . "\n\n";
+            $content .= $this->faker->paragraph."\n\n";
         }
 
-        $content .= "## " . $this->faker->sentence . "\n\n";
+        $content .= '## '.$this->faker->sentence."\n\n";
         $content .= $this->faker->paragraphs(2, true);
 
         return $content;
@@ -142,10 +143,10 @@ class EntryFactory extends Factory
     protected function generateFrontMatter(Entry $entry, int $numberOfImages): string
     {
         $frontMatter = "---\n";
-        $frontMatter .= "title: " . $entry->title . "\n";
-        $frontMatter .= "slug: " . $entry->slug . "\n";
-        $frontMatter .= "type: " . $entry->type . "\n";
-        $frontMatter .= "published_at: " . ($entry->published_at ? $entry->published_at->format('Y-m-d H:i:s') : 'null') . "\n";
+        $frontMatter .= 'title: '.$entry->title."\n";
+        $frontMatter .= 'slug: '.$entry->slug."\n";
+        $frontMatter .= 'type: '.$entry->type."\n";
+        $frontMatter .= 'published_at: '.($entry->published_at ? $entry->published_at->format('Y-m-d H:i:s') : 'null')."\n";
 
         for ($i = 1; $i <= $numberOfImages; $i++) {
             $frontMatter .= "image$i: image$i.jpg\n";
@@ -155,14 +156,14 @@ class EntryFactory extends Factory
             if (is_array($value)) {
                 $frontMatter .= "$key:\n";
                 foreach ($value as $subKey => $subValue) {
-                    $frontMatter .= "  $subKey: " . json_encode($subValue) . "\n";
+                    $frontMatter .= "  $subKey: ".json_encode($subValue)."\n";
                 }
             } else {
-                $frontMatter .= "$key: " . json_encode($value) . "\n";
+                $frontMatter .= "$key: ".json_encode($value)."\n";
             }
         }
 
-        $frontMatter .= "---";
+        $frontMatter .= '---';
 
         return $frontMatter;
     }

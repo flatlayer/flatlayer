@@ -78,6 +78,7 @@ class Image extends Model
         if ($this->getWidth() && $this->getHeight()) {
             return $this->getWidth() / $this->getHeight();
         }
+
         return null;
     }
 
@@ -108,12 +109,12 @@ class Image extends Model
 
         $route = route('image.transform', [
             'id' => $this->id,
-            'extension' => !empty($extension) ? $extension : 'jpg'
+            'extension' => ! empty($extension) ? $extension : 'jpg',
         ]);
 
-        if (!empty($transforms)) {
+        if (! empty($transforms)) {
             $queryString = http_build_query($transforms);
-            $route .= '?' . $queryString;
+            $route .= '?'.$queryString;
         }
 
         if (config('flatlayer.images.use_signatures', true)) {

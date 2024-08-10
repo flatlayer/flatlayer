@@ -14,8 +14,6 @@ use League\CommonMark\Output\RenderedContentInterface;
  *
  * This class provides enhanced Markdown rendering capabilities,
  * including custom image rendering for Eloquent models.
- *
- * @package App\Markdown
  */
 class EnhancedMarkdownRenderer
 {
@@ -24,8 +22,8 @@ class EnhancedMarkdownRenderer
     protected MarkdownConverter $converter;
 
     /**
-     * @param Model $model The Eloquent model associated with the renderer
-     * @param Environment|null $environment Optional custom environment
+     * @param  Model  $model  The Eloquent model associated with the renderer
+     * @param  Environment|null  $environment  Optional custom environment
      */
     public function __construct(protected Model $model, ?Environment $environment = null)
     {
@@ -36,8 +34,6 @@ class EnhancedMarkdownRenderer
 
     /**
      * Create a default CommonMark environment.
-     *
-     * @return Environment
      */
     protected function createDefaultEnvironment(): Environment
     {
@@ -45,14 +41,15 @@ class EnhancedMarkdownRenderer
             'allow_unsafe_links' => false,
             'max_nesting_level' => 100,
         ]);
-        $environment->addExtension(new CommonMarkCoreExtension());
+        $environment->addExtension(new CommonMarkCoreExtension);
+
         return $environment;
     }
 
     /**
      * Convert Markdown to HTML.
      *
-     * @param string $markdown The Markdown content to convert
+     * @param  string  $markdown  The Markdown content to convert
      * @return RenderedContentInterface The rendered HTML content
      */
     public function convertToHtml(string $markdown): RenderedContentInterface

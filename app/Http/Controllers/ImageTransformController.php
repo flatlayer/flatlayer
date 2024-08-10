@@ -15,7 +15,7 @@ class ImageTransformController extends Controller
 
     public function transform(ImageTransformRequest $request, int $id, string $extension)
     {
-        if (config('flatlayer.images.use_signatures') && !$request->hasValidSignature()) {
+        if (config('flatlayer.images.use_signatures') && ! $request->hasValidSignature()) {
             abort(401);
         }
 

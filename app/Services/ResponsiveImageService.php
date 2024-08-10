@@ -8,7 +8,9 @@ use Illuminate\Support\Str;
 class ResponsiveImageService
 {
     private const DECREMENT = 0.9; // 10% decrement
+
     private const MIN_SIZE = 100;
+
     private const MAX_SIZE = 8192;
 
     protected array $breakpoints = [
@@ -20,7 +22,7 @@ class ResponsiveImageService
     ];
 
     /**
-     * @param array $defaultTransforms Default image transformations
+     * @param  array  $defaultTransforms  Default image transformations
      */
     public function __construct(
         protected array $defaultTransforms = []
@@ -29,11 +31,11 @@ class ResponsiveImageService
     /**
      * Generate an HTML img tag with responsive attributes.
      *
-     * @param Image $media The image model
-     * @param array $sizes Array of size descriptors
-     * @param array $attributes Additional HTML attributes
-     * @param bool $isFluid Whether the image should be fluid or fixed
-     * @param array|null $displaySize Display size constraints [width, height]
+     * @param  Image  $media  The image model
+     * @param  array  $sizes  Array of size descriptors
+     * @param  array  $attributes  Additional HTML attributes
+     * @param  bool  $isFluid  Whether the image should be fluid or fixed
+     * @param  array|null  $displaySize  Display size constraints [width, height]
      * @return string The generated img tag
      */
     public function generateImgTag(Image $media, array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
@@ -62,7 +64,7 @@ class ResponsiveImageService
     /**
      * Get the alt text for the image.
      *
-     * @param Image $media The image model
+     * @param  Image  $media  The image model
      * @return string The alt text
      */
     protected function getMediaAlt(Image $media): string
@@ -71,13 +73,14 @@ class ResponsiveImageService
         if (is_string($customProperties)) {
             $customProperties = json_decode($customProperties, true);
         }
+
         return $customProperties['alt'] ?? '';
     }
 
     /**
      * Parse the sizes array into a structured format.
      *
-     * @param array $sizes Array of size descriptors
+     * @param  array  $sizes  Array of size descriptors
      * @return array Parsed sizes
      */
     protected function parseSizes(array $sizes): array
@@ -96,14 +99,16 @@ class ResponsiveImageService
             }
         }
         ksort($parsed);
+
         return $parsed;
     }
 
     /**
      * Parse a single size descriptor.
      *
-     * @param string $size Size descriptor
+     * @param  string  $size  Size descriptor
      * @return array Parsed size
+     *
      * @throws \InvalidArgumentException If the size format is invalid
      */
     protected function parseSize(string $size): array
@@ -114,7 +119,7 @@ class ResponsiveImageService
                 return [
                     'type' => 'calc',
                     'vw' => (int) $matches[1],
-                    'px' => (int) $matches[2]
+                    'px' => (int) $matches[2],
                 ];
             }
         } elseif (Str::endsWith($size, 'vw')) {
@@ -129,9 +134,9 @@ class ResponsiveImageService
     /**
      * Generate the srcset attribute.
      *
-     * @param Image $media The image model
-     * @param bool $isFluid Whether the image should be fluid or fixed
-     * @param array|null $displaySize Display size constraints [width, height]
+     * @param  Image  $media  The image model
+     * @param  bool  $isFluid  Whether the image should be fluid or fixed
+     * @param  array|null  $displaySize  Display size constraints [width, height]
      * @return string The srcset attribute value
      */
     protected function generateSrcset(Image $media, bool $isFluid, ?array $displaySize = null): string
@@ -154,13 +159,13 @@ class ResponsiveImageService
                     $srcset[] = $this->formatSrcsetEntry($media, $currentWidth, $currentHeight);
                     $currentWidth = max($minWidth, intval($currentWidth * self::DECREMENT));
 
-                    if($currentWidth == $minWidth) {
+                    if ($currentWidth == $minWidth) {
                         break;
                     }
                 }
 
                 // Ensure baseWidth is included if it's not already
-                if (!in_array($baseWidth, array_column($srcset, 'width'))) {
+                if (! in_array($baseWidth, array_column($srcset, 'width'))) {
                     $srcset[] = $this->formatSrcsetEntry($media, $baseWidth, $baseHeight);
                 }
             } else {
@@ -180,7 +185,7 @@ class ResponsiveImageService
                     $srcset[] = $this->formatSrcsetEntry($media, $currentWidth);
                     $currentWidth = max(self::MIN_SIZE, intval($currentWidth * self::DECREMENT));
 
-                    if($currentWidth == self::MIN_SIZE) {
+                    if ($currentWidth == self::MIN_SIZE) {
                         break;
                     }
                 }
@@ -196,7 +201,7 @@ class ResponsiveImageService
     /**
      * Get the width of the media.
      *
-     * @param Image $media The image model
+     * @param  Image  $media  The image model
      * @return int The width of the media
      */
     protected function getMediaWidth(Image $media): int
@@ -205,15 +210,16 @@ class ResponsiveImageService
         if (is_string($dimensions)) {
             $dimensions = json_decode($dimensions, true);
         }
+
         return $dimensions['width'] ?? 0;
     }
 
     /**
      * Format a single srcset entry.
      *
-     * @param Image $media The image model
-     * @param int $width The width for this entry
-     * @param int|null $height The height for this entry (optional)
+     * @param  Image  $media  The image model
+     * @param  int  $width  The width for this entry
+     * @param  int|null  $height  The height for this entry (optional)
      * @return string Formatted srcset entry
      */
     protected function formatSrcsetEntry(Image $media, int $width, ?int $height = null): string
@@ -222,13 +228,14 @@ class ResponsiveImageService
         if ($height !== null) {
             $transforms['h'] = $height;
         }
-        return $media->getUrl($transforms) . " {$width}w";
+
+        return $media->getUrl($transforms)." {$width}w";
     }
 
     /**
      * Generate the sizes attribute.
      *
-     * @param array $parsedSizes Parsed sizes array
+     * @param  array  $parsedSizes  Parsed sizes array
      * @return string The sizes attribute value
      */
     protected function generateSizesAttribute(array $parsedSizes): string
@@ -238,17 +245,19 @@ class ResponsiveImageService
             if ($breakpoint === 0) {
                 $sizesAttribute[] = $this->formatSize($size);
             } else {
-                $sizesAttribute[] = "(min-width: {$breakpoint}px) " . $this->formatSize($size);
+                $sizesAttribute[] = "(min-width: {$breakpoint}px) ".$this->formatSize($size);
             }
         }
+
         return implode(', ', array_reverse($sizesAttribute));
     }
 
     /**
      * Format a single size for the sizes attribute.
      *
-     * @param array $size Parsed size
+     * @param  array  $size  Parsed size
      * @return string Formatted size
+     *
      * @throws \InvalidArgumentException If the size type is invalid
      */
     protected function formatSize(array $size): string
@@ -268,24 +277,25 @@ class ResponsiveImageService
     /**
      * Build the img tag from attributes.
      *
-     * @param array $attributes The attributes for the img tag
+     * @param  array  $attributes  The attributes for the img tag
      * @return string The complete img tag
      */
     protected function buildImgTag(array $attributes): string
     {
         $attributeString = '';
         foreach ($attributes as $key => $value) {
-            $attributeString .= " {$key}=\"" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "\"";
+            $attributeString .= " {$key}=\"".htmlspecialchars($value, ENT_QUOTES, 'UTF-8').'"';
         }
+
         return "<img{$attributeString}>";
     }
 
     /**
      * Calculate the proportional height for a given width.
      *
-     * @param int $width The target width
-     * @param int $baseWidth The base width
-     * @param int $baseHeight The base height
+     * @param  int  $width  The target width
+     * @param  int  $baseWidth  The base width
+     * @param  int  $baseHeight  The base height
      * @return int The calculated height
      */
     protected function calculateProportionalHeight(int $width, int $baseWidth, int $baseHeight): int
@@ -296,14 +306,15 @@ class ResponsiveImageService
     /**
      * Get the base transforms for the image.
      *
-     * @param array|null $displaySize Display size constraints [width, height]
+     * @param  array|null  $displaySize  Display size constraints [width, height]
      * @return array The base transforms
      */
     protected function getBaseTransforms(?array $displaySize): array
     {
-        if (!$displaySize) {
+        if (! $displaySize) {
             return [];
         }
+
         return ['w' => $displaySize[0], 'h' => $displaySize[1]];
     }
 }

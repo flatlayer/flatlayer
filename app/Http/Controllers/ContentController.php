@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Entry;
-use App\Query\EntrySerializer;
-use App\Query\EntryFilter;
 use App\Http\Requests\ListRequest;
+use App\Models\Entry;
+use App\Query\EntryFilter;
+use App\Query\EntrySerializer;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ContentController extends Controller
@@ -38,7 +38,7 @@ class ContentController extends Controller
         $fields = $request->getFields();
 
         $transformedItems = collect($paginatedResult->items())->map(
-            fn($item) => $this->arrayConverter->toSummaryArray($item, $fields)
+            fn ($item) => $this->arrayConverter->toSummaryArray($item, $fields)
         )->all();
 
         $transformedResults = new LengthAwarePaginator(

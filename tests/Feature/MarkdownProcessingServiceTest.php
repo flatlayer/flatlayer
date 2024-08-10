@@ -4,19 +4,19 @@ namespace Tests\Feature;
 
 use App\Models\Entry;
 use App\Services\MarkdownProcessingService;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
+use Tests\TestCase;
 
 class MarkdownProcessingServiceTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
     protected MarkdownProcessingService $service;
+
     protected Entry $entry;
 
     protected function setUp(): void
@@ -33,10 +33,10 @@ class MarkdownProcessingServiceTest extends TestCase
             'images' => [
                 'featured' => 'featured.jpg',
                 'thumbnail' => 'thumbnail.png',
-            ]
+            ],
         ];
 
-        $imageManager = new ImageManager(new Driver());
+        $imageManager = new ImageManager(new Driver);
 
         // Create test images
         $featuredImage = $imageManager->create(100, 100)->fill('#ff0000');
@@ -66,14 +66,14 @@ class MarkdownProcessingServiceTest extends TestCase
 
     public function test_process_markdown_images_creates_and_updates_image_paths()
     {
-        $imageManager = new ImageManager(new Driver());
+        $imageManager = new ImageManager(new Driver);
 
-        $markdownContent = "
+        $markdownContent = '
         # Test Content
         ![Alt Text 1](image1.jpg)
         ![Alt Text 2](https://example.com/image2.jpg)
         ![Alt Text 3](image3.png)
-    ";
+    ';
 
         // Create test images
         $image1 = $imageManager->create(100, 100)->fill('#ff0000');
@@ -87,9 +87,9 @@ class MarkdownProcessingServiceTest extends TestCase
         $result = $this->service->processMarkdownImages($this->entry, $markdownContent, $markdownPath);
 
         // Check if image paths are updated correctly
-        $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('posts/image1.jpg') . ')', $result);
+        $this->assertStringContainsString('![Alt Text 1]('.Storage::disk('local')->path('posts/image1.jpg').')', $result);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
-        $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('posts/image3.png') . ')', $result);
+        $this->assertStringContainsString('![Alt Text 3]('.Storage::disk('local')->path('posts/image3.png').')', $result);
 
         // Verify image records in database
         $this->assertDatabaseHas('images', [

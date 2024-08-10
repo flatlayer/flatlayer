@@ -5,20 +5,22 @@ namespace Tests\Unit;
 use App\Services\ImageTransformationService;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use Tests\TestCase;
 
 class ImageTransformationServiceTest extends TestCase
 {
     protected $imageService;
+
     protected $tempImagePath;
+
     protected $diskName = 'public';
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->imageService = new ImageTransformationService();
+        $this->imageService = new ImageTransformationService;
         Storage::fake($this->diskName);
         $this->tempImagePath = $this->createTempImage();
     }
@@ -33,7 +35,7 @@ class ImageTransformationServiceTest extends TestCase
 
     protected function createTempImage()
     {
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
         $image = $manager->create(1000, 1000);
         $image->fill('#ffffff');
         $image->text('Test Image', 500, 500, function ($font) {
@@ -43,7 +45,7 @@ class ImageTransformationServiceTest extends TestCase
             $font->size(30);
         });
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'test_image_') . '.jpg';
+        $tempPath = tempnam(sys_get_temp_dir(), 'test_image_').'.jpg';
         $image->save($tempPath);
 
         return $tempPath;
@@ -56,7 +58,7 @@ class ImageTransformationServiceTest extends TestCase
 
         $this->assertNotEmpty($result);
 
-        $resultImage = (new ImageManager(new Driver()))->read($result);
+        $resultImage = (new ImageManager(new Driver))->read($result);
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
     }

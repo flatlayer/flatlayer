@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Entry;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,7 +37,7 @@ class ContentDetailControllerTest extends TestCase
 
     public function test_returns_404_for_non_existent_entry()
     {
-        $response = $this->getJson("/content/post/non-existent-slug");
+        $response = $this->getJson('/content/post/non-existent-slug');
 
         $response->assertStatus(404);
     }

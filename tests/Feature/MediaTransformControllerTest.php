@@ -2,24 +2,27 @@
 
 namespace Tests\Feature;
 
-use App\Models\Image;
 use App\Models\Entry;
+use App\Models\Image;
 use App\Services\ImageTransformationService;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
+use Tests\TestCase;
 
 class MediaTransformControllerTest extends TestCase
 {
     use RefreshDatabase;
 
     protected string $tempImagePath;
+
     protected Entry $entry;
+
     protected Image $image;
+
     protected string $diskName = 'public';
+
     protected ImageTransformationService $imageService;
 
     protected function setUp(): void
@@ -58,7 +61,7 @@ class MediaTransformControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/jpeg');
 
-        $resultImage = (new ImageManager(new Driver()))->read($response->getContent());
+        $resultImage = (new ImageManager(new Driver))->read($response->getContent());
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
 
@@ -149,7 +152,7 @@ class MediaTransformControllerTest extends TestCase
         $this->assertEquals($content1, $content2);
 
         // Verify dimensions
-        $resultImage = (new ImageManager(new Driver()))->read($content2);
+        $resultImage = (new ImageManager(new Driver))->read($content2);
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
     }
@@ -239,7 +242,7 @@ class MediaTransformControllerTest extends TestCase
         ]));
 
         $response->assertStatus(400);
-        $expectedWidth = (int)round($maxHeight * 4 / 3); // Calculate the expected width
+        $expectedWidth = (int) round($maxHeight * 4 / 3); // Calculate the expected width
         $errorMessage = "Resulting width ({$expectedWidth}px) would exceed the maximum allowed width ({$maxWidth}px)";
         $response->assertJson(['error' => $errorMessage]);
     }

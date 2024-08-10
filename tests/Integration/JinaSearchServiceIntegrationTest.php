@@ -17,7 +17,7 @@ class JinaSearchServiceIntegrationTest extends TestCase
         $rerankModel = config('flatlayer.search.jina.rerank');
         $embedModel = config('flatlayer.search.jina.embed');
 
-        if (!$apiKey || !$rerankModel || !$embedModel) {
+        if (! $apiKey || ! $rerankModel || ! $embedModel) {
             $this->markTestSkipped('Jina API key or models not configured in flatlayer config.');
         }
 
@@ -27,8 +27,8 @@ class JinaSearchServiceIntegrationTest extends TestCase
     public function test_embed_integration()
     {
         $texts = [
-            "Organic skincare for sensitive skin with aloe vera and chamomile.",
-            "New makeup trends focus on bold colors and innovative techniques."
+            'Organic skincare for sensitive skin with aloe vera and chamomile.',
+            'New makeup trends focus on bold colors and innovative techniques.',
         ];
 
         $result = $this->jinaService->embed($texts);
@@ -47,8 +47,8 @@ class JinaSearchServiceIntegrationTest extends TestCase
     {
         $query = 'Organic skincare products for sensitive skin';
         $documents = [
-            "Organic skincare for sensitive skin with aloe vera and chamomile: Imagine the soothing embrace of nature with our organic skincare range, crafted specifically for sensitive skin. Infused with the calming properties of aloe vera and chamomile, each product provides gentle nourishment and protection. Say goodbye to irritation and hello to a glowing, healthy complexion.",
-            "New makeup trends focus on bold colors and innovative techniques: Step into the world of cutting-edge beauty with this seasons makeup trends. Bold, vibrant colors and groundbreaking techniques are redefining the art of makeup. From neon eyeliners to holographic highlighters, unleash your creativity and make a statement with every look.",
+            'Organic skincare for sensitive skin with aloe vera and chamomile: Imagine the soothing embrace of nature with our organic skincare range, crafted specifically for sensitive skin. Infused with the calming properties of aloe vera and chamomile, each product provides gentle nourishment and protection. Say goodbye to irritation and hello to a glowing, healthy complexion.',
+            'New makeup trends focus on bold colors and innovative techniques: Step into the world of cutting-edge beauty with this seasons makeup trends. Bold, vibrant colors and groundbreaking techniques are redefining the art of makeup. From neon eyeliners to holographic highlighters, unleash your creativity and make a statement with every look.',
         ];
         $topN = 2;
 
@@ -73,15 +73,15 @@ class JinaSearchServiceIntegrationTest extends TestCase
         $scores = array_column($result['results'], 'relevance_score');
         $sortedScores = $scores;
         rsort($sortedScores);
-        $this->assertEquals($sortedScores, $scores, "Results should be sorted by relevance_score in descending order");
+        $this->assertEquals($sortedScores, $scores, 'Results should be sorted by relevance_score in descending order');
     }
 
     public function test_embed_and_rerank_integration()
     {
         $query = 'Organic skincare products for sensitive skin';
         $documents = [
-            "Organic skincare for sensitive skin with aloe vera and chamomile.",
-            "New makeup trends focus on bold colors and innovative techniques."
+            'Organic skincare for sensitive skin with aloe vera and chamomile.',
+            'New makeup trends focus on bold colors and innovative techniques.',
         ];
 
         // Embed the query and documents
@@ -105,7 +105,7 @@ class JinaSearchServiceIntegrationTest extends TestCase
         $this->assertGreaterThan(
             $result['results'][1]['relevance_score'],
             $result['results'][0]['relevance_score'],
-            "First result should have a higher relevance score"
+            'First result should have a higher relevance score'
         );
     }
 }

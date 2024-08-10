@@ -3,12 +3,11 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
-use App\Services\JinaSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
+use Tests\TestCase;
 
 class MarkdownModelTest extends TestCase
 {
@@ -24,7 +23,7 @@ class MarkdownModelTest extends TestCase
         $fixturesPath = base_path('tests/fixtures/markdown');
         $files = ['test_basic.md', 'test_sync.md', 'test_sync_updated.md', 'test_media.md', 'test_images.md'];
         foreach ($files as $file) {
-            Storage::disk('local')->put($file, file_get_contents($fixturesPath . '/' . $file));
+            Storage::disk('local')->put($file, file_get_contents($fixturesPath.'/'.$file));
         }
 
         // Set up fake image files
@@ -39,7 +38,7 @@ class MarkdownModelTest extends TestCase
         $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_basic.md'), 'post');
 
         $this->assertEquals('Test Basic Markdown', $model->title);
-        $this->assertEquals("This is the content of the basic markdown file.", trim($model->content));
+        $this->assertEquals('This is the content of the basic markdown file.', trim($model->content));
         $this->assertEquals('test-basic', $model->slug);
         $this->assertEquals('2023-05-01 12:00:00', $model->published_at->format('Y-m-d H:i:s'));
         $this->assertIsString($model->meta['seo']['description']);
@@ -67,18 +66,18 @@ class MarkdownModelTest extends TestCase
         file_put_contents($originalPath, file_get_contents($updatedPath));
         $updatedModel = Entry::syncFromMarkdown($originalPath, 'post', true);
 
-        $this->assertEquals($initialId, $updatedModel->id, "The updated model should have the same ID as the original");
+        $this->assertEquals($initialId, $updatedModel->id, 'The updated model should have the same ID as the original');
         $this->assertEquals('Updated Title', $updatedModel->title);
         $this->assertEquals('Updated content', trim($updatedModel->content));
-        $this->assertEquals('test-sync', $updatedModel->slug, "The slug should not change during update");
+        $this->assertEquals('test-sync', $updatedModel->slug, 'The slug should not change during update');
         $this->assertEquals('post', $updatedModel->type);
 
-        $this->assertEquals(1, Entry::count(), "There should only be one model after sync");
+        $this->assertEquals(1, Entry::count(), 'There should only be one model after sync');
     }
 
     public function test_handle_media_from_front_matter()
     {
-        $imageManager = new ImageManager(new Driver());
+        $imageManager = new ImageManager(new Driver);
 
         // Create test images
         $featuredImage = $imageManager->create(100, 100, function ($draw) {
@@ -97,7 +96,7 @@ class MarkdownModelTest extends TestCase
         $content .= "images.featured: featured.jpg\n";
         $content .= "images.thumbnail: thumbnail.png\n";
         $content .= "---\n";
-        $content .= "Test content";
+        $content .= 'Test content';
         Storage::disk('local')->put('test_media.md', $content);
 
         $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_media.md'));
@@ -110,7 +109,7 @@ class MarkdownModelTest extends TestCase
 
     public function test_process_markdown_images()
     {
-        $imageManager = new ImageManager(new Driver());
+        $imageManager = new ImageManager(new Driver);
 
         // Create test images
         $image1 = $imageManager->create(100, 100, function ($draw) {
@@ -136,9 +135,9 @@ class MarkdownModelTest extends TestCase
         $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
 
         // Check if image paths are correctly updated
-        $this->assertStringContainsString('![Alt Text 1](' . Storage::disk('local')->path('image1.jpg') . ')', $model->content);
+        $this->assertStringContainsString('![Alt Text 1]('.Storage::disk('local')->path('image1.jpg').')', $model->content);
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
-        $this->assertStringContainsString('![Alt Text 3](' . Storage::disk('local')->path('image3.png') . ')', $model->content);
+        $this->assertStringContainsString('![Alt Text 3]('.Storage::disk('local')->path('image3.png').')', $model->content);
 
         $this->assertEquals(2, $model->images()->count());
         $this->assertTrue($model->images()->get()->contains('collection', 'content'));

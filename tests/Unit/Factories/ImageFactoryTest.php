@@ -3,7 +3,6 @@
 namespace Tests\Unit\Factories;
 
 use App\Models\Image;
-use Database\Factories\ImageFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

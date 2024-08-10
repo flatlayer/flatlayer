@@ -50,7 +50,7 @@ class SyncConfigurationService
     /**
      * Get the configuration for a specific type.
      *
-     * @param string $type The configuration type
+     * @param  string  $type  The configuration type
      * @return array|null The configuration array, or null if not found
      */
     public function getConfig(string $type): ?array
@@ -61,8 +61,8 @@ class SyncConfigurationService
     /**
      * Set the configuration for a specific type.
      *
-     * @param string $type The configuration type
-     * @param string $config The configuration string
+     * @param  string  $type  The configuration type
+     * @param  string  $config  The configuration string
      */
     public function setConfig(string $type, string $config): void
     {
@@ -72,7 +72,7 @@ class SyncConfigurationService
     /**
      * Check if a configuration exists for a specific type.
      *
-     * @param string $type The configuration type
+     * @param  string  $type  The configuration type
      * @return bool True if the configuration exists, false otherwise
      */
     public function hasConfig(string $type): bool
@@ -83,7 +83,7 @@ class SyncConfigurationService
     /**
      * Parse a configuration string into an array.
      *
-     * @param string $config The configuration string
+     * @param  string  $config  The configuration string
      * @return array The parsed configuration
      */
     protected function parseConfig(string $config): array

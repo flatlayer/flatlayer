@@ -2,12 +2,12 @@
 
 namespace Database\Factories;
 
-use App\Models\Image;
 use App\Models\Entry;
+use App\Models\Image;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 class ImageFactory extends Factory
 {
@@ -18,7 +18,7 @@ class ImageFactory extends Factory
         return [
             'entry_id' => Entry::factory(),
             'collection' => $this->faker->word,
-            'filename' => $this->faker->word . '.jpg',
+            'filename' => $this->faker->word.'.jpg',
             'path' => $this->faker->filePath(),
             'mime_type' => 'image/jpeg',
             'size' => $this->faker->numberBetween(1000, 10000000),
@@ -36,7 +36,7 @@ class ImageFactory extends Factory
     public function withRealImage($width = 640, $height = 480)
     {
         return $this->state(function (array $attributes) use ($width, $height) {
-            $manager = new ImageManager(new Driver());
+            $manager = new ImageManager(new Driver);
             $image = $manager->create($width, $height, function ($draw) use ($width, $height) {
                 $draw->background('#'.substr(md5(mt_rand()), 0, 6));
                 $draw->text('Test Image', $width / 2, $height / 2, function ($font) {
@@ -47,7 +47,7 @@ class ImageFactory extends Factory
                 });
             });
 
-            $tempPath = tempnam(sys_get_temp_dir(), 'test_image_') . '.jpg';
+            $tempPath = tempnam(sys_get_temp_dir(), 'test_image_').'.jpg';
             $image->toJpeg()->save($tempPath);
 
             return [

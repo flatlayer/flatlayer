@@ -13,12 +13,13 @@ class ComplexSerializationTest extends TestCase
     use RefreshDatabase;
 
     protected EntrySerializer $serializer;
+
     protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->serializer = new EntrySerializer();
+        $this->serializer = new EntrySerializer;
         $this->entry = $this->createEntry();
     }
 
@@ -39,8 +40,8 @@ class ComplexSerializationTest extends TestCase
                 'categories' => 'tech,news',
                 'nested' => [
                     'level1' => [
-                        'level2' => 'nested value'
-                    ]
+                        'level2' => 'nested value',
+                    ],
                 ],
             ],
         ]);
@@ -85,8 +86,8 @@ class ComplexSerializationTest extends TestCase
                 'sizes' => ['100vw', 'md:50vw'],
                 'attributes' => ['class' => 'featured-image', 'loading' => 'lazy'],
                 'fluid' => true,
-                'display_size' => [400, 300]
-            ]]
+                'display_size' => [400, 300],
+            ]],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);

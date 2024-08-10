@@ -28,8 +28,7 @@ return new class extends Migration
             // Add a vector column for search functionality
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $table->vector('embedding', 768)->nullable();
-            }
-            else {
+            } else {
                 $table->text('embedding');
             }
 

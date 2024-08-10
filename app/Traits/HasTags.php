@@ -41,6 +41,7 @@ trait HasTags
     {
         $tag = $this->getTagModels($tagName)->first();
         $this->tags()->syncWithoutDetaching([$tag->id]);
+
         return $this;
     }
 
@@ -49,6 +50,7 @@ trait HasTags
         $tags = $this->getTagModels($tagNames);
         $tagIds = $tags->pluck('id')->all();
         $this->tags()->syncWithoutDetaching($tagIds);
+
         return $this;
     }
 
@@ -56,6 +58,7 @@ trait HasTags
     {
         $tags = $this->getTagModels($tagNames);
         $this->tags()->detach($tags->pluck('id'));
+
         return $this;
     }
 
@@ -64,6 +67,7 @@ trait HasTags
         $tags = $this->getTagModels($tagNames);
         $this->tags()->sync($tags->pluck('id'));
         $this->load('tags');
+
         return $this;
     }
 

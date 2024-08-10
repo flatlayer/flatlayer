@@ -2,7 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Models\Image;
 use App\Models\Entry;
 use App\Services\ImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,7 +58,7 @@ class ImageModelTest extends TestCase
         $this->assertDatabaseMissing('images', ['id' => $image2->id]);
         $this->assertDatabaseHas('images', [
             'entry_id' => $entry->id,
-            'dimensions' => json_encode(['width' => 300, 'height' => 300])
+            'dimensions' => json_encode(['width' => 300, 'height' => 300]),
         ]);
     }
 

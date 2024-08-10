@@ -26,27 +26,28 @@ trait HasMarkdown
     /**
      * Create a new model instance from a Markdown file.
      *
-     * @param string $filename The filename of the Markdown file
-     * @param string $type The type of the model (default: 'post')
+     * @param  string  $filename  The filename of the Markdown file
+     * @param  string  $type  The type of the model (default: 'post')
      */
     public static function createFromMarkdown(string $filename, string $type = 'post'): self
     {
         $model = new static(['type' => $type]);
         $model->initializeMarkdownModel();
+
         return $model->fillFromMarkdown($filename, $type);
     }
 
     /**
      * Sync an existing model or create a new one from a Markdown file.
      *
-     * @param string $filename The filename of the Markdown file
-     * @param string $type The type of the model (default: 'post')
-     * @param bool $autoSave Whether to automatically save the model
+     * @param  string  $filename  The filename of the Markdown file
+     * @param  string  $type  The type of the model (default: 'post')
+     * @param  bool  $autoSave  Whether to automatically save the model
      */
     public static function syncFromMarkdown(string $filename, string $type = 'post', bool $autoSave = false): self
     {
         $model = static::where('type', $type)->where('slug', static::generateSlugFromFilename($filename))->first();
-        if (!$model) {
+        if (! $model) {
             // Create a new model
             return static::createFromMarkdown($filename, $type);
         }
@@ -64,8 +65,8 @@ trait HasMarkdown
     /**
      * Fill the model attributes from a Markdown file.
      *
-     * @param string $filename The filename of the Markdown file
-     * @param string $type The type of the model
+     * @param  string  $filename  The filename of the Markdown file
+     * @param  string  $type  The type of the model
      */
     protected function fillFromMarkdown(string $filename, string $type): self
     {
@@ -97,7 +98,7 @@ trait HasMarkdown
     /**
      * Generate a slug from a filename.
      *
-     * @param string $filename The filename to generate the slug from
+     * @param  string  $filename  The filename to generate the slug from
      * @return string The generated slug
      */
     protected static function generateSlugFromFilename(string $filename): string
@@ -113,6 +114,7 @@ trait HasMarkdown
     public function getParsedContent(): string
     {
         $markdownRenderer = new EnhancedMarkdownRenderer($this);
+
         return $markdownRenderer->convertToHtml($this->content)->getContent();
     }
 }

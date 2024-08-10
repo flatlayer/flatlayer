@@ -12,12 +12,13 @@ class DateTimeTest extends TestCase
     use RefreshDatabase;
 
     protected EntrySerializer $serializer;
+
     protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->serializer = new EntrySerializer();
+        $this->serializer = new EntrySerializer;
         $this->entry = $this->createEntry();
     }
 

@@ -12,12 +12,13 @@ class MetaFieldsTest extends TestCase
     use RefreshDatabase;
 
     protected EntrySerializer $serializer;
+
     protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->serializer = new EntrySerializer();
+        $this->serializer = new EntrySerializer;
         $this->entry = $this->createEntry();
     }
 
@@ -31,12 +32,12 @@ class MetaFieldsTest extends TestCase
                 'categories' => 'tech,news',
                 'nested' => [
                     'level1' => [
-                        'level2' => 'nested value'
-                    ]
+                        'level2' => 'nested value',
+                    ],
                 ],
                 'array_field' => ['item1', 'item2', 'item3'],
                 'empty_field' => '',
-                'null_field' => null
+                'null_field' => null,
             ],
         ]);
     }

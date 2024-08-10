@@ -13,12 +13,13 @@ class CustomCastingTest extends TestCase
     use RefreshDatabase;
 
     protected EntrySerializer $serializer;
+
     protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->serializer = new EntrySerializer();
+        $this->serializer = new EntrySerializer;
         $this->entry = $this->createEntry();
     }
 
@@ -36,9 +37,15 @@ class CustomCastingTest extends TestCase
     public function test_custom_field_casting_options()
     {
         $fields = [
-            ['meta.views', function($value) { return $value . ' views'; }],
-            ['meta.rating', function($value) { return number_format((float)$value, 1) . ' stars'; }],
-            ['meta.categories', function($value) { return strtoupper($value); }],
+            ['meta.views', function ($value) {
+                return $value.' views';
+            }],
+            ['meta.rating', function ($value) {
+                return number_format((float) $value, 1).' stars';
+            }],
+            ['meta.categories', function ($value) {
+                return strtoupper($value);
+            }],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);
@@ -51,8 +58,12 @@ class CustomCastingTest extends TestCase
     public function test_custom_callable_casting()
     {
         $fields = [
-            ['meta.views', function($value) { return intval($value) + 1; }],
-            ['meta.rating', function($value) { return round(floatval($value), 1); }],
+            ['meta.views', function ($value) {
+                return intval($value) + 1;
+            }],
+            ['meta.rating', function ($value) {
+                return round(floatval($value), 1);
+            }],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);
@@ -64,7 +75,9 @@ class CustomCastingTest extends TestCase
     public function test_predefined_cast_takes_precedence_over_callable()
     {
         $fields = [
-            ['meta.views', function($value) { return $value . ' views'; }],
+            ['meta.views', function ($value) {
+                return $value.' views';
+            }],
             ['meta.rating', 'integer'],
         ];
 
@@ -92,7 +105,9 @@ class CustomCastingTest extends TestCase
     public function test_custom_cast_with_multiple_arguments()
     {
         $fields = [
-            ['meta.rating', function($value) { return round(floatval($value), 1); }],
+            ['meta.rating', function ($value) {
+                return round(floatval($value), 1);
+            }],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);
@@ -103,7 +118,7 @@ class CustomCastingTest extends TestCase
     public function test_invalid_cast_option_throws_exception()
     {
         $this->expectException(InvalidCastException::class);
-        $this->expectExceptionMessage("Invalid cast option: invalid_cast_option");
+        $this->expectExceptionMessage('Invalid cast option: invalid_cast_option');
 
         $fields = [
             ['meta.views', 'invalid_cast_option'],
@@ -115,7 +130,9 @@ class CustomCastingTest extends TestCase
     public function test_callable_cast_returning_null()
     {
         $fields = [
-            ['meta.views', function($value) { return null; }],
+            ['meta.views', function ($value) {
+                return null;
+            }],
         ];
 
         $result = $this->serializer->toArray($this->entry, $fields);

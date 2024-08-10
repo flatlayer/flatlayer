@@ -8,8 +8,8 @@ use App\Models\Image;
 use App\Services\SyncConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
 use Mockery;
+use Tests\TestCase;
 
 class EntrySyncJobTest extends TestCase
 {
@@ -131,9 +131,9 @@ class EntrySyncJobTest extends TestCase
         $image3 = Image::factory()->withRealImage(1024, 768)->create();
 
         // Move the created images to the posts directory
-        Storage::disk('local')->put('posts/' . $image1->filename, file_get_contents($image1->path));
-        Storage::disk('local')->put('posts/' . $image2->filename, file_get_contents($image2->path));
-        Storage::disk('local')->put('posts/' . $image3->filename, file_get_contents($image3->path));
+        Storage::disk('local')->put('posts/'.$image1->filename, file_get_contents($image1->path));
+        Storage::disk('local')->put('posts/'.$image2->filename, file_get_contents($image2->path));
+        Storage::disk('local')->put('posts/'.$image3->filename, file_get_contents($image3->path));
 
         // Create the markdown file with references to the real images
         $this->createTestFile('post-with-tags-and-images.md', "---

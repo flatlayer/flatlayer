@@ -82,7 +82,7 @@ class AdvancedQueryFilterTest extends TestCase
         $filters = [
             'meta.difficulty' => 'beginner',
             'meta.duration' => ['$gte' => 60, '$lte' => 90],
-            'meta.rating' => ['$gt' => 4.0]
+            'meta.rating' => ['$gt' => 4.0],
         ];
 
         $query = Entry::query();
@@ -90,8 +90,8 @@ class AdvancedQueryFilterTest extends TestCase
         $filtered = $entryFilter->apply();
 
         // Log the SQL query and bindings
-        Log::info('Generated SQL: ' . $filtered->toSql());
-        Log::info('SQL Bindings: ' . json_encode($filtered->getBindings()));
+        Log::info('Generated SQL: '.$filtered->toSql());
+        Log::info('SQL Bindings: '.json_encode($filtered->getBindings()));
 
         // Execute the query and get the results
         $results = $filtered->get();
@@ -105,7 +105,7 @@ class AdvancedQueryFilterTest extends TestCase
     {
         $filters = [
             '$tags' => ['programming', 'python'],
-            'meta.difficulty' => 'advanced'
+            'meta.difficulty' => 'advanced',
         ];
 
         $query = Entry::query();
@@ -125,20 +125,20 @@ class AdvancedQueryFilterTest extends TestCase
             '$or' => [
                 [
                     'meta.difficulty' => 'advanced',
-                    'meta.rating' => ['$gte' => 4.8]
+                    'meta.rating' => ['$gte' => 4.8],
                 ],
                 [
                     '$and' => [
                         ['meta.difficulty' => 'beginner'],
                         ['meta.duration' => ['$lt' => 70]],
-                        ['meta.rating' => ['$gte' => 4.5]]
-                    ]
+                        ['meta.rating' => ['$gte' => 4.5]],
+                    ],
                 ],
                 [
                     'type' => 'course',
-                    'meta.duration' => ['$gt' => 200]
-                ]
-            ]
+                    'meta.duration' => ['$gt' => 200],
+                ],
+            ],
         ];
 
         $query = Entry::query();
@@ -147,7 +147,7 @@ class AdvancedQueryFilterTest extends TestCase
         $results = $filtered->get();
 
         // Log all matching titles
-        Log::info('Matching entries: ' . $results->pluck('title')->implode(', '));
+        Log::info('Matching entries: '.$results->pluck('title')->implode(', '));
 
         $this->assertCount(4, $results);
 
@@ -170,11 +170,11 @@ class AdvancedQueryFilterTest extends TestCase
         $filters = [
             'published_at' => [
                 '$gte' => now()->subDays(14)->startOfDay()->toDateTimeString(),
-                '$lte' => now()->subDay()->endOfDay()->toDateTimeString()
+                '$lte' => now()->subDay()->endOfDay()->toDateTimeString(),
             ],
             'type' => 'course',
             'meta.duration' => ['$gt' => 150],
-            'meta.rating' => ['$gte' => 4.5]
+            'meta.rating' => ['$gte' => 4.5],
         ];
 
         $query = Entry::query();
@@ -187,7 +187,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_with_non_existent_meta_field()
     {
         $filters = [
-            'meta.non_existent_field' => 'some_value'
+            'meta.non_existent_field' => 'some_value',
         ];
 
         $query = Entry::query();
@@ -199,7 +199,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_with_empty_tag_array()
     {
         $filters = [
-            '$tags' => []
+            '$tags' => [],
         ];
 
         $query = Entry::query();
@@ -217,19 +217,19 @@ class AdvancedQueryFilterTest extends TestCase
                     '$and' => [
                         ['type' => 'post'],
                         ['meta.difficulty' => 'beginner'],
-                        ['meta.duration' => ['$lte' => 90]]
-                    ]
+                        ['meta.duration' => ['$lte' => 90]],
+                    ],
                 ],
                 [
                     '$and' => [
                         ['type' => 'course'],
                         ['meta.rating' => ['$gt' => 4.5]],
-                        ['$tags' => ['python']]
-                    ]
-                ]
+                        ['$tags' => ['python']],
+                    ],
+                ],
             ],
             // Comment out the date filter for now to isolate the issue
-             'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()]
+            'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()],
         ];
 
         $query = Entry::query();
@@ -250,7 +250,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_by_meta_array_contains()
     {
         $filters = [
-            'meta.topics' => ['$contains' => 'python']
+            'meta.topics' => ['$contains' => 'python'],
         ];
 
         $query = Entry::query();
@@ -266,7 +266,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_by_meta_array_not_contains()
     {
         $filters = [
-            'meta.topics' => ['$notContains' => 'database']
+            'meta.topics' => ['$notContains' => 'database'],
         ];
 
         $query = Entry::query();
@@ -285,18 +285,18 @@ class AdvancedQueryFilterTest extends TestCase
                     '$and' => [
                         ['type' => 'post'],
                         ['meta.difficulty' => 'advanced'],
-                        ['$tags' => ['programming']]
-                    ]
+                        ['$tags' => ['programming']],
+                    ],
                 ],
                 [
                     '$and' => [
                         ['type' => 'course'],
                         ['meta.rating' => ['$gte' => 4.5]],
-                        ['meta.duration' => ['$lte' => 180]]
-                    ]
-                ]
+                        ['meta.duration' => ['$lte' => 180]],
+                    ],
+                ],
             ],
-            'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()]
+            'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()],
         ];
 
         $query = Entry::query();
@@ -317,7 +317,7 @@ class AdvancedQueryFilterTest extends TestCase
     {
         $filters = [
             'type' => ['$in' => ['post', 'course']],
-            'meta.difficulty' => ['$in' => ['intermediate', 'advanced']]
+            'meta.difficulty' => ['$in' => ['intermediate', 'advanced']],
         ];
 
         $query = Entry::query();
@@ -333,7 +333,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_with_not_in_operator()
     {
         $filters = [
-            'meta.difficulty' => ['$notIn' => ['beginner', 'intermediate']]
+            'meta.difficulty' => ['$notIn' => ['beginner', 'intermediate']],
         ];
 
         $query = Entry::query();
@@ -350,7 +350,7 @@ class AdvancedQueryFilterTest extends TestCase
     public function test_filter_with_exists_operator()
     {
         $filters = [
-            'meta.topics' => ['$exists' => true]
+            'meta.topics' => ['$exists' => true],
         ];
 
         $query = Entry::query();

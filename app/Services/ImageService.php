@@ -2,15 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\Image;
 use App\Models\Entry;
+use App\Models\Image;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 use RuntimeException;
 use Thumbhash\Thumbhash;
+
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
@@ -25,7 +26,7 @@ class ImageService
             $fileInfo = $fileInfo ?? $this->getFileInfo($path);
         } catch (RuntimeException $e) {
             // Log the error
-            Log::error("Failed to get file info: " . $e->getMessage());
+            Log::error('Failed to get file info: '.$e->getMessage());
 
             // Rethrow the exception or handle it as appropriate for your application
             throw $e;
@@ -48,7 +49,7 @@ class ImageService
     public function syncImages(Model $model, array $filenames, string $collectionName = 'default'): void
     {
         $existingMedia = $model->images()->where('collection', $collectionName)->get()->keyBy('filename');
-        $newFilenames = collect($filenames)->keyBy(fn(string $path): string => basename($path));
+        $newFilenames = collect($filenames)->keyBy(fn (string $path): string => basename($path));
 
         // Remove media that no longer exists in the new filenames
         $existingMedia->diffKeys($newFilenames)->each->delete();
@@ -77,6 +78,7 @@ class ImageService
 
         if ($existingMedia) {
             $this->updateImageIfNeeded($existingMedia, $fileInfo);
+
             return $existingMedia;
         }
 
@@ -91,7 +93,7 @@ class ImageService
         $needsUpdate = false;
 
         foreach (['size', 'dimensions', 'thumbhash', 'mime_type'] as $property) {
-            if ($media->$property !== $fileInfo[$property]) {
+            if ($fileInfo[$property] !== $media->$property) {
                 $media->$property = $fileInfo[$property];
                 $needsUpdate = true;
             }
@@ -105,13 +107,14 @@ class ImageService
     /**
      * Get file information.
      *
-     * @param string $path The path to the image file
+     * @param  string  $path  The path to the image file
      * @return array{size: int, mime_type: string, dimensions: array{width: int|null, height: int|null}, thumbhash: string}
+     *
      * @throws \RuntimeException If there's an error processing the file
      */
     public function getFileInfo(string $path): array
     {
-        if (!file_exists($path) || !is_readable($path)) {
+        if (! file_exists($path) || ! is_readable($path)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
@@ -128,20 +131,20 @@ class ImageService
                 'thumbhash' => $thumbhash,
             ];
         } catch (\Exception $e) {
-            throw new RuntimeException("Error processing file $path: " . $e->getMessage(), 0, $e);
+            throw new RuntimeException("Error processing file $path: ".$e->getMessage(), 0, $e);
         }
     }
 
     /**
      * Get image dimensions of an image file.
      *
-     * @param string $path The path to the image file
-     *
+     * @param  string  $path  The path to the image file
      * @return array{width: int|null, height: int|null}
      */
     protected function getImageDimensions(string $path): array
     {
         $imageSize = getimagesize($path);
+
         return [
             'width' => $imageSize[0] ?? null,
             'height' => $imageSize[1] ?? null,
@@ -151,7 +154,7 @@ class ImageService
     /**
      * Generate thumbhash for an image file.
      *
-     * @param string $path The path to the image file
+     * @param  string  $path  The path to the image file
      */
     public function generateThumbhash(string $path): string
     {
@@ -174,6 +177,7 @@ class ImageService
 
         [$width, $height, $pixels] = extract_size_and_pixels_with_imagick($blob);
         $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
+
         return Thumbhash::convertHashToString($hash);
     }
 
@@ -182,13 +186,14 @@ class ImageService
      */
     protected function generateThumbhashWithGd(string $path): string
     {
-        $imageManager = new ImageManager(new Driver());
+        $imageManager = new ImageManager(new Driver);
         $image = $imageManager->read($path);
         $image->scale(width: 100);
         $resizedImage = $image->toJpeg(quality: 85);
 
-        [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string)$resizedImage);
+        [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string) $resizedImage);
         $hash = Thumbhash::RGBAToHash($width, $height, $pixels);
+
         return Thumbhash::convertHashToString($hash);
     }
 }

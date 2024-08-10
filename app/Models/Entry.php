@@ -30,7 +30,7 @@ use Pgvector\Laravel\Vector;
  */
 class Entry extends Model
 {
-    use HasFactory, HasImages, HasTags, Searchable, HasMarkdown;
+    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
 
     protected $fillable = [
         'type',
@@ -71,7 +71,7 @@ class Entry extends Model
      */
     public function toSearchableText(): string
     {
-        return $this->title . "\n\n" . $this->content;
+        return $this->title."\n\n".$this->content;
     }
 
     /**
@@ -87,7 +87,7 @@ class Entry extends Model
      */
     public function toArray(?array $fields = null): array
     {
-        return (new EntrySerializer())->toArray($this, $fields);
+        return (new EntrySerializer)->toArray($this, $fields);
     }
 
     /**

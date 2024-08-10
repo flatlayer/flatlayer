@@ -13,6 +13,7 @@ class EnhancedMarkdownRendererTest extends TestCase
     use RefreshDatabase;
 
     protected $entry;
+
     protected $renderer;
 
     protected function setUp(): void
@@ -51,13 +52,13 @@ class EnhancedMarkdownRendererTest extends TestCase
     {
         $this->expectException(\TypeError::class);
 
-        $invalidInput = new \stdClass(); // Not a string, which is what convertToHtml expects
+        $invalidInput = new \stdClass; // Not a string, which is what convertToHtml expects
         $this->renderer->convertToHtml($invalidInput);
     }
 
     public function test_convert_markdown_with_image()
     {
-        $markdown = "![Test Image](/test-image.jpg)";
+        $markdown = '![Test Image](/test-image.jpg)';
         $html = $this->renderer->convertToHtml($markdown);
 
         $this->assertStringContainsString('<img', $html);

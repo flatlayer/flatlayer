@@ -24,21 +24,21 @@ abstract class TestCase extends BaseTestCase
     protected function logToPrint()
     {
         Log::shouldReceive('info')->andReturnUsing(function ($message) {
-            echo $message . "\n";
+            echo $message."\n";
         });
         $this->loggingToPrint = true;
     }
 
     protected function logSqlResult(Builder|EloquentBuilder $filtered)
     {
-        if(!$this->loggingToPrint) {
+        if (! $this->loggingToPrint) {
             $this->logToPrint();
         }
 
         // Log the SQL query and bindings
-        Log::info('Generated SQL: ' . $filtered->toSql() . "\n");
-        Log::info('SQL Bindings: ' . json_encode($filtered->getBindings()) . "\n");
-        Log::info('Raw SQL: ' . $filtered->toRawSql() . "\n");
+        Log::info('Generated SQL: '.$filtered->toSql()."\n");
+        Log::info('SQL Bindings: '.json_encode($filtered->getBindings())."\n");
+        Log::info('Raw SQL: '.$filtered->toRawSql()."\n");
     }
 
     protected function getFactoryPath()

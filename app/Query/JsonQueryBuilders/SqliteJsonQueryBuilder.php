@@ -100,6 +100,7 @@ class SqliteJsonQueryBuilder implements JsonQueryBuilder
             '$exists' => 'IS NOT NULL',
             '$notExists' => 'IS NULL',
         ];
+
         return $map[$operator] ?? $operator;
     }
 

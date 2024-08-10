@@ -20,18 +20,19 @@ use League\Config\ConfigurationInterface;
  * Custom renderer for image nodes in Markdown.
  * Adds in srcset, sizes and general responsive image handling.
  */
-class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareInterface
+class CustomImageRenderer implements ConfigurationAwareInterface, NodeRendererInterface
 {
     private ImageRenderer $defaultRenderer;
+
     private ConfigurationInterface $config;
 
     /**
-     * @param Model $model The model associated with the renderer
-     * @param Environment $environment The CommonMark environment
+     * @param  Model  $model  The model associated with the renderer
+     * @param  Environment  $environment  The CommonMark environment
      */
     public function __construct(protected Model $model, Environment $environment)
     {
-        $this->defaultRenderer = new ImageRenderer();
+        $this->defaultRenderer = new ImageRenderer;
         $this->config = $environment->getConfiguration();
 
         if ($this->defaultRenderer instanceof ConfigurationAwareInterface) {
@@ -42,15 +43,16 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
     /**
      * Render an image node.
      *
-     * @param Node $node The node to render
-     * @param ChildNodeRendererInterface $childRenderer The child node renderer
+     * @param  Node  $node  The node to render
+     * @param  ChildNodeRendererInterface  $childRenderer  The child node renderer
      * @return HtmlElement|string The rendered output
+     *
      * @throws \InvalidArgumentException If the node type is incompatible
      */
     public function render(Node $node, ChildNodeRendererInterface $childRenderer): HtmlElement|string
     {
-        if (!($node instanceof ImageNode)) {
-            throw new \InvalidArgumentException('Incompatible node type: ' . get_class($node));
+        if (! ($node instanceof ImageNode)) {
+            throw new \InvalidArgumentException('Incompatible node type: '.get_class($node));
         }
 
         $url = $node->getUrl();
@@ -76,7 +78,7 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
     /**
      * Get the alt text from the node.
      *
-     * @param Node $node The node to extract alt text from
+     * @param  Node  $node  The node to extract alt text from
      * @return string|null The alt text, or null if not found
      */
     protected function getNodeAlt(Node $node): ?string
@@ -94,7 +96,7 @@ class CustomImageRenderer implements NodeRendererInterface, ConfigurationAwareIn
     /**
      * Set the configuration for the renderer.
      *
-     * @param ConfigurationInterface $configuration The configuration to set
+     * @param  ConfigurationInterface  $configuration  The configuration to set
      */
     public function setConfiguration(ConfigurationInterface $configuration): void
     {

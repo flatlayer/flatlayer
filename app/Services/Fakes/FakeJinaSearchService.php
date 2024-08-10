@@ -7,6 +7,7 @@ use App\Services\JinaSearchService;
 class FakeJinaSearchService extends JinaSearchService
 {
     protected $embeddings = [];
+
     protected $embeddingIndex = 0;
 
     public function __construct()
@@ -29,6 +30,7 @@ class FakeJinaSearchService extends JinaSearchService
             $result[] = ['embedding' => $this->embeddings[$this->embeddingIndex % 10]];
             $this->embeddingIndex++;
         }
+
         return $result;
     }
 
@@ -51,12 +53,12 @@ class FakeJinaSearchService extends JinaSearchService
             $results[] = [
                 'index' => $index,
                 'relevance_score' => $relevance,
-                'document' => $document
+                'document' => $document,
             ];
         }
 
         // Sort results by relevance_score in descending order
-        usort($results, function($a, $b) {
+        usort($results, function ($a, $b) {
             return $b['relevance_score'] <=> $a['relevance_score'];
         });
 

@@ -2,7 +2,8 @@
 
 namespace App\Query;
 
-use App\Models\Entry;
+use App\Query\Exceptions\InvalidFilterException;
+use App\Query\Exceptions\QueryException;
 use App\Query\JsonQueryBuilders\JsonQueryBuilder;
 use App\Query\JsonQueryBuilders\PostgresJsonQueryBuilder;
 use App\Query\JsonQueryBuilders\SqliteJsonQueryBuilder;
@@ -11,14 +12,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Query\Exceptions\InvalidFilterException;
-use App\Query\Exceptions\QueryException;
 
 class EntryFilter
 {
     protected ?string $search;
+
     protected Collection|Builder $builder;
+
     protected array $order = [];
+
     protected JsonQueryBuilder $jsonQueryBuilder;
 
     /**
@@ -37,9 +39,9 @@ class EntryFilter
     {
         $driver = DB::connection()->getDriverName();
         if ($driver === 'sqlite') {
-            return new SqliteJsonQueryBuilder();
+            return new SqliteJsonQueryBuilder;
         } elseif ($driver === 'pgsql') {
-            return new PostgresJsonQueryBuilder();
+            return new PostgresJsonQueryBuilder;
         } else {
             throw new \Exception("Unsupported database driver: {$driver}");
         }
@@ -56,17 +58,18 @@ class EntryFilter
             $this->applyFilters($this->filters);
             $this->applySearch();
             $this->applyOrder();
+
             return $this->builder;
         } catch (\Exception $e) {
-            throw new QueryException("Error applying filters: " . $e->getMessage(), 0, $e);
+            throw new QueryException('Error applying filters: '.$e->getMessage(), 0, $e);
         }
     }
 
     /**
      * Apply filters recursively to the query builder.
      *
-     * @param array $filters
-     * @param string $operator
+     * @param  string  $operator
+     *
      * @throws InvalidFilterException
      */
     protected function applyFilters(array $filters, string $boolean = 'and', $query = null): void
@@ -122,9 +125,6 @@ class EntryFilter
     /**
      * Apply a filter to a specific field.
      *
-     * @param Builder $query
-     * @param string $field
-     * @param mixed $value
      * @throws InvalidFilterException
      */
     protected function applyFieldFilter(Builder $query, string $field, mixed $value): void
@@ -154,9 +154,6 @@ class EntryFilter
     /**
      * Apply a filter to a JSON field.
      *
-     * @param Builder $query
-     * @param string $field
-     * @param mixed $value
      * @throws InvalidFilterException
      */
     protected function applyJsonFieldFilter(Builder $query, string $field, mixed $value): void
@@ -175,11 +172,8 @@ class EntryFilter
     /**
      * Apply a JSON operator to a field.
      *
-     * @param Builder $query
-     * @param string $jsonField
-     * @param string $jsonKey
-     * @param string $operator
-     * @param mixed $value
+     * @param  mixed  $value
+     *
      * @throws InvalidFilterException
      */
     protected function applyJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
@@ -189,12 +183,6 @@ class EntryFilter
 
     /**
      * Apply a PostgreSQL JSON operator.
-     *
-     * @param Builder $query
-     * @param string $jsonField
-     * @param string $jsonKey
-     * @param string $operator
-     * @param mixed $value
      */
     protected function applyPostgresJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
@@ -205,12 +193,6 @@ class EntryFilter
 
     /**
      * Apply a SQLite JSON operator.
-     *
-     * @param Builder $query
-     * @param string $jsonField
-     * @param string $jsonKey
-     * @param string $operator
-     * @param mixed $value
      */
     protected function applySqliteJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
@@ -221,10 +203,6 @@ class EntryFilter
     /**
      * Apply an exact match filter to a JSON field.
      *
-     * @param Builder $query
-     * @param string $jsonField
-     * @param string $jsonKey
-     * @param mixed $value
      * @throws InvalidFilterException
      */
     protected function applyJsonExactMatch(Builder $query, string $jsonField, string $jsonKey, mixed $value): void
@@ -235,10 +213,6 @@ class EntryFilter
     /**
      * Apply an operator to a field.
      *
-     * @param Builder $query
-     * @param string $field
-     * @param string $operator
-     * @param mixed $value
      * @throws InvalidFilterException
      */
     protected function applyOperator(Builder $query, string $field, string $operator, mixed $value): void
@@ -272,26 +246,26 @@ class EntryFilter
                 }
                 break;
             case '$in':
-                if (!is_array($value)) {
-                    throw new InvalidFilterException("Value for \$in operator must be an array");
+                if (! is_array($value)) {
+                    throw new InvalidFilterException('Value for $in operator must be an array');
                 }
                 $query->whereIn($field, $value);
                 break;
             case '$notIn':
-                if (!is_array($value)) {
-                    throw new InvalidFilterException("Value for \$notIn operator must be an array");
+                if (! is_array($value)) {
+                    throw new InvalidFilterException('Value for $notIn operator must be an array');
                 }
                 $query->whereNotIn($field, $value);
                 break;
             case '$between':
-                if (!is_array($value) || count($value) !== 2) {
-                    throw new InvalidFilterException("Value for \$between operator must be an array with exactly two elements");
+                if (! is_array($value) || count($value) !== 2) {
+                    throw new InvalidFilterException('Value for $between operator must be an array with exactly two elements');
                 }
                 $query->whereBetween($field, $value);
                 break;
             case '$notBetween':
-                if (!is_array($value) || count($value) !== 2) {
-                    throw new InvalidFilterException("Value for \$notBetween operator must be an array with exactly two elements");
+                if (! is_array($value) || count($value) !== 2) {
+                    throw new InvalidFilterException('Value for $notBetween operator must be an array with exactly two elements');
                 }
                 $query->whereNotBetween($field, $value);
                 break;
@@ -313,8 +287,6 @@ class EntryFilter
     /**
      * Map a JSON operator to its SQL equivalent.
      *
-     * @param string $operator
-     * @return string
      * @throws InvalidFilterException
      */
     protected function mapJsonOperator(string $operator): string
@@ -350,7 +322,8 @@ class EntryFilter
     /**
      * Apply tag filters to the query.
      *
-     * @param array|string $tags The tags to filter by.
+     * @param  array|string  $tags  The tags to filter by.
+     *
      * @throws InvalidFilterException
      */
     protected function applyTagFilters(array $tags, ?Builder $query = null): void
@@ -381,7 +354,7 @@ class EntryFilter
      */
     protected function applyOrder(): void
     {
-        if (!$this->isSearch() && !empty($this->order)) {
+        if (! $this->isSearch() && ! empty($this->order)) {
             foreach ($this->order as $field => $direction) {
                 $this->builder->orderBy($field, $direction);
             }
@@ -394,6 +367,7 @@ class EntryFilter
     protected function isSearchable(): bool
     {
         $model = $this->builder->getModel();
+
         return in_array(Searchable::class, class_uses_recursive($model));
     }
 

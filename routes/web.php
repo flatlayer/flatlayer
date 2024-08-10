@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\ContentController;
-use App\Http\Controllers\WebhookHandlerController;
 use App\Http\Controllers\ImageTransformController;
+use App\Http\Controllers\WebhookHandlerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
