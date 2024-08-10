@@ -353,8 +353,9 @@ class EntryFilter
      * @param array|string $tags The tags to filter by.
      * @throws InvalidFilterException
      */
-    protected function applyTagFilters(array $tags, Builder $query): void
+    protected function applyTagFilters(array $tags, ?Builder $query = null): void
     {
+        $query = $query ?? $this->builder;
         $query->whereHas('tags', function ($subQuery) use ($tags) {
             $subQuery->whereIn('name', $tags);
         });

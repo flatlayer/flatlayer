@@ -144,8 +144,6 @@ class AdvancedQueryFilterTest extends TestCase
         $query = Entry::query();
         $filtered = (new EntryFilter($query, $filters))->apply();
 
-        $this->logSqlResult($filtered);
-
         $results = $filtered->get();
 
         // Log all matching titles
