@@ -18,7 +18,7 @@ class ClearImageCacheCommand extends Command
 
     public function handle()
     {
-        $days = $this->argument('days');
+        $days = (int) $this->argument('days');
 
         if (! is_numeric($days) || $days < 1) {
             $this->error('The number of days must be a positive integer.');

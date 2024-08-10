@@ -23,6 +23,7 @@
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.1",
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^2.0",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
@@ -58,7 +59,8 @@
             "@php artisan migrate --graceful --ansi"
         ],
         "test": "@php artisan test",
-        "format": "@php ./vendor/bin/pint"
+        "format": "@php ./vendor/bin/pint",
+        "larastan": "@php ./vendor/bin/phpstan analyse"
     },
     "extra": {
         "laravel": {
