@@ -15,9 +15,14 @@ abstract class TestCase extends BaseTestCase
         JinaSearchService::fake();
 
         // Set up the Log facade to just print the log messages
-        //Log::shouldReceive('info')->andReturnUsing(function ($message) {
-        //    echo $message . "\n";
-        //});
+        $this->logToPrint();
+    }
+
+    protected function logToPrint()
+    {
+        Log::shouldReceive('info')->andReturnUsing(function ($message) {
+            echo $message . "\n";
+        });
     }
 
     protected function getFactoryPath()

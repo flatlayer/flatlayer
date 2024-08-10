@@ -24,7 +24,7 @@ class AdvancedQueryFilterTest extends TestCase
             'title' => 'PHP Tutorial',
             'content' => 'Learn PHP programming',
             'type' => 'post',
-            'meta' => ['difficulty' => 'beginner', 'duration' => 60],
+            'meta' => ['difficulty' => 'beginner', 'duration' => 60, 'rating' => 4.5],
             'published_at' => now()->subDays(5),
         ])->attachTag('programming')->attachTag('php');
 
@@ -32,7 +32,7 @@ class AdvancedQueryFilterTest extends TestCase
             'title' => 'Advanced JavaScript Concepts',
             'content' => 'Deep dive into JavaScript',
             'type' => 'post',
-            'meta' => ['difficulty' => 'advanced', 'duration' => 120],
+            'meta' => ['difficulty' => 'advanced', 'duration' => 120, 'rating' => 4.8],
             'published_at' => now()->subDays(2),
         ])->attachTag('programming')->attachTag('javascript');
 
@@ -40,51 +40,85 @@ class AdvancedQueryFilterTest extends TestCase
             'title' => 'Introduction to Python',
             'content' => 'Getting started with Python',
             'type' => 'post',
-            'meta' => ['difficulty' => 'beginner', 'duration' => 90],
+            'meta' => ['difficulty' => 'beginner', 'duration' => 90, 'rating' => 4.2],
             'published_at' => now()->subDays(10),
         ])->attachTag('programming')->attachTag('python');
+
+        Entry::factory()->create([
+            'title' => 'Machine Learning with Python',
+            'content' => 'Advanced machine learning techniques',
+            'type' => 'course',
+            'meta' => ['difficulty' => 'advanced', 'duration' => 180, 'rating' => 4.9],
+            'published_at' => now()->subDays(1),
+        ])->attachTag('programming')->attachTag('python')->attachTag('machine-learning');
+
+        Entry::factory()->create([
+            'title' => 'Web Development Bootcamp',
+            'content' => 'Full-stack web development course',
+            'type' => 'course',
+            'meta' => ['difficulty' => 'intermediate', 'duration' => 240, 'rating' => 4.7],
+            'published_at' => now()->subDays(15),
+        ])->attachTag('programming')->attachTag('web-development');
     }
 
     public function test_complex_meta_filters()
     {
         $filters = [
             'meta.difficulty' => 'beginner',
-            'meta.duration' => ['$gte' => 60, '$lte' => 90]
+            'meta.duration' => ['$gte' => 60, '$lte' => 90],
+            'meta.rating' => ['$gt' => 4.0]
         ];
 
         $query = Entry::query();
-        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+        $entryFilter = new EntryFilter($query, $filters);
+        $filtered = $entryFilter->apply();
 
-        $this->assertCount(2, $filtered);
-        $this->assertTrue($filtered->pluck('title')->contains('PHP Tutorial'));
-        $this->assertTrue($filtered->pluck('title')->contains('Introduction to Python'));
+        // Log the SQL query and bindings
+        Log::info('Generated SQL: ' . $filtered->toSql());
+        Log::info('SQL Bindings: ' . json_encode($filtered->getBindings()));
+
+        // Execute the query and get the results
+        $results = $filtered->get();
+
+        $this->assertCount(2, $results);
+        $this->assertTrue($results->pluck('title')->contains('PHP Tutorial'));
+        $this->assertTrue($results->pluck('title')->contains('Introduction to Python'));
     }
 
     public function test_combined_tag_and_date_filters()
     {
         $filters = [
-            '$tags' => ['programming', 'javascript'],
-            'published_at' => ['$gte' => now()->subDays(3)->toDateTimeString()],
+            '$tags' => ['programming', 'python'],
             'meta.difficulty' => 'advanced'
         ];
 
         $query = Entry::query();
-        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+        $filtered = (new EntryFilter($query, $filters))->apply();
 
-        $this->assertCount(1, $filtered);
-        $this->assertEquals('Advanced JavaScript Concepts', $filtered->first()->title);
+        $results = $filtered->get();
+
+        $this->assertCount(1, $results);
+        $this->assertEquals('Machine Learning with Python', $results->first()->title);
     }
 
-    public function test_nested_or_filters()
+    public function test_nested_or_filters_with_multiple_conditions()
     {
         $filters = [
             '$or' => [
-                ['meta.difficulty' => 'advanced'],
+                [
+                    'meta.difficulty' => 'advanced',
+                    'meta.rating' => ['$gte' => 4.8]
+                ],
                 [
                     '$and' => [
                         ['meta.difficulty' => 'beginner'],
-                        ['meta.duration' => ['$lt' => 70]]
+                        ['meta.duration' => ['$lt' => 70]],
+                        ['meta.rating' => ['$gte' => 4.5]]
                     ]
+                ],
+                [
+                    'type' => 'course',
+                    'meta.duration' => ['$gt' => 200]
                 ]
             ]
         ];
@@ -92,59 +126,104 @@ class AdvancedQueryFilterTest extends TestCase
         $query = Entry::query();
         $filtered = (new EntryFilter($query, $filters))->apply();
 
-        // Debug: Let's see what SQL query is being generated
-        Log::info('Generated SQL: ' . $filtered->toSql());
-        Log::info('SQL Bindings: ' . json_encode($filtered->getBindings()));
-
-        // Get the results
         $results = $filtered->get();
 
-        // Debug: Let's see what entries we have in the database
-        Log::info('All entries in database:');
-        Entry::all()->each(function ($entry) {
-            Log::info("Title: {$entry->title}, Difficulty: {$entry->meta['difficulty']}, Duration: {$entry->meta['duration']}");
-        });
-
-        // Debug: Let's see what results we got
-        Log::info('Filtered results:');
-        $results->each(function ($entry) {
-            Log::info("Title: {$entry->title}, Difficulty: {$entry->meta['difficulty']}, Duration: {$entry->meta['duration']}");
-        });
-
-        $this->assertCount(2, $results);
+        $this->assertCount(3, $results);
         $this->assertTrue($results->pluck('title')->contains('Advanced JavaScript Concepts'));
         $this->assertTrue($results->pluck('title')->contains('PHP Tutorial'));
+        $this->assertTrue($results->pluck('title')->contains('Web Development Bootcamp'));
     }
 
-    public function test_full_text_search_with_filters()
+    public function test_full_text_search_with_complex_filters()
     {
         $filters = [
-            '$search' => 'programming',
-            'meta.difficulty' => 'beginner',
-            '$tags' => ['php']
-        ];
-
-        $query = Entry::query();
-        $filtered = (new EntryFilter($query, $filters))->apply()->get();
-
-        $this->assertCount(1, $filtered);
-        $this->assertEquals('PHP Tutorial', $filtered->first()->title);
-    }
-
-    public function test_complex_date_range_filter()
-    {
-        $filters = [
-            'published_at' => [
-                '$gte' => now()->subDays(7)->startOfDay()->toDateTimeString(),
-                '$lte' => now()->subDay()->endOfDay()->toDateTimeString()
-            ]
+            '$search' => 'python',
+            '$or' => [
+                ['meta.difficulty' => 'beginner'],
+                ['meta.rating' => ['$gte' => 4.8]]
+            ],
+            '$tags' => ['programming']
         ];
 
         $query = Entry::query();
         $filtered = (new EntryFilter($query, $filters))->apply()->get();
 
         $this->assertCount(2, $filtered);
+        $this->assertTrue($filtered->pluck('title')->contains('Introduction to Python'));
+        $this->assertTrue($filtered->pluck('title')->contains('Machine Learning with Python'));
+    }
+
+    public function test_complex_date_range_filter_with_type_and_meta()
+    {
+        $filters = [
+            'published_at' => [
+                '$gte' => now()->subDays(14)->startOfDay()->toDateTimeString(),
+                '$lte' => now()->subDay()->endOfDay()->toDateTimeString()
+            ],
+            'type' => 'course',
+            'meta.duration' => ['$gt' => 150],
+            'meta.rating' => ['$gte' => 4.5]
+        ];
+
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+
+        $this->assertCount(1, $filtered);
+        $this->assertEquals('Machine Learning with Python', $filtered->first()->title);
+    }
+
+    public function test_filter_with_non_existent_meta_field()
+    {
+        $filters = [
+            'meta.non_existent_field' => 'some_value'
+        ];
+
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+
+        $this->assertCount(0, $filtered);
+    }
+
+    public function test_filter_with_empty_tag_array()
+    {
+        $filters = [
+            '$tags' => []
+        ];
+
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+
+        $this->assertCount(5, $filtered);
+    }
+
+    public function test_complex_filter_with_nested_and_or_conditions()
+    {
+        $filters = [
+            '$or' => [
+                [
+                    '$and' => [
+                        ['type' => 'post'],
+                        ['meta.difficulty' => 'beginner'],
+                        ['meta.duration' => ['$lte' => 90]]
+                    ]
+                ],
+                [
+                    '$and' => [
+                        ['type' => 'course'],
+                        ['meta.rating' => ['$gt' => 4.5]],
+                        ['$tags' => ['python']]
+                    ]
+                ]
+            ],
+            'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()]
+        ];
+
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply()->get();
+
+        $this->assertCount(3, $filtered);
         $this->assertTrue($filtered->pluck('title')->contains('PHP Tutorial'));
-        $this->assertTrue($filtered->pluck('title')->contains('Advanced JavaScript Concepts'));
+        $this->assertTrue($filtered->pluck('title')->contains('Introduction to Python'));
+        $this->assertTrue($filtered->pluck('title')->contains('Machine Learning with Python'));
     }
 }

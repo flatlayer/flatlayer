@@ -2,6 +2,10 @@
 
 namespace App\Query;
 
+use App\Models\Entry;
+use App\Query\JsonQueryBuilders\JsonQueryBuilder;
+use App\Query\JsonQueryBuilders\PostgresJsonQueryBuilder;
+use App\Query\JsonQueryBuilders\SqliteJsonQueryBuilder;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -15,13 +19,30 @@ class EntryFilter
     protected ?string $search;
     protected Collection|Builder $builder;
     protected array $order = [];
+    protected JsonQueryBuilder $jsonQueryBuilder;
 
+    /**
+     * @throws \Exception
+     */
     public function __construct(Builder $builder, protected array $filters)
     {
         $this->builder = $builder;
         $this->search = $filters['$search'] ?? null;
         $this->order = $filters['$order'] ?? [];
         unset($this->filters['$search'], $this->filters['$order']);
+        $this->jsonQueryBuilder = $this->createJsonQueryBuilder();
+    }
+
+    protected function createJsonQueryBuilder(): JsonQueryBuilder
+    {
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            return new SqliteJsonQueryBuilder();
+        } elseif ($driver === 'pgsql') {
+            return new PostgresJsonQueryBuilder();
+        } else {
+            throw new \Exception("Unsupported database driver: {$driver}");
+        }
     }
 
     /**
@@ -112,10 +133,10 @@ class EntryFilter
             [$jsonField, $jsonKey] = explode('.', $field, 2);
             if (is_array($value)) {
                 foreach ($value as $operator => $operand) {
-                    $this->applyJsonOperator($query, $jsonField, $jsonKey, $operator, $operand);
+                    $this->jsonQueryBuilder->applyOperator($query, $jsonField, $jsonKey, $operator, $operand);
                 }
             } else {
-                $query->whereJsonContains($jsonField, [$jsonKey => $value]);
+                $this->jsonQueryBuilder->applyExactMatch($query, $jsonField, $jsonKey, $value);
             }
         } else {
             if (is_array($value)) {
@@ -159,17 +180,9 @@ class EntryFilter
      * @param mixed $value
      * @throws InvalidFilterException
      */
-    protected function applyJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
+    protected function applyJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
     {
-        $databaseDriver = DB::getDriverName();
-
-        if ($databaseDriver === 'pgsql') {
-            $this->applyPostgresJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
-        } elseif ($databaseDriver === 'sqlite') {
-            $this->applySqliteJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
-        } else {
-            throw new InvalidFilterException("Unsupported database driver for JSON operations: $databaseDriver");
-        }
+        $this->jsonQueryBuilder->applyOperator($query, $jsonField, $jsonKey, $operator, $value);
     }
 
     /**
@@ -214,15 +227,7 @@ class EntryFilter
      */
     protected function applyJsonExactMatch(Builder $query, string $jsonField, string $jsonKey, mixed $value): void
     {
-        $databaseDriver = DB::getDriverName();
-
-        if ($databaseDriver === 'pgsql') {
-            $query->whereRaw("{$jsonField}->'{$jsonKey}' = ?", [$value]);
-        } elseif ($databaseDriver === 'sqlite') {
-            $query->whereRaw("JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') = ?", [$value]);
-        } else {
-            throw new InvalidFilterException("Unsupported database driver for JSON operations: $databaseDriver");
-        }
+        $this->jsonQueryBuilder->applyExactMatch($query, $jsonField, $jsonKey, $value);
     }
 
     /**
@@ -349,9 +354,9 @@ class EntryFilter
     protected function applyTagFilters(array|string $tags): void
     {
         if (is_array($tags) && !isset($tags['type'])) {
-            $this->builder->withAnyTags($tags);
+            $this->builder->withAllTags($tags);
         } elseif (is_array($tags) && isset($tags['type']) && isset($tags['values'])) {
-            $this->builder->withAnyTags($tags['values'], $tags['type']);
+            $this->builder->withAllTags($tags['values'], $tags['type']);
         } else {
             throw new InvalidFilterException("Invalid tag filter format");
         }
