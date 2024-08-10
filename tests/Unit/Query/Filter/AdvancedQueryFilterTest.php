@@ -212,19 +212,13 @@ class AdvancedQueryFilterTest extends TestCase
                 ]
             ],
             // Comment out the date filter for now to isolate the issue
-            // 'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()]
+             'published_at' => ['$gte' => now()->subDays(30)->toDateTimeString()]
         ];
 
         $query = Entry::query();
         $query = (new EntryFilter($query, $filters))->apply();
 
-        $this->logSqlResult($query);
-
         $filtered = $query->get();
-
-        // Log all entries for debugging
-        Log::info('All entries: ' . Entry::all()->pluck('title')->implode(', '));
-        Log::info('Filtered entries: ' . $filtered->pluck('title')->implode(', '));
 
         // Adjust assertions based on expected results
         $this->assertGreaterThanOrEqual(2, $filtered->count());

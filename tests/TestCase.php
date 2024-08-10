@@ -17,7 +17,7 @@ abstract class TestCase extends BaseTestCase
         JinaSearchService::fake();
 
         // Set up the Log facade to just print the log messages
-        $this->logToPrint();
+        //$this->logToPrint();
     }
 
     protected function logToPrint()

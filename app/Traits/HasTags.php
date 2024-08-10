@@ -36,6 +36,13 @@ trait HasTags
         });
     }
 
+    public function attachTag($tagName): static
+    {
+        $tag = $this->getTagModels($tagName)->first();
+        $this->tags()->syncWithoutDetaching([$tag->id]);
+        return $this;
+    }
+
     public function attachTags($tagNames): static
     {
         $tags = $this->getTagModels($tagNames);
