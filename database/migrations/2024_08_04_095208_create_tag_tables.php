@@ -15,16 +15,16 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('taggables', function (Blueprint $table) {
+        Schema::create('entry_tag', function (Blueprint $table) {
+            $table->foreignId('entry_id')->constrained()->onDelete('cascade');
             $table->foreignId('tag_id')->constrained()->onDelete('cascade');
-            $table->morphs('taggable');
-            $table->unique(['tag_id', 'taggable_id', 'taggable_type']);
+            $table->primary(['entry_id', 'tag_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('taggables');
+        Schema::dropIfExists('entry_tag');
         Schema::dropIfExists('tags');
     }
 };

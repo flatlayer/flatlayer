@@ -3,15 +3,16 @@
 namespace App\Traits;
 
 use App\Models\Tag;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
 
 trait HasTags
 {
-    public function tags(): MorphToMany
+    public function tags()
     {
-        return $this->morphToMany(Tag::class, 'taggable');
+        return $this->belongsToMany(Tag::class);
     }
 
     public function scopeWithAllTags(Builder $query, $tagNames): Builder
@@ -46,7 +47,8 @@ trait HasTags
     public function attachTags($tagNames): static
     {
         $tags = $this->getTagModels($tagNames);
-        $this->tags()->syncWithoutDetaching($tags);
+        $tagIds = $tags->pluck('id')->all();
+        $this->tags()->syncWithoutDetaching($tagIds);
         return $this;
     }
 
@@ -64,10 +66,8 @@ trait HasTags
         return $this;
     }
 
-    protected function getTagModels($tagNames): Collection
+    protected function getTagModels(Arrayable|array $tagNames): Collection
     {
-        $tagNames = is_array($tagNames) ? $tagNames : [$tagNames];
-
         return collect($tagNames)->map(function ($tagName) {
             return Tag::firstOrCreate(['name' => $tagName]);
         });
