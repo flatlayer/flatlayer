@@ -32,10 +32,9 @@ class MediaTransformControllerTest extends TestCase
 
         Storage::fake($this->diskName);
 
-        $this->tempImagePath = $this->createTempImage();
+        $this->tempImagePath = base_path('tests/fixtures/test.png');
 
         $this->entry = Entry::factory()->create(['type' => 'post']);
-
         $this->image = $this->entry->addImage($this->tempImagePath, 'featured_image');
     }
 
@@ -45,34 +44,6 @@ class MediaTransformControllerTest extends TestCase
         foreach ($cacheFiles as $file) {
             Storage::disk($this->diskName)->delete($file);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        if (file_exists($this->tempImagePath)) {
-            unlink($this->tempImagePath);
-        }
-
-        parent::tearDown();
-    }
-
-    protected function createTempImage()
-    {
-        $manager = new ImageManager(new Driver());
-
-        $image = $manager->create(1000, 1000);
-        $image->fill('#ffffff');
-        $image->text('Test Image', 500, 500, function ($font) {
-            $font->color('#000000');
-            $font->align('center');
-            $font->valign('middle');
-            $font->size(30);
-        });
-
-        $tempPath = tempnam(sys_get_temp_dir(), 'test_image_') . '.jpg';
-        $image->toJpeg()->save($tempPath);
-
-        return $tempPath;
     }
 
     public function test_image_transform_returns_correct_dimensions_and_format()
@@ -98,8 +69,10 @@ class MediaTransformControllerTest extends TestCase
         );
         $cachePath = $this->imageService->getCachePath($cacheKey, 'jpg');
         $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
+    }
 
-        // Test WebP format
+    public function test_image_transform_supports_webp_format()
+    {
         $response = $this->get(route('image.transform', [
             'id' => $this->image->id,
             'extension' => 'webp',
@@ -108,8 +81,21 @@ class MediaTransformControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/webp');
+    }
 
-        // Test quality parameter
+    public function test_image_extension_determines_format()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'webp',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'image/webp');
+    }
+
+    public function test_image_transform_respects_quality_parameter()
+    {
         $response = $this->get(route('image.transform', [
             'id' => $this->image->id,
             'extension' => 'jpg',
@@ -119,8 +105,10 @@ class MediaTransformControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/jpeg');
         $this->assertLessThan(filesize($this->tempImagePath), strlen($response->getContent()));
+    }
 
-        // Test non-existent image
+    public function test_image_transform_returns_404_for_non_existent_image()
+    {
         $response = $this->get(route('image.transform', [
             'id' => 9999,
             'extension' => 'jpg',
@@ -164,5 +152,95 @@ class MediaTransformControllerTest extends TestCase
         $resultImage = (new ImageManager(new Driver()))->read($content2);
         $this->assertEquals(500, $resultImage->width());
         $this->assertEquals(300, $resultImage->height());
+    }
+
+    public function test_image_transform_handles_invalid_width_parameter()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'w' => 'invalid',
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Invalid width parameter']);
+    }
+
+    public function test_image_transform_handles_invalid_height_parameter()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'h' => 'invalid',
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Invalid height parameter']);
+    }
+
+    public function test_image_transform_handles_invalid_quality_parameter()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'q' => 'invalid',
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Invalid quality parameter']);
+    }
+
+    public function test_image_transform_handles_out_of_range_quality_parameter()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'q' => 101,
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Quality must be between 1 and 100']);
+    }
+
+    public function test_image_transform_handles_invalid_format_parameter()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'fm' => 'invalid',
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Invalid format parameter']);
+    }
+
+    public function test_image_transform_respects_max_width_limit()
+    {
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'w' => 10000,
+        ]));
+
+        $response->assertStatus(400);
+        $response->assertJson(['error' => 'Requested width exceeds maximum allowed']);
+    }
+
+    public function test_image_transform_respects_max_dimensions()
+    {
+        // Assuming the input image is 4:3 aspect ratio
+        $maxHeight = config('flatlayer.images.max_height', 8192);
+        $maxWidth = config('flatlayer.images.max_width', 8192);
+
+        $response = $this->get(route('image.transform', [
+            'id' => $this->image->id,
+            'extension' => 'jpg',
+            'h' => $maxHeight,
+        ]));
+
+        $response->assertStatus(400);
+        $expectedWidth = (int)round($maxHeight * 4 / 3); // Calculate the expected width
+        $errorMessage = "Resulting width ({$expectedWidth}px) would exceed the maximum allowed width ({$maxWidth}px)";
+        $response->assertJson(['error' => $errorMessage]);
     }
 }

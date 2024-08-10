@@ -35,15 +35,20 @@ class ImageTransformationService
     {
         $image = $this->manager->read($imagePath);
 
-        $width = isset($params['w']) ? (int)$params['w'] : null;
-        $height = isset($params['h']) ? (int)$params['h'] : null;
+        $originalWidth = $image->width();
+        $originalHeight = $image->height();
 
-        if ($width && $height) {
-            $image->cover($width, $height);
-        } elseif ($width) {
-            $image->scale(width: $width);
-        } elseif ($height) {
-            $image->scale(height: $height);
+        $requestedWidth = isset($params['w']) ? (int)$params['w'] : null;
+        $requestedHeight = isset($params['h']) ? (int)$params['h'] : null;
+
+        $this->validateDimensions($originalWidth, $originalHeight, $requestedWidth, $requestedHeight);
+
+        if ($requestedWidth && $requestedHeight) {
+            $image->cover($requestedWidth, $requestedHeight);
+        } elseif ($requestedWidth) {
+            $image->scale(width: $requestedWidth);
+        } elseif ($requestedHeight) {
+            $image->scale(height: $requestedHeight);
         }
 
         $quality = (int) ($params['q'] ?? 90);
@@ -64,6 +69,46 @@ class ImageTransformationService
         unlink($tempFile);
 
         return $optimizedImage;
+    }
+
+    /**
+     * Validate the dimensions of the image transformation request.
+     *
+     * @param int $originalWidth The width of the original image
+     * @param int $originalHeight The height of the original image
+     * @param int|null $requestedWidth The requested width for the transformed image (null if not specified)
+     * @param int|null $requestedHeight The requested height for the transformed image (null if not specified)
+     * @throws \Exception If the resulting width or height would exceed the maximum allowed dimensions
+     */
+    private function validateDimensions(int $originalWidth, int $originalHeight, ?int $requestedWidth, ?int $requestedHeight): void
+    {
+        $maxWidth = config('flatlayer.images.max_width', 8192);
+        $maxHeight = config('flatlayer.images.max_height', 8192);
+
+        $originalAspectRatio = $originalWidth / $originalHeight;
+
+        // Calculate the output dimensions
+        if ($requestedWidth && $requestedHeight) {
+            $outputWidth = $requestedWidth;
+            $outputHeight = $requestedHeight;
+        } elseif ($requestedWidth) {
+            $outputWidth = $requestedWidth;
+            $outputHeight = (int)round($requestedWidth / $originalAspectRatio);
+        } elseif ($requestedHeight) {
+            $outputHeight = $requestedHeight;
+            $outputWidth = (int)round($requestedHeight * $originalAspectRatio);
+        } else {
+            $outputWidth = $originalWidth;
+            $outputHeight = $originalHeight;
+        }
+
+        // Check if output dimensions exceed limits
+        if ($outputWidth > $maxWidth) {
+            throw new \Exception("Resulting width ({$outputWidth}px) would exceed the maximum allowed width ({$maxWidth}px)");
+        }
+        if ($outputHeight > $maxHeight) {
+            throw new \Exception("Resulting height ({$outputHeight}px) would exceed the maximum allowed height ({$maxHeight}px)");
+        }
     }
 
     /**

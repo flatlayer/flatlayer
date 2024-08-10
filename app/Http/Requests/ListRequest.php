@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
 /**
@@ -59,6 +61,13 @@ class ListRequest extends FormRequest
         return [
             'fields.json' => 'The fields must be a valid JSON string.',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(response()->json([
+            'error' => $validator->errors()->first()
+        ], 400));
     }
 
     /**
