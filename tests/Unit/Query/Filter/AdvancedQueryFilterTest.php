@@ -59,6 +59,23 @@ class AdvancedQueryFilterTest extends TestCase
             'meta' => ['difficulty' => 'intermediate', 'duration' => 240, 'rating' => 4.7],
             'published_at' => now()->subDays(15),
         ])->attachTag('programming')->attachTag('web-development');
+
+        // Add more test data for new scenarios
+        Entry::factory()->create([
+            'title' => 'Data Science Fundamentals',
+            'content' => 'Introduction to data science concepts',
+            'type' => 'course',
+            'meta' => ['difficulty' => 'intermediate', 'duration' => 150, 'rating' => 4.6, 'topics' => ['statistics', 'python', 'machine learning']],
+            'published_at' => now()->subDays(20),
+        ])->attachTag('data-science')->attachTag('programming');
+
+        Entry::factory()->create([
+            'title' => 'Advanced SQL Techniques',
+            'content' => 'Master complex SQL queries',
+            'type' => 'post',
+            'meta' => ['difficulty' => 'advanced', 'duration' => 120, 'rating' => 4.9, 'topics' => ['database', 'optimization']],
+            'published_at' => now()->subDays(3),
+        ])->attachTag('database')->attachTag('sql');
     }
 
     public function test_complex_meta_filters()
@@ -135,7 +152,7 @@ class AdvancedQueryFilterTest extends TestCase
         // Log all matching titles
         Log::info('Matching entries: ' . $results->pluck('title')->implode(', '));
 
-        $this->assertCount(3, $results);
+        $this->assertCount(4, $results);
 
         $advancedJS = $results->firstWhere('title', 'Advanced JavaScript Concepts');
         $this->assertEquals('advanced', $advancedJS->meta['difficulty']);
