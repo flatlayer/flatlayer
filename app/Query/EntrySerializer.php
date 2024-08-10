@@ -151,10 +151,6 @@ class EntrySerializer
             return $value;
         }
 
-        if ($options instanceof Closure) {
-            return $options($value);
-        }
-
         if (is_array($options)) {
             return $value;
         }
@@ -178,6 +174,9 @@ class EntrySerializer
             case 'datetime':
                 return $this->castToDateTime($value);
             default:
+                if (is_callable($options)) {
+                    return $options($value);
+                }
                 return $value;
         }
     }
