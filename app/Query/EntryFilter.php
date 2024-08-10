@@ -7,35 +7,46 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Query\Exceptions\InvalidFilterException;
+use App\Query\Exceptions\QueryException;
 
 class EntryFilter
 {
     protected ?string $search;
-
     protected Collection|Builder $builder;
+    protected array $order = [];
 
     public function __construct(Builder $builder, protected array $filters)
     {
         $this->builder = $builder;
         $this->search = $filters['$search'] ?? null;
-        unset($this->filters['$search']);
+        $this->order = $filters['$order'] ?? [];
+        unset($this->filters['$search'], $this->filters['$order']);
     }
 
     /**
      * Apply all filters and search to the query builder.
+     *
+     * @throws QueryException
      */
     public function apply(): Builder|Collection
     {
-        $this->applyFilters($this->filters);
-        $this->applySearch();
-        $this->applyOrder();
-        return $this->builder;
+        try {
+            $this->applyFilters($this->filters);
+            $this->applySearch();
+            $this->applyOrder();
+            return $this->builder;
+        } catch (\Exception $e) {
+            throw new QueryException("Error applying filters: " . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
      * Apply filters recursively to the query builder.
      *
-     * @param string $operator The logical operator to use ('and' or 'or')
+     * @param array $filters
+     * @param string $operator
+     * @throws InvalidFilterException
      */
     protected function applyFilters(array $filters, string $operator = 'and'): void
     {
@@ -43,22 +54,26 @@ class EntryFilter
 
         $this->builder->$method(function ($query) use ($filters) {
             foreach ($filters as $field => $value) {
-                if ($field === '$and') {
-                    $query->where(function ($q) use ($value) {
-                        foreach ($value as $andCondition) {
-                            $this->applyFilters($andCondition, 'and');
-                        }
-                    });
-                } elseif ($field === '$or') {
-                    $query->orWhere(function ($q) use ($value) {
-                        foreach ($value as $orCondition) {
-                            $this->applyFilters($orCondition, 'or');
-                        }
-                    });
-                } elseif ($field === '$tags') {
-                    $this->applyTagFilters($value);
-                } else {
-                    $this->applyFieldFilter($query, $field, $value);
+                switch ($field) {
+                    case '$and':
+                        $query->where(function ($q) use ($value) {
+                            foreach ($value as $andCondition) {
+                                $this->applyFilters($andCondition, 'and');
+                            }
+                        });
+                        break;
+                    case '$or':
+                        $query->orWhere(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $this->applyFilters($orCondition, 'or');
+                            }
+                        });
+                        break;
+                    case '$tags':
+                        $this->applyTagFilters($value);
+                        break;
+                    default:
+                        $this->applyFieldFilter($query, $field, $value);
                 }
             }
         });
@@ -66,6 +81,11 @@ class EntryFilter
 
     /**
      * Apply a filter to a specific field.
+     *
+     * @param Builder $query
+     * @param string $field
+     * @param mixed $value
+     * @throws InvalidFilterException
      */
     protected function applyFieldFilter(Builder $query, string $field, mixed $value): void
     {
@@ -91,6 +111,11 @@ class EntryFilter
 
     /**
      * Apply a filter to a JSON field.
+     *
+     * @param Builder $query
+     * @param string $field
+     * @param mixed $value
+     * @throws InvalidFilterException
      */
     protected function applyJsonFieldFilter(Builder $query, string $field, mixed $value): void
     {
@@ -107,6 +132,13 @@ class EntryFilter
 
     /**
      * Apply a JSON operator to a field.
+     *
+     * @param Builder $query
+     * @param string $jsonField
+     * @param string $jsonKey
+     * @param string $operator
+     * @param mixed $value
+     * @throws InvalidFilterException
      */
     protected function applyJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
@@ -114,13 +146,21 @@ class EntryFilter
 
         if ($databaseDriver === 'pgsql') {
             $this->applyPostgresJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
-        } else {
+        } elseif ($databaseDriver === 'sqlite') {
             $this->applySqliteJsonOperator($query, $jsonField, $jsonKey, $operator, $value);
+        } else {
+            throw new InvalidFilterException("Unsupported database driver for JSON operations: $databaseDriver");
         }
     }
 
     /**
      * Apply a PostgreSQL JSON operator.
+     *
+     * @param Builder $query
+     * @param string $jsonField
+     * @param string $jsonKey
+     * @param string $operator
+     * @param mixed $value
      */
     protected function applyPostgresJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
@@ -131,6 +171,12 @@ class EntryFilter
 
     /**
      * Apply a SQLite JSON operator.
+     *
+     * @param Builder $query
+     * @param string $jsonField
+     * @param string $jsonKey
+     * @param string $operator
+     * @param mixed $value
      */
     protected function applySqliteJsonOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, mixed $value): void
     {
@@ -140,6 +186,12 @@ class EntryFilter
 
     /**
      * Apply an exact match filter to a JSON field.
+     *
+     * @param Builder $query
+     * @param string $jsonField
+     * @param string $jsonKey
+     * @param mixed $value
+     * @throws InvalidFilterException
      */
     protected function applyJsonExactMatch(Builder $query, string $jsonField, string $jsonKey, mixed $value): void
     {
@@ -147,13 +199,21 @@ class EntryFilter
 
         if ($databaseDriver === 'pgsql') {
             $query->whereRaw("{$jsonField}->'{$jsonKey}' = ?", [$value]);
-        } else {
+        } elseif ($databaseDriver === 'sqlite') {
             $query->whereRaw("JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') = ?", [$value]);
+        } else {
+            throw new InvalidFilterException("Unsupported database driver for JSON operations: $databaseDriver");
         }
     }
 
     /**
      * Apply an operator to a field.
+     *
+     * @param Builder $query
+     * @param string $field
+     * @param string $operator
+     * @param mixed $value
+     * @throws InvalidFilterException
      */
     protected function applyOperator(Builder $query, string $field, string $operator, mixed $value): void
     {
@@ -173,13 +233,63 @@ class EntryFilter
             case '$ne':
                 $query->where($field, '!=', $value);
                 break;
+            case '$like':
+                $query->where($field, 'LIKE', $value);
+                break;
+            case '$exists':
+                if ($value === true || $value === 'true' || $value === 1) {
+                    $query->whereNotNull($field);
+                } elseif ($value === false || $value === 'false' || $value === 0) {
+                    $query->whereNull($field);
+                } else {
+                    throw new InvalidFilterException("Invalid value for \$exists operator: $value");
+                }
+                break;
+            case '$in':
+                if (!is_array($value)) {
+                    throw new InvalidFilterException("Value for \$in operator must be an array");
+                }
+                $query->whereIn($field, $value);
+                break;
+            case '$notIn':
+                if (!is_array($value)) {
+                    throw new InvalidFilterException("Value for \$notIn operator must be an array");
+                }
+                $query->whereNotIn($field, $value);
+                break;
+            case '$between':
+                if (!is_array($value) || count($value) !== 2) {
+                    throw new InvalidFilterException("Value for \$between operator must be an array with exactly two elements");
+                }
+                $query->whereBetween($field, $value);
+                break;
+            case '$notBetween':
+                if (!is_array($value) || count($value) !== 2) {
+                    throw new InvalidFilterException("Value for \$notBetween operator must be an array with exactly two elements");
+                }
+                $query->whereNotBetween($field, $value);
+                break;
+            case '$null':
+                $query->whereNull($field);
+                break;
+            case '$notNull':
+                $query->whereNotNull($field);
+                break;
             default:
-                $query->where($field, $value);
+                if (empty($operator)) {
+                    $query->where($field, $value);
+                } else {
+                    throw new InvalidFilterException("Invalid operator: $operator");
+                }
         }
     }
 
     /**
      * Map a JSON operator to its SQL equivalent.
+     *
+     * @param string $operator
+     * @return string
+     * @throws InvalidFilterException
      */
     protected function mapJsonOperator(string $operator): string
     {
@@ -194,13 +304,28 @@ class EntryFilter
                 return '<=';
             case '$ne':
                 return '!=';
-            default:
+            case '$like':
+                return 'LIKE';
+            case '$exists':
+                return 'IS NOT NULL';
+            case '$notExists':
+                return 'IS NULL';
+            case '$in':
+                return 'IN';
+            case '$notIn':
+                return 'NOT IN';
+            case '':
                 return '=';
+            default:
+                throw new InvalidFilterException("Invalid JSON operator: $operator");
         }
     }
 
     /**
      * Apply tag filters to the query.
+     *
+     * @param array|string $tags The tags to filter by.
+     * @throws InvalidFilterException
      */
     protected function applyTagFilters(array|string $tags): void
     {
@@ -208,6 +333,8 @@ class EntryFilter
             $this->builder->withAnyTags($tags);
         } elseif (is_array($tags) && isset($tags['type']) && isset($tags['values'])) {
             $this->builder->withAnyTags($tags['values'], $tags['type']);
+        } else {
+            throw new InvalidFilterException("Invalid tag filter format");
         }
     }
 

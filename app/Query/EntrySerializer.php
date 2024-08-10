@@ -4,12 +4,15 @@ namespace App\Query;
 
 use App\Models\Entry;
 use App\Models\Image;
+use App\Query\Exceptions\CastException;
+use App\Query\Exceptions\InvalidCastException;
+use App\Query\Exceptions\QueryException;
 use Closure;
+use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 class EntrySerializer
 {
@@ -27,14 +30,27 @@ class EntrySerializer
 
     /**
      * Convert an Entry to an array with specified or default fields.
+     *
+     * @throws QueryException
+     * @throws InvalidCastException
      */
     public function toArray(Entry $item, array $fields = []): array
     {
-        return $this->convertToArray($item, $fields ?: $this->defaultFields);
+        try {
+            return $this->convertToArray($item, $fields ?: $this->defaultFields);
+        } catch (InvalidCastException|CastException $e) {
+            // Rethrow our custom exceptions directly
+            throw $e;
+        } catch (\Exception $e) {
+            // Wrap other exceptions in a QueryException
+            throw new QueryException("Error converting Entry to array: " . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
      * Convert an Entry to a summary array with specified or default summary fields.
+     *
+     * @throws \Exception
      */
     public function toSummaryArray(Entry $item, array $fields = []): array
     {
@@ -43,6 +59,8 @@ class EntrySerializer
 
     /**
      * Convert an Entry to a detailed array with specified or default detail fields.
+     *
+     * @throws \Exception
      */
     public function toDetailArray(Entry $item, array $fields = []): array
     {
@@ -51,6 +69,8 @@ class EntrySerializer
 
     /**
      * Convert an Entry to an array based on the specified fields.
+     *
+     * @throws InvalidCastException
      */
     protected function convertToArray(Entry $item, array $fields): array
     {
@@ -79,6 +99,7 @@ class EntrySerializer
      * Get the value of a field from an Entry.
      *
      * @param mixed $options Optional casting or formatting options
+     * @throws InvalidCastException
      */
     protected function getFieldValue(Entry $item, string $field, mixed $options = null): mixed
     {
@@ -107,6 +128,7 @@ class EntrySerializer
      * Get a meta value from an Entry.
      *
      * @param mixed $options Optional casting or formatting options
+     * @throws InvalidCastException
      */
     protected function getMetaValue(Entry $item, string $key, mixed $options = null): mixed
     {
@@ -123,6 +145,7 @@ class EntrySerializer
      * Get all meta values from an Entry.
      *
      * @param mixed $options Optional casting or formatting options
+     * @throws InvalidCastException
      */
     protected function getAllMetaValues(Entry $item, mixed $options = null): mixed
     {
@@ -145,6 +168,7 @@ class EntrySerializer
      *
      * @param mixed $value The value to cast
      * @param mixed $options The casting options
+     * @throws InvalidCastException|CastException
      */
     protected function castValue(mixed $value, mixed $options = null): mixed
     {
@@ -156,38 +180,45 @@ class EntrySerializer
             return $value;
         }
 
-        switch ($options) {
-            case 'int':
-            case 'integer':
-                return (int) $value;
-            case 'float':
-            case 'double':
-                return (float) $value;
-            case 'bool':
-            case 'boolean':
-                return filter_var($value, FILTER_VALIDATE_BOOLEAN);
-            case 'string':
-                return (string) $value;
-            case 'array':
-                return is_array($value) ? $value : explode(',', $value);
-            case 'date':
-                return $this->castToDate($value);
-            case 'datetime':
-                return $this->castToDateTime($value);
-            default:
-                if (is_callable($options)) {
-                    return $options($value);
-                }
-                else {
-                    // Throw an invalid cast exception
-                    throw new InvalidArgumentException("Invalid cast option: $options");
-                }
-                return $value;
+        try {
+            switch ($options) {
+                case 'int':
+                case 'integer':
+                    return (int) $value;
+                case 'float':
+                case 'double':
+                    return (float) $value;
+                case 'bool':
+                case 'boolean':
+                    return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                case 'string':
+                    return (string) $value;
+                case 'array':
+                    return is_array($value) ? $value : explode(',', $value);
+                case 'date':
+                    return $this->castToDate($value);
+                case 'datetime':
+                    return $this->castToDateTime($value);
+                default:
+                    if (is_callable($options)) {
+                        return $options($value);
+                    } else {
+                        throw new InvalidCastException("Invalid cast option: $options");
+                    }
+            }
+        } catch (InvalidCastException $e) {
+            // Rethrow InvalidCastException directly
+            throw $e;
+        } catch (Exception $e) {
+            // Wrap other exceptions in a CastException
+            throw new CastException("Error casting value: " . $e->getMessage(), 0, $e);
         }
     }
 
     /**
      * Cast a value to a date string.
+     *
+     * @throws \Exception
      */
     protected function castToDate(mixed $value): string
     {
@@ -195,19 +226,33 @@ class EntrySerializer
             return $value->toDateString();
         }
         if (is_string($value)) {
-            return Carbon::parse($value)->toDateString();
+            try {
+                return Carbon::parse($value)->toDateString();
+            } catch (Exception $e) {
+                throw new CastException("Unable to parse date string: " . $e->getMessage(), 0, $e);
+            }
         }
-        return '';
+        throw new CastException("Unable to cast value to date");
     }
 
     /**
      * Cast a value to a datetime string.
+     *
+     * @throws \Exception
      */
     protected function castToDateTime(mixed $value): string
     {
-        return $value instanceof Carbon
-            ? $value->toDateTimeString()
-            : Carbon::parse($value)->toDateTimeString();
+        if ($value instanceof Carbon) {
+            return $value->toDateTimeString();
+        }
+        if (is_string($value)) {
+            try {
+                return Carbon::parse($value)->toDateTimeString();
+            } catch (Exception $e) {
+                throw new CastException("Unable to parse datetime string: " . $e->getMessage(), 0, $e);
+            }
+        }
+        throw new CastException("Unable to cast value to datetime");
     }
 
     /**
@@ -223,11 +268,6 @@ class EntrySerializer
         })->toArray();
     }
 
-    /**
-     * Get all images from an Entry.
-     *
-     * @param mixed $options Optional formatting options
-     */
     /**
      * Get formatted images for an entry.
      *

@@ -5,6 +5,9 @@ namespace Tests\Unit;
 use App\Query\EntrySerializer;
 use App\Models\Entry;
 use App\Models\Image;
+use App\Query\Exceptions\CastException;
+use App\Query\Exceptions\InvalidCastException;
+use App\Query\Exceptions\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -459,7 +462,7 @@ class EntrySerializerTest extends TestCase
 
     public function test_invalid_cast_option_throws_exception()
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidCastException::class);
         $this->expectExceptionMessage("Invalid cast option: invalid_cast_option");
 
         $fields = [
