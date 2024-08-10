@@ -1,16 +1,15 @@
-# FlatLayer CMS
+# Flatlayer CMS
 
-FlatLayer CMS is a Laravel-based flat-file content management system designed to provide a powerful query language for your GitHub-hosted documentation. It synchronizes your Markdown files from a GitHub repository and offers advanced search and filtering capabilities, making it ideal for managing and querying large documentation sets.
+Flatlayer CMS is a simple, Git-based content management system built on Laravel. It offers powerful features like AI-powered vector search and advanced query capabilities, making it ideal for managing and searching large documentation sets or content repositories.
 
-## Features
+## Key Features
 
-- Synchronization with GitHub repositories
-- Markdown file parsing and front matter support
-- Advanced query language for filtering and searching content
-- Image processing and responsive image generation
+- Git-based content synchronization
+- AI-powered vector search using Jina.ai
+- Advanced query language for content filtering
+- Image processing and caching
 - Webhook support for automatic updates
-- Extensible model system for different content types
-- Jina.ai integration for improved search result ranking
+- Configurable via environment variables
 
 ## Requirements
 
@@ -18,7 +17,7 @@ FlatLayer CMS is a Laravel-based flat-file content management system designed to
 - Composer
 - Laravel 11.x
 - PostgreSQL database (recommended for vector search capabilities)
-- Redis (optional, for caching)
+- Git
 
 ## Installation
 
@@ -55,9 +54,11 @@ FlatLayer CMS is a Laravel-based flat-file content management system designed to
 
 ## Configuration
 
+Flatlayer CMS is primarily configured through environment variables. Refer to the `.env.example` file for a complete list of configuration options. Here are some key configurations:
+
 ### Database
 
-FlatLayer CMS uses PostgreSQL by default for its vector search capabilities. Update your `.env` file with your database credentials:
+Update your `.env` file with your PostgreSQL database credentials:
 
 ```
 DB_CONNECTION=pgsql
@@ -68,86 +69,33 @@ DB_USERNAME=your_username
 DB_PASSWORD=your_password
 ```
 
-### Installing PG Vector Extension
-
-To enable vector search capabilities in PostgreSQL, you need to install the PG Vector extension. Here are the steps for Ubuntu:
-
-1. Install PostgreSQL development files:
-   ```
-   sudo apt-get install postgresql-server-dev-all
-   ```
-
-2. Clone the pgvector repository:
-   ```
-   git clone --branch v0.4.4 https://github.com/pgvector/pgvector.git
-   ```
-
-3. Build and install the extension:
-   ```
-   cd pgvector
-   make
-   sudo make install
-   ```
-
-4. Enable the extension in your database:
-   ```sql
-   CREATE EXTENSION vector;
-   ```
-
-For more detailed instructions or for other operating systems, please refer to the [official pgvector documentation](https://github.com/pgvector/pgvector).
-
-### FlatLayer Configuration
-
-Configure your models and repositories in the `config/flatlayer.php` file:
-
-```php
-return [
-    'models' => [
-        App\Models\Post::class => [
-            'path' => '/path/to/your/markdown/files',
-            'source' => '*.md',
-            'hook' => 'https://your-webhook-url.com/posts',
-        ],
-        App\Models\Document::class => [
-            'path' => '/path/to/your/documentation/files',
-            'source' => '*.md',
-            'hook' => 'https://your-webhook-url.com/documents',
-        ],
-    ],
-    // ... other configurations
-];
-```
-
-Note: The `'hook'` URL is an external webhook that can be used to trigger actions (such as rebuilding your frontend) after content is updated in FlatLayer CMS.
-
-### GitHub Webhook
-
-1. Set up a webhook in your GitHub repository settings.
-2. Point the webhook to your application's webhook URL (e.g., `https://your-app.com/{modelSlug}/webhook`).
-3. Set the `GITHUB_WEBHOOK_SECRET` in your `.env` file to match the secret you configured in GitHub.
-
-### OpenAI Configuration
-
-FlatLayer uses OpenAI for generating embeddings. Set your API key in the `.env` file:
-
-```
-OPENAI_API_KEY=your_openai_api_key
-```
-
 ### Jina.ai Configuration
 
-FlatLayer uses Jina.ai for reranking search results. To set this up:
-
-1. Sign up for a Jina AI account at [https://jina.ai/](https://jina.ai/).
-2. Navigate to your account settings and generate an API key.
-3. Add the following to your `.env` file:
+Flatlayer uses Jina.ai for vector search and result reranking. Add the following to your `.env` file:
 
 ```
 JINA_API_KEY=your_jina_api_key
-JINA_MODEL=jina-reranker-v2-base-multilingual
+JINA_RERANK_MODEL=jina-reranker-v2-base-multilingual
+JINA_EMBED_MODEL=jina-embeddings-v2-base-en
 ```
 
-You can adjust the `JINA_MODEL` value based on your specific needs. The default model works well for multi-language support.
+### GitHub Webhook
+
+To enable automatic updates via GitHub webhooks:
+
+1. Set up a webhook in your GitHub repository settings.
+2. Set the `GITHUB_WEBHOOK_SECRET` in your `.env` file to match the secret you configured in GitHub.
+
+### Content Sync Configuration
+
+Configure your content synchronization settings in the `.env` file:
+
+```
+FLATLAYER_SYNC_POSTS="path=/path/to/posts"
+FLATLAYER_SYNC_PAGES="path=/path/to/pages --pattern=**/*.md"
+```
+
+You can add multiple sync configurations for different content types.
 
 ## Usage
 
@@ -156,52 +104,61 @@ You can adjust the `JINA_MODEL` value based on your specific needs. The default 
 To manually sync content from your configured repositories:
 
 ```
-php artisan flatlayer:markdown-sync {model}
+php artisan flatlayer:entry-sync --type=posts
 ```
 
-Replace `{model}` with the model name (e.g., `Post` or `Document`).
+This command should be run whenever your Git repository is updated. It can also be triggered automatically via a webhook.
+
+### Clearing Image Cache
+
+Run the following command daily to remove old image cache:
+
+```
+php artisan image:clear-cache
+```
+
+You can adjust the number of days after which to clear cache by passing an argument:
+
+```
+php artisan image:clear-cache 7
+```
 
 ### Querying Content
 
-FlatLayer provides a powerful query language for filtering and searching content. Use the `/api/{modelSlug}/list` endpoint with query parameters:
+Flatlayer provides a powerful query language for filtering and searching content. Use the API endpoints with query parameters:
 
 ```
-GET /api/posts/list?filter={"title":{"$contains":"Laravel"},"tags":["tutorial"]}&search=eloquent
+GET /api/posts?filter={"title":{"$contains":"Laravel"},"tags":["tutorial"]}&search=eloquent
 ```
 
-This example filters posts with "Laravel" in the title, tagged as "tutorial", and searches for the term "eloquent" using vectorized search.
-
-For detailed information on the filtering and query language capabilities, please refer to our [Filtering Documentation](./docs/filtering.md).
+This example filters posts with "Laravel" in the title, tagged as "tutorial", and searches for the term "eloquent" using vector search.
 
 ### Image Processing
 
-FlatLayer automatically processes images referenced in your Markdown files. Use the `media.transform` route to generate responsive images:
+Flatlayer automatically processes images referenced in your content. Use the `media.transform` route to generate responsive images:
 
 ```
 <img src="{{ route('media.transform', ['id' => $imageId, 'w' => 800, 'h' => 600]) }}" alt="Responsive Image">
 ```
 
-## Extending FlatLayer
+## Extending Flatlayer
 
 ### Custom Models
 
-Create new models that use the `MarkdownModel` and `Searchable` traits to add support for new content types:
+Create new models that extend the base Flatlayer model to add support for new content types:
 
 ```php
-use App\Traits\HasMarkdown;
-use App\Traits\Searchable;
+use App\Models\FlatlayerModel;
 
-class CustomContent extends Model
+class CustomContent extends FlatlayerModel
 {
-    use HasMarkdown, Searchable;
-
     // ... your model implementation
 }
 ```
 
-### Custom Filters
+### Custom Commands
 
-Extend the `QueryFilter` class to add custom filtering logic for your models.
+You can create custom Artisan commands to extend Flatlayer's functionality. Place your command classes in the `app/Console/Commands` directory.
 
 ## Testing
 
