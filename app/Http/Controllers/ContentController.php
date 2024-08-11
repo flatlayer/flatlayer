@@ -37,9 +37,17 @@ class ContentController extends Controller
 
         $fields = $request->getFields();
 
-        $transformedItems = collect($paginatedResult->items())->map(
-            fn ($item) => $this->arrayConverter->toSummaryArray($item, $fields)
-        )->all();
+        $items = $filteredResult->isSearch()
+            ? $paginatedResult->getCollection()->map(fn($item) => ['item' => $item, 'relevance' => $item->relevance ?? null])
+            : $paginatedResult->getCollection();
+
+        $transformedItems = $items->map(function ($item) use ($fields, $filteredResult) {
+            $transformedItem = $this->arrayConverter->toSummaryArray($filteredResult->isSearch() ? $item['item'] : $item, $fields);
+            if ($filteredResult->isSearch()) {
+                $transformedItem['relevance'] = $item['relevance'];
+            }
+            return $transformedItem;
+        })->all();
 
         $transformedResults = new LengthAwarePaginator(
             $transformedItems,

@@ -89,10 +89,6 @@ class AdvancedQueryFilterTest extends TestCase
         $entryFilter = new EntryFilter($query, $filters);
         $filtered = $entryFilter->apply();
 
-        // Log the SQL query and bindings
-        Log::info('Generated SQL: '.$filtered->toSql());
-        Log::info('SQL Bindings: '.json_encode($filtered->getBindings()));
-
         // Execute the query and get the results
         $results = $filtered->get();
 

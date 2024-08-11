@@ -52,14 +52,18 @@ class EntryFilter
      *
      * @throws QueryException
      */
-    public function apply(): Builder|Collection
+    public function apply(): EntryQueryBuilder
     {
         try {
             $this->applyFilters($this->filters);
-            $this->applySearch();
-            $this->applyOrder();
 
-            return $this->builder;
+            if ($this->search && $this->isSearchable()) {
+                $searchResults = $this->applySearch();
+                return new EntryQueryBuilder($searchResults, true);
+            }
+
+            $this->applyOrder();
+            return new EntryQueryBuilder($this->builder, false);
         } catch (\Exception $e) {
             throw new QueryException('Error applying filters: '.$e->getMessage(), 0, $e);
         }
@@ -337,16 +341,14 @@ class EntryFilter
     /**
      * Apply search to the query if the model is searchable.
      */
-    protected function applySearch(): void
+    protected function applySearch(): Collection
     {
-        if ($this->search && $this->isSearchable()) {
-            $modelClass = get_class($this->builder->getModel());
-            $this->builder = $modelClass::search(
-                $this->search,
-                rerank: true,
-                builder: $this->builder
-            );
-        }
+        $modelClass = get_class($this->builder->getModel());
+        return $modelClass::search(
+            $this->search,
+            rerank: true,
+            builder: $this->builder
+        );
     }
 
     /**
@@ -354,7 +356,7 @@ class EntryFilter
      */
     protected function applyOrder(): void
     {
-        if (! $this->isSearch() && ! empty($this->order)) {
+        if (!empty($this->order)) {
             foreach ($this->order as $field => $direction) {
                 $this->builder->orderBy($field, $direction);
             }
