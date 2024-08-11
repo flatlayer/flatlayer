@@ -4,45 +4,12 @@ namespace App\Query\JsonQueryBuilders;
 
 use Illuminate\Database\Eloquent\Builder;
 
-class SqliteJsonQueryBuilder implements JsonQueryBuilder
+class SqliteJsonQueryBuilder extends BaseQueryBuilder
 {
-    public function applyOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
-    {
-        switch ($operator) {
-            case '$contains':
-                $this->applyContainsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notContains':
-                $this->applyNotContainsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$in':
-                $this->applyInOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notIn':
-                $this->applyNotInOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$exists':
-                $this->applyExistsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notExists':
-                $this->applyNotExistsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            default:
-                $sqliteOperator = $this->mapOperator($operator);
-                $castType = $this->getCastType($value);
-                $query->whereRaw("CAST(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') AS {$castType}) {$sqliteOperator} ?", [$value]);
-        }
-    }
-
     public function applyExactMatch(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
         $castType = $this->getCastType($value);
         $query->whereRaw("CAST(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') AS {$castType}) = ?", [$value]);
-    }
-
-    public function applyJsonContains(Builder $query, string $jsonField, string $jsonKey, $value): void
-    {
-        $this->applyContainsOperator($query, $jsonField, $jsonKey, $value);
     }
 
     protected function applyContainsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
@@ -58,60 +25,40 @@ class SqliteJsonQueryBuilder implements JsonQueryBuilder
     protected function applyInOperator(Builder $query, string $jsonField, string $jsonKey, $values): void
     {
         $placeholders = implode(',', array_fill(0, count($values), '?'));
-        $castType = $this->getCastType($values[0]); // Assuming all values are of the same type
+        $castType = $this->getCastType($values[0]);
         $query->whereRaw("CAST(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') AS {$castType}) IN ({$placeholders})", $values);
     }
 
     protected function applyNotInOperator(Builder $query, string $jsonField, string $jsonKey, $values): void
     {
         $placeholders = implode(',', array_fill(0, count($values), '?'));
-        $castType = $this->getCastType($values[0]); // Assuming all values are of the same type
+        $castType = $this->getCastType($values[0]);
         $query->whereRaw("CAST(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') AS {$castType}) NOT IN ({$placeholders})", $values);
     }
 
     protected function applyExistsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
-        if ($value === true || $value === 'true' || $value === 1) {
-            $query->whereRaw("JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NOT NULL");
-        } else {
-            $query->whereRaw("JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NULL");
-        }
+        $query->whereRaw($value ? "JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NOT NULL" : "JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NULL");
     }
 
     protected function applyNotExistsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
-        if ($value === true || $value === 'true' || $value === 1) {
-            $query->whereRaw("JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NULL");
-        } else {
-            $query->whereRaw("JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NOT NULL");
-        }
+        $query->whereRaw($value ? "JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NULL" : "JSON_TYPE(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}')) IS NOT NULL");
     }
 
-    protected function mapOperator(string $operator): string
+    protected function applyDefaultOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
     {
-        $map = [
-            '$eq' => '=',
-            '$ne' => '!=',
-            '$gt' => '>',
-            '$gte' => '>=',
-            '$lt' => '<',
-            '$lte' => '<=',
-            '$like' => 'LIKE',
-            '$exists' => 'IS NOT NULL',
-            '$notExists' => 'IS NULL',
-        ];
-
-        return $map[$operator] ?? $operator;
+        $sqliteOperator = $this->mapOperator($operator);
+        $castType = $this->getCastType($value);
+        $query->whereRaw("CAST(JSON_EXTRACT({$jsonField}, '$.{$jsonKey}') AS {$castType}) {$sqliteOperator} ?", [$value]);
     }
 
     protected function getCastType($value): string
     {
-        if (is_numeric($value)) {
-            return 'NUMERIC';
-        } elseif (is_bool($value)) {
-            return 'INTEGER'; // SQLite doesn't have a boolean type, so we use INTEGER
-        } else {
-            return 'TEXT';
-        }
+        return match (true) {
+            is_numeric($value) => 'NUMERIC',
+            is_bool($value) => 'INTEGER',
+            default => 'TEXT',
+        };
     }
 }

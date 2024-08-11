@@ -4,45 +4,12 @@ namespace App\Query\JsonQueryBuilders;
 
 use Illuminate\Database\Eloquent\Builder;
 
-class PostgresJsonQueryBuilder implements JsonQueryBuilder
+class PostgresJsonQueryBuilder extends BaseQueryBuilder
 {
-    public function applyOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
-    {
-        switch ($operator) {
-            case '$contains':
-                $this->applyContainsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notContains':
-                $this->applyNotContainsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$in':
-                $this->applyInOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notIn':
-                $this->applyNotInOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$exists':
-                $this->applyExistsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            case '$notExists':
-                $this->applyNotExistsOperator($query, $jsonField, $jsonKey, $value);
-                break;
-            default:
-                $postgresOperator = $this->mapOperator($operator);
-                $castType = $this->getCastType($value);
-                $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} {$postgresOperator} ?", [$value]);
-        }
-    }
-
     public function applyExactMatch(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
         $castType = $this->getCastType($value);
         $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} = ?", [$value]);
-    }
-
-    public function applyJsonContains(Builder $query, string $jsonField, string $jsonKey, $value): void
-    {
-        $this->applyContainsOperator($query, $jsonField, $jsonKey, $value);
     }
 
     protected function applyContainsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
@@ -57,61 +24,41 @@ class PostgresJsonQueryBuilder implements JsonQueryBuilder
 
     protected function applyInOperator(Builder $query, string $jsonField, string $jsonKey, $values): void
     {
-        $castType = $this->getCastType($values[0]); // Assuming all values are of the same type
+        $castType = $this->getCastType($values[0]);
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} IN ({$placeholders})", $values);
     }
 
     protected function applyNotInOperator(Builder $query, string $jsonField, string $jsonKey, $values): void
     {
-        $castType = $this->getCastType($values[0]); // Assuming all values are of the same type
+        $castType = $this->getCastType($values[0]);
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} NOT IN ({$placeholders})", $values);
     }
 
     protected function applyExistsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
-        if ($value === true || $value === 'true' || $value === 1) {
-            $query->whereRaw("({$jsonField}->'{$jsonKey}') IS NOT NULL");
-        } else {
-            $query->whereRaw("({$jsonField}->'{$jsonKey}') IS NULL");
-        }
+        $query->whereRaw($value ? "({$jsonField}->'{$jsonKey}') IS NOT NULL" : "({$jsonField}->'{$jsonKey}') IS NULL");
     }
 
     protected function applyNotExistsOperator(Builder $query, string $jsonField, string $jsonKey, $value): void
     {
-        if ($value === true || $value === 'true' || $value === 1) {
-            $query->whereRaw("({$jsonField}->'{$jsonKey}') IS NULL");
-        } else {
-            $query->whereRaw("({$jsonField}->'{$jsonKey}') IS NOT NULL");
-        }
+        $query->whereRaw($value ? "({$jsonField}->'{$jsonKey}') IS NULL" : "({$jsonField}->'{$jsonKey}') IS NOT NULL");
     }
 
-    protected function mapOperator(string $operator): string
+    protected function applyDefaultOperator(Builder $query, string $jsonField, string $jsonKey, string $operator, $value): void
     {
-        $map = [
-            '$eq' => '=',
-            '$ne' => '!=',
-            '$gt' => '>',
-            '$gte' => '>=',
-            '$lt' => '<',
-            '$lte' => '<=',
-            '$like' => 'LIKE',
-            '$exists' => 'IS NOT NULL',
-            '$notExists' => 'IS NULL',
-        ];
-
-        return $map[$operator] ?? $operator;
+        $postgresOperator = $this->mapOperator($operator);
+        $castType = $this->getCastType($value);
+        $query->whereRaw("({$jsonField}->'{$jsonKey}'){$castType} {$postgresOperator} ?", [$value]);
     }
 
     protected function getCastType($value): string
     {
-        if (is_numeric($value)) {
-            return '::numeric';
-        } elseif (is_bool($value)) {
-            return '::boolean';
-        } else {
-            return '::text';
-        }
+        return match (true) {
+            is_numeric($value) => '::numeric',
+            is_bool($value) => '::boolean',
+            default => '::text',
+        };
     }
 }
