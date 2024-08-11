@@ -136,14 +136,7 @@ class EntryFilter
         if ($field === '$tags') {
             $this->applyTagFilters($value, $query);
         } elseif (Str::contains($field, '.')) {
-            [$jsonField, $jsonKey] = explode('.', $field, 2);
-            if (is_array($value)) {
-                foreach ($value as $operator => $operand) {
-                    $this->jsonQueryBuilder->applyOperator($query, $jsonField, $jsonKey, $operator, $operand);
-                }
-            } else {
-                $this->jsonQueryBuilder->applyExactMatch($query, $jsonField, $jsonKey, $value);
-            }
+            $this->applyJsonFieldFilter($query, $field, $value);
         } else {
             if (is_array($value)) {
                 foreach ($value as $operator => $operand) {
@@ -163,13 +156,12 @@ class EntryFilter
     protected function applyJsonFieldFilter(Builder $query, string $field, mixed $value): void
     {
         [$jsonField, $jsonKey] = explode('.', $field, 2);
-
         if (is_array($value)) {
             foreach ($value as $operator => $operand) {
-                $this->applyJsonOperator($query, $jsonField, $jsonKey, $operator, $operand);
+                $this->jsonQueryBuilder->applyOperator($query, $jsonField, $jsonKey, $operator, $operand);
             }
         } else {
-            $this->applyJsonExactMatch($query, $jsonField, $jsonKey, $value);
+            $this->jsonQueryBuilder->applyExactMatch($query, $jsonField, $jsonKey, $value);
         }
     }
 
