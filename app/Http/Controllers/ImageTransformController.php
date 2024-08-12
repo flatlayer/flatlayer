@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ImageDimensionException;
 use App\Http\Requests\ImageTransformRequest;
 use App\Models\Image;
 use App\Services\ImageTransformationService;
@@ -35,8 +36,10 @@ class ImageTransformController extends Controller
             $this->imageService->cacheImage($cachePath, $transformedImage);
 
             return $this->imageService->createImageResponse($transformedImage, $format);
-        } catch (\Exception $e) {
+        } catch (ImageDimensionException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'An error occurred while processing the image'], 500);
         }
     }
 }
