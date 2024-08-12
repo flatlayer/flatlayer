@@ -57,7 +57,30 @@ Flatlayer CMS is a powerful, Git-based content management system built on Larave
 
 ## Configuration
 
-Flatlayer CMS is primarily configured through environment variables. Key configurations include:
+Flatlayer CMS is primarily configured through environment variables. Copy the `.env.example` file to `.env` and customize the settings according to your needs. Here's an overview of key configuration options:
+
+### Application Settings
+
+```
+APP_NAME=Flatlayer
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+```
+
+- `APP_KEY`: Generate this using `php artisan key:generate`
+- `APP_DEBUG`: Set to `false` in production
+- `APP_URL`: Set to your application's URL
+
+### Logging
+
+```
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+```
+
+Adjust `LOG_LEVEL` based on your environment (e.g., `error` for production).
 
 ### Database
 
@@ -65,12 +88,39 @@ Flatlayer CMS is primarily configured through environment variables. Key configu
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_DATABASE=your_database_name
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
+DB_DATABASE=flatlayer
+DB_USERNAME=
+DB_PASSWORD=
 ```
 
-### Jina.ai for Vector Search
+Configure these settings to match your PostgreSQL database setup.
+
+### Session and Cache
+
+```
+SESSION_DRIVER=database
+CACHE_DRIVER=database
+```
+
+These settings use the database for session and cache storage. Adjust if needed.
+
+### Queue
+
+```
+QUEUE_CONNECTION=database
+```
+
+Configure your preferred queue connection. The default uses the database.
+
+### Filesystem
+
+```
+FILESYSTEM_DISK=local
+```
+
+Set your preferred filesystem disk. Options include `local`, `public`, `s3`, etc.
+
+### Jina.ai Configuration
 
 ```
 JINA_API_KEY=your_jina_api_key
@@ -78,22 +128,39 @@ JINA_RERANK_MODEL=jina-reranker-v2-base-multilingual
 JINA_EMBED_MODEL=jina-embeddings-v2-base-en
 ```
 
+- Obtain your Jina API key from [jina.ai](https://jina.ai/)
+- The default models are set, but you can change them based on Jina AI documentation
+
 ### GitHub Webhook
 
-1. Set up a webhook in your GitHub repository settings.
-2. Configure the secret in your `.env` file:
-   ```
-   GITHUB_WEBHOOK_SECRET=your_webhook_secret
-   ```
+```
+GITHUB_WEBHOOK_SECRET=your_webhook_secret
+```
 
-### Content Sync
+Set this to match the secret you configure in your GitHub repository's webhook settings.
 
-Define content sources in your `.env` file:
+### Media Asset Configuration
+
+```
+FLATLAYER_MEDIA_USE_SIGNATURES=false
+```
+
+Set to `true` in production to use signed URLs for media assets.
+
+### Content Sync Configuration
+
+Configure your content sources:
 
 ```
 FLATLAYER_SYNC_POSTS="path=/path/to/posts"
 FLATLAYER_SYNC_PAGES="path=/path/to/pages --pattern=**/*.md"
 ```
+
+Format: `FLATLAYER_SYNC_[TYPE]="path=/path/to/content --type=[type] --pattern=[glob_pattern]"`
+- `--type` and `--pattern` are optional
+- Default pattern is `**/*.md`
+
+You can add multiple sync configurations for different content types.
 
 ## Usage
 
