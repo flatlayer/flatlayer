@@ -45,6 +45,7 @@ trait HasImages
     public function clearImageCollection(string $collectionName = 'default'): self
     {
         $this->images()->where('collection', $collectionName)->delete();
+
         return $this;
     }
 

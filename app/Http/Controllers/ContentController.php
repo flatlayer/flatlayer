@@ -38,7 +38,7 @@ class ContentController extends Controller
         $fields = $request->getFields();
 
         $items = $filteredResult->isSearch()
-            ? $paginatedResult->getCollection()->map(fn($item) => ['item' => $item, 'relevance' => $item->relevance ?? null])
+            ? $paginatedResult->getCollection()->map(fn ($item) => ['item' => $item, 'relevance' => $item->relevance ?? null])
             : $paginatedResult->getCollection();
 
         $transformedItems = $items->map(function ($item) use ($fields, $filteredResult) {
@@ -46,6 +46,7 @@ class ContentController extends Controller
             if ($filteredResult->isSearch()) {
                 $transformedItem['relevance'] = $item['relevance'];
             }
+
             return $transformedItem;
         })->all();
 

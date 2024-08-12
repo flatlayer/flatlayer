@@ -18,7 +18,7 @@ use function Thumbhash\extract_size_and_pixels_with_imagick;
 class ImageService
 {
     public function __construct(
-        private readonly ImageManager $imageManager = new ImageManager(new Driver())
+        private readonly ImageManager $imageManager = new ImageManager(new Driver)
     ) {}
 
     /**
@@ -77,6 +77,7 @@ class ImageService
 
         if ($image) {
             $this->updateImageIfNeeded($image, $fileInfo);
+
             return $image;
         }
 
@@ -112,7 +113,7 @@ class ImageService
      */
     public function getFileInfo(string $path): array
     {
-        if (!is_readable($path)) {
+        if (! is_readable($path)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
@@ -137,6 +138,7 @@ class ImageService
     protected function getImageDimensions(string $path): array
     {
         $imageSize = getimagesize($path);
+
         return [
             'width' => $imageSize[0] ?? null,
             'height' => $imageSize[1] ?? null,
@@ -165,6 +167,7 @@ class ImageService
         $imagick->setImageFormat('png');
 
         [$width, $height, $pixels] = extract_size_and_pixels_with_imagick($imagick->getImageBlob());
+
         return Thumbhash::convertHashToString(Thumbhash::RGBAToHash($width, $height, $pixels));
     }
 
@@ -178,6 +181,7 @@ class ImageService
         $resizedImage = $image->toJpeg(quality: 85);
 
         [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string) $resizedImage);
+
         return Thumbhash::convertHashToString(Thumbhash::RGBAToHash($width, $height, $pixels));
     }
 }

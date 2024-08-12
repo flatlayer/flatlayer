@@ -31,6 +31,7 @@ trait HasMarkdown
     {
         $model = new static(['type' => $type]);
         $model->initializeMarkdownModel();
+
         return $model->fillFromMarkdown($filename, $type);
     }
 

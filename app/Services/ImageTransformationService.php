@@ -5,10 +5,10 @@ namespace App\Services;
 use App\Exceptions\ImageDimensionException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
-use Illuminate\Support\Facades\Config;
 use Spatie\ImageOptimizer\OptimizerChainFactory;
 
 class ImageTransformationService
@@ -22,10 +22,6 @@ class ImageTransformationService
 
     /**
      * Transform an image based on the given parameters.
-     *
-     * @param  string  $imagePath
-     * @param  array  $params
-     * @return string
      */
     public function transformImage(string $imagePath, array $params): string
     {
@@ -38,9 +34,6 @@ class ImageTransformationService
 
     /**
      * Apply transformations to the image.
-     *
-     * @param  \Intervention\Image\Image  $image
-     * @param  array  $params
      */
     private function applyTransformations(\Intervention\Image\Image $image, array $params): void
     {
@@ -61,11 +54,6 @@ class ImageTransformationService
 
     /**
      * Encode and optimize the image.
-     *
-     * @param  \Intervention\Image\Image  $image
-     * @param  array  $params
-     * @param  string  $imagePath
-     * @return string
      */
     private function encodeAndOptimize(\Intervention\Image\Image $image, array $params, string $imagePath): string
     {
@@ -79,11 +67,6 @@ class ImageTransformationService
 
     /**
      * Encode the image in the specified format.
-     *
-     * @param  \Intervention\Image\Image  $image
-     * @param  string  $format
-     * @param  int  $quality
-     * @return string
      */
     private function encodeImage(\Intervention\Image\Image $image, string $format, int $quality): string
     {
@@ -98,9 +81,6 @@ class ImageTransformationService
 
     /**
      * Optimize the encoded image.
-     *
-     * @param  string  $encoded
-     * @return string
      */
     private function optimizeImage(string $encoded): string
     {
@@ -116,9 +96,6 @@ class ImageTransformationService
 
     /**
      * Get requested dimensions from params.
-     *
-     * @param  array  $params
-     * @return array
      */
     private function getRequestedDimensions(array $params): array
     {
@@ -131,10 +108,6 @@ class ImageTransformationService
     /**
      * Validate the dimensions of the image transformation request.
      *
-     * @param  int  $originalWidth
-     * @param  int  $originalHeight
-     * @param  int|null  $requestedWidth
-     * @param  int|null  $requestedHeight
      * @throws ImageDimensionException
      */
     private function validateDimensions(int $originalWidth, int $originalHeight, ?int $requestedWidth, ?int $requestedHeight): void
@@ -155,12 +128,6 @@ class ImageTransformationService
 
     /**
      * Calculate output dimensions.
-     *
-     * @param  int  $originalWidth
-     * @param  int  $originalHeight
-     * @param  int|null  $requestedWidth
-     * @param  int|null  $requestedHeight
-     * @return array
      */
     private function calculateOutputDimensions(int $originalWidth, int $originalHeight, ?int $requestedWidth, ?int $requestedHeight): array
     {
@@ -180,25 +147,17 @@ class ImageTransformationService
 
     /**
      * Generate a cache key for the given image ID and parameters.
-     *
-     * @param  mixed  $id
-     * @param  array  $params
-     * @return string
      */
     public function generateCacheKey(mixed $id, array $params): string
     {
         ksort($params);
         $params = array_map(fn ($value) => is_numeric($value) ? (int) $value : $value, $params);
 
-        return md5($id . serialize($params));
+        return md5($id.serialize($params));
     }
 
     /**
      * Get the cache path for a given cache key and format.
-     *
-     * @param  string  $cacheKey
-     * @param  string  $format
-     * @return string
      */
     public function getCachePath(string $cacheKey, string $format): string
     {
@@ -207,9 +166,6 @@ class ImageTransformationService
 
     /**
      * Cache an image and update its last access time.
-     *
-     * @param  string  $cachePath
-     * @param  string  $imageData
      */
     public function cacheImage(string $cachePath, string $imageData): void
     {
@@ -219,14 +175,12 @@ class ImageTransformationService
 
     /**
      * Get a cached image if it exists and update its last access time.
-     *
-     * @param  string  $cachePath
-     * @return string|null
      */
     public function getCachedImage(string $cachePath): ?string
     {
         if (Storage::disk($this->diskName)->exists($cachePath)) {
             $this->updateLastAccessTime($cachePath);
+
             return Storage::disk($this->diskName)->get($cachePath);
         }
 
@@ -235,10 +189,6 @@ class ImageTransformationService
 
     /**
      * Create an HTTP response for an image.
-     *
-     * @param  string  $imageData
-     * @param  string  $format
-     * @return \Illuminate\Http\Response
      */
     public function createImageResponse(string $imageData, string $format): Response
     {
@@ -254,9 +204,6 @@ class ImageTransformationService
 
     /**
      * Get the content type for a given image format.
-     *
-     * @param  string  $format
-     * @return string
      */
     private function getContentType(string $format): string
     {
@@ -271,12 +218,9 @@ class ImageTransformationService
 
     /**
      * Update the last access time for a cached image.
-     *
-     * @param  string  $cachePath
      */
     private function updateLastAccessTime(string $cachePath): void
     {
-        Cache::put(self::CACHE_PREFIX . $cachePath, now()->timestamp);
+        Cache::put(self::CACHE_PREFIX.$cachePath, now()->timestamp);
     }
 }
-

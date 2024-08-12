@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Entry;
-use App\Models\Tag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
@@ -126,7 +125,7 @@ class ListControllerTest extends TestCase
 
         $filter = json_encode([
             'published_at' => ['$gte' => now()->subDays(4)->toDateTimeString()],
-            'title' => ['$ne' => 'Post C']
+            'title' => ['$ne' => 'Post C'],
         ]);
         $response = $this->getJson("/content/post?filter={$filter}");
 

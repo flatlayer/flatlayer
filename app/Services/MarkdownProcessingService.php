@@ -99,6 +99,7 @@ class MarkdownProcessingService
 
             if (File::exists($fullImagePath)) {
                 $imagePaths->push($fullImagePath);
+
                 return "![{$altText}]({$fullImagePath})";
             }
 
@@ -115,16 +116,17 @@ class MarkdownProcessingService
      */
     protected function resolveMediaPath(string $mediaItem, string $markdownFilename): string
     {
-        $fullPath = dirname($markdownFilename) . '/' . $mediaItem;
+        $fullPath = dirname($markdownFilename).'/'.$mediaItem;
+
         return File::exists($fullPath) ? $fullPath : $mediaItem;
     }
 
     /**
      * Sync images for a specific collection.
      *
-     * @param Entry $entry The entry to sync images for
-     * @param Arrayable|array $newImagePaths The new image paths to sync
-     * @param string $collectionName The name of the image collection
+     * @param  Entry  $entry  The entry to sync images for
+     * @param  Arrayable|array  $newImagePaths  The new image paths to sync
+     * @param  string  $collectionName  The name of the image collection
      */
     protected function syncImagesCollection(Entry $entry, Arrayable|array $newImagePaths, string $collectionName): void
     {
@@ -164,6 +166,7 @@ class MarkdownProcessingService
 
         if (str_starts_with($firstLine, '# ')) {
             $title = trim(substr($firstLine, 2));
+
             return [$title, trim(implode("\n", array_slice($lines, 1)))];
         }
 

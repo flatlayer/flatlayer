@@ -5,16 +5,16 @@ namespace App\Query;
 use Countable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class EntryQueryBuilder implements Countable
 {
     /**
      * Create a new EntryQueryBuilder instance.
      *
-     * @param Builder|Collection $results Query builder or collection of results
-     * @param bool|null $isSearch Flag to set if this is a search query
+     * @param  Builder|Collection  $results  Query builder or collection of results
+     * @param  bool|null  $isSearch  Flag to set if this is a search query
      */
     public function __construct(
         protected readonly Builder|Collection $results,
@@ -92,10 +92,6 @@ class EntryQueryBuilder implements Countable
 
     /**
      * Magic method to pass calls to the underlying query builder or collection.
-     *
-     * @param string $method
-     * @param array $parameters
-     * @return mixed
      */
     public function __call(string $method, array $parameters): mixed
     {

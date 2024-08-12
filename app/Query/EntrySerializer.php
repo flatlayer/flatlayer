@@ -16,7 +16,9 @@ use Illuminate\Support\Str;
 class EntrySerializer
 {
     private readonly array $defaultFields;
+
     private readonly array $defaultSummaryFields;
+
     private readonly array $defaultDetailFields;
 
     public function __construct()
@@ -111,7 +113,7 @@ class EntrySerializer
      */
     protected function getFieldValue(Entry $item, string $field, mixed $options = null): mixed
     {
-        return match(true) {
+        return match (true) {
             Str::startsWith($field, 'meta.') => $this->getMetaValue($item, Str::after($field, 'meta.'), $options),
             Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.'), $options),
             $field === 'tags' => $item->tags->pluck('name')->toArray(),
@@ -129,6 +131,7 @@ class EntrySerializer
     protected function getDefaultFieldValue(Entry $item, string $field, mixed $options = null): mixed
     {
         $value = $item->$field;
+
         return $options !== null ? $this->castValue($value, $options) : $value;
     }
 
@@ -182,7 +185,7 @@ class EntrySerializer
         }
 
         try {
-            return match($options) {
+            return match ($options) {
                 'int', 'integer' => (int) $value,
                 'float', 'double' => (float) $value,
                 'bool', 'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
@@ -245,7 +248,7 @@ class EntrySerializer
     protected function getImage(Entry $item, string $collection, mixed $options = null): array
     {
         return $item->getImages($collection)
-            ->map(fn($mediaItem) => $this->formatImage($mediaItem, $options))
+            ->map(fn ($mediaItem) => $this->formatImage($mediaItem, $options))
             ->toArray();
     }
 
@@ -257,8 +260,8 @@ class EntrySerializer
         return $entry->images()
             ->get()
             ->groupBy('collection')
-            ->map(fn($imagesInCollection) => $imagesInCollection
-                ->map(fn($image) => $this->formatImage($image, $options))
+            ->map(fn ($imagesInCollection) => $imagesInCollection
+                ->map(fn ($image) => $this->formatImage($image, $options))
                 ->toArray()
             )
             ->toArray();

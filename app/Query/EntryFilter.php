@@ -38,9 +38,10 @@ class EntryFilter
     protected function createJsonQueryBuilder(): JsonQueryBuilder
     {
         $driver = DB::connection()->getDriverName();
-        return match($driver) {
-            'sqlite' => new SqliteJsonQueryBuilder(),
-            'pgsql' => new PostgresJsonQueryBuilder(),
+
+        return match ($driver) {
+            'sqlite' => new SqliteJsonQueryBuilder,
+            'pgsql' => new PostgresJsonQueryBuilder,
             default => throw new \Exception("Unsupported database driver: {$driver}")
         };
     }
@@ -57,10 +58,12 @@ class EntryFilter
 
             if ($this->search && $this->isSearchable()) {
                 $searchResults = $this->applySearch();
+
                 return new EntryQueryBuilder($searchResults, true);
             }
 
             $this->applyOrder();
+
             return new EntryQueryBuilder($this->builder, false);
         } catch (\Exception $e) {
             throw new QueryException('Error applying filters: '.$e->getMessage(), 0, $e);
@@ -79,7 +82,7 @@ class EntryFilter
 
         $query->$method(function ($subQuery) use ($filters) {
             foreach ($filters as $field => $value) {
-                match($field) {
+                match ($field) {
                     '$or' => $this->applyOrConditions($value),
                     '$and' => $this->applyAndConditions($value),
                     '$tags' => $this->applyTagFilters($value),
@@ -163,7 +166,7 @@ class EntryFilter
      */
     protected function applyOperator(Builder $query, string $field, string $operator, mixed $value): void
     {
-        match($operator) {
+        match ($operator) {
             '$gt' => $query->where($field, '>', $value),
             '$gte' => $query->where($field, '>=', $value),
             '$lt' => $query->where($field, '<', $value),
@@ -185,9 +188,10 @@ class EntryFilter
     /**
      * Apply the $exists operator to the query.
      *
-     * @param Builder $query The query builder instance
-     * @param string $field The field to apply the operator to
-     * @param mixed $value The value to check for existence
+     * @param  Builder  $query  The query builder instance
+     * @param  string  $field  The field to apply the operator to
+     * @param  mixed  $value  The value to check for existence
+     *
      * @throws InvalidFilterException If the value is invalid
      */
     protected function applyExistsOperator(Builder $query, string $field, mixed $value): void
@@ -204,9 +208,10 @@ class EntryFilter
     /**
      * Apply the $in operator to the query.
      *
-     * @param Builder $query The query builder instance
-     * @param string $field The field to apply the operator to
-     * @param mixed $value The values to check for inclusion
+     * @param  Builder  $query  The query builder instance
+     * @param  string  $field  The field to apply the operator to
+     * @param  mixed  $value  The values to check for inclusion
+     *
      * @throws InvalidFilterException If the value is not an array
      */
     protected function applyInOperator(Builder $query, string $field, mixed $value): void
@@ -220,9 +225,10 @@ class EntryFilter
     /**
      * Apply the $notIn operator to the query.
      *
-     * @param Builder $query The query builder instance
-     * @param string $field The field to apply the operator to
-     * @param mixed $value The values to check for exclusion
+     * @param  Builder  $query  The query builder instance
+     * @param  string  $field  The field to apply the operator to
+     * @param  mixed  $value  The values to check for exclusion
+     *
      * @throws InvalidFilterException If the value is not an array
      */
     protected function applyNotInOperator(Builder $query, string $field, mixed $value): void
@@ -236,9 +242,10 @@ class EntryFilter
     /**
      * Apply the $between operator to the query.
      *
-     * @param Builder $query The query builder instance
-     * @param string $field The field to apply the operator to
-     * @param mixed $value The range values
+     * @param  Builder  $query  The query builder instance
+     * @param  string  $field  The field to apply the operator to
+     * @param  mixed  $value  The range values
+     *
      * @throws InvalidFilterException If the value is not an array with exactly two elements
      */
     protected function applyBetweenOperator(Builder $query, string $field, mixed $value): void
@@ -252,9 +259,10 @@ class EntryFilter
     /**
      * Apply the $notBetween operator to the query.
      *
-     * @param Builder $query The query builder instance
-     * @param string $field The field to apply the operator to
-     * @param mixed $value The range values to exclude
+     * @param  Builder  $query  The query builder instance
+     * @param  string  $field  The field to apply the operator to
+     * @param  mixed  $value  The range values to exclude
+     *
      * @throws InvalidFilterException If the value is not an array with exactly two elements
      */
     protected function applyNotBetweenOperator(Builder $query, string $field, mixed $value): void
@@ -268,8 +276,7 @@ class EntryFilter
     /**
      * Apply tag filters to the query.
      *
-     * @param array $tags The tags to filter by.
-     * @param Builder|null $query
+     * @param  array  $tags  The tags to filter by.
      */
     protected function applyTagFilters(array $tags, ?Builder $query = null): void
     {
@@ -285,6 +292,7 @@ class EntryFilter
     protected function applySearch(): Collection
     {
         $modelClass = get_class($this->builder->getModel());
+
         return $modelClass::search(
             $this->search,
             rerank: true,
@@ -297,7 +305,7 @@ class EntryFilter
      */
     protected function applyOrder(): void
     {
-        if (!empty($this->order)) {
+        if (! empty($this->order)) {
             foreach ($this->order as $field => $direction) {
                 $this->builder->orderBy($field, $direction);
             }
@@ -310,6 +318,7 @@ class EntryFilter
     protected function isSearchable(): bool
     {
         $model = $this->builder->getModel();
+
         return in_array(Searchable::class, class_uses_recursive($model));
     }
 

@@ -18,11 +18,12 @@ class SearchService
     /**
      * Perform a search query.
      *
-     * @param string $query The search query
-     * @param int $limit The maximum number of results to return
-     * @param bool $rerank Whether to rerank the results
-     * @param Builder|null $builder An optional query builder to start with
+     * @param  string  $query  The search query
+     * @param  int  $limit  The maximum number of results to return
+     * @param  bool  $rerank  Whether to rerank the results
+     * @param  Builder|null  $builder  An optional query builder to start with
      * @return Collection The search results
+     *
      * @throws \Exception
      */
     public function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
@@ -41,9 +42,9 @@ class SearchService
     /**
      * Perform a vector search using PostgreSQL.
      *
-     * @param Builder $builder The query builder
-     * @param array $embedding The query embedding
-     * @param int $limit The maximum number of results to return
+     * @param  Builder  $builder  The query builder
+     * @param  array  $embedding  The query embedding
+     * @param  int  $limit  The maximum number of results to return
      * @return Collection The search results
      */
     protected function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
@@ -58,9 +59,9 @@ class SearchService
     /**
      * Perform a fallback search using cosine similarity.
      *
-     * @param Builder $builder The query builder
-     * @param array $embedding The query embedding
-     * @param int $limit The maximum number of results to return
+     * @param  Builder  $builder  The query builder
+     * @param  array  $embedding  The query embedding
+     * @param  int  $limit  The maximum number of results to return
      * @return Collection The search results
      */
     protected function fallbackSearch(Builder $builder, array $embedding, int $limit): Collection
@@ -74,8 +75,9 @@ class SearchService
     /**
      * Get the embedding for a given text.
      *
-     * @param string $text The text to embed
+     * @param  string  $text  The text to embed
      * @return array The embedding
+     *
      * @throws \Exception
      */
     public function getEmbedding(string $text): array
@@ -86,9 +88,10 @@ class SearchService
     /**
      * Rerank the search results.
      *
-     * @param string $query The original search query
-     * @param Collection $results The initial search results
+     * @param  string  $query  The original search query
+     * @param  Collection  $results  The initial search results
      * @return Collection The reranked results
+     *
      * @throws \Exception
      */
     protected function rerankResults(string $query, Collection $results): Collection
@@ -98,15 +101,16 @@ class SearchService
         $documents = $results->map(fn ($result) => $result->toSearchableText())->toArray();
         $rerankedResults = $this->jinaService->rerank($query, $documents);
 
-        if (!isset($rerankedResults['results']) || !is_array($rerankedResults['results'])) {
+        if (! isset($rerankedResults['results']) || ! is_array($rerankedResults['results'])) {
             return $results;
         }
 
         return collect($rerankedResults['results'])
             ->map(function ($rerankedResult) use ($results) {
-                if (!isset($rerankedResult['index'], $results[$rerankedResult['index']])) {
+                if (! isset($rerankedResult['index'], $results[$rerankedResult['index']])) {
                     return null;
                 }
+
                 return tap($results[$rerankedResult['index']], fn ($originalResult) => $originalResult->relevance = $rerankedResult['relevance_score'] ?? 0);
             })
             ->filter()

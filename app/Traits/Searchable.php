@@ -51,7 +51,7 @@ trait Searchable
      */
     protected function isNewSearchableRecord(): bool
     {
-        return !$this->exists || $this->wasRecentlyCreated;
+        return ! $this->exists || $this->wasRecentlyCreated;
     }
 
     /**
@@ -60,6 +60,7 @@ trait Searchable
     protected function hasSearchableChanges(): bool
     {
         $originalModel = $this->getOriginalSearchableModel();
+
         return $this->toSearchableText() !== $originalModel->toSearchableText();
     }
 
@@ -90,11 +91,12 @@ trait Searchable
     /**
      * Perform a search query.
      *
-     * @param string $query The search query
-     * @param int $limit The maximum number of results to return
-     * @param bool $rerank Whether to rerank the results
-     * @param Builder|null $builder An optional query builder to start with
+     * @param  string  $query  The search query
+     * @param  int  $limit  The maximum number of results to return
+     * @param  bool  $rerank  Whether to rerank the results
+     * @param  Builder|null  $builder  An optional query builder to start with
      * @return Collection The search results
+     *
      * @throws \Exception
      */
     public static function search(
@@ -108,10 +110,6 @@ trait Searchable
 
     /**
      * Scope a query to search for similar records based on embedding.
-     *
-     * @param Builder $query
-     * @param array $embedding
-     * @return Builder
      */
     public function scopeSearchSimilar(Builder $query, array $embedding): Builder
     {

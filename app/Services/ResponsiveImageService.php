@@ -9,14 +9,16 @@ use Illuminate\Support\Str;
 class ResponsiveImageService
 {
     private const DECREMENT = 0.9; // 10% decrement
+
     private const MIN_SIZE = 100;
+
     private const MAX_SIZE = 8192;
 
     protected readonly array $breakpoints;
 
     /**
-     * @param array $defaultTransforms Default image transformations
-     * @param array $breakpoints Breakpoints for responsive sizes
+     * @param  array  $defaultTransforms  Default image transformations
+     * @param  array  $breakpoints  Breakpoints for responsive sizes
      */
     public function __construct(
         protected readonly array $defaultTransforms = [],
@@ -74,10 +76,12 @@ class ResponsiveImageService
                     [$breakpoint, $value] = explode(':', $size, 2);
                     $breakpoint = trim($breakpoint);
                     $value = trim($value);
+
                     return isset($this->breakpoints[$breakpoint])
                         ? [$this->breakpoints[$breakpoint] => $this->parseSize($value)]
                         : [];
                 }
+
                 return [0 => $this->parseSize($size)];
             })
             ->sortKeys()
@@ -149,7 +153,7 @@ class ResponsiveImageService
             $currentWidth = max($minWidth, intval($currentWidth * self::DECREMENT));
         }
 
-        if ($aspectRatio && !in_array($baseWidth, array_column($srcset, 'width'))) {
+        if ($aspectRatio && ! in_array($baseWidth, array_column($srcset, 'width'))) {
             $srcset[] = $this->formatSrcsetEntry($media, $baseWidth, round($baseWidth * $aspectRatio));
         }
 
@@ -190,7 +194,8 @@ class ResponsiveImageService
     protected function formatSrcsetEntry(Image $media, int $width, ?int $height = null): string
     {
         $transforms = [...$this->defaultTransforms, 'w' => $width, ...($height ? ['h' => $height] : [])];
-        return $media->getUrl($transforms) . " {$width}w";
+
+        return $media->getUrl($transforms)." {$width}w";
     }
 
     /**
@@ -201,7 +206,7 @@ class ResponsiveImageService
         return collect($parsedSizes)
             ->map(fn ($size, $breakpoint) => $breakpoint === 0
                 ? $this->formatSize($size)
-                : "(min-width: {$breakpoint}px) " . $this->formatSize($size))
+                : "(min-width: {$breakpoint}px) ".$this->formatSize($size))
             ->reverse()
             ->implode(', ');
     }
@@ -226,7 +231,8 @@ class ResponsiveImageService
      */
     protected function buildImgTag(array $attributes): string
     {
-        $attributeString = Arr::join(Arr::map($attributes, fn($value, $key) => "$key=\"" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "\""), ' ');
+        $attributeString = Arr::join(Arr::map($attributes, fn ($value, $key) => "$key=\"".htmlspecialchars($value, ENT_QUOTES, 'UTF-8').'"'), ' ');
+
         return "<img $attributeString>";
     }
 
