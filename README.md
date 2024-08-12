@@ -1,15 +1,16 @@
 # Flatlayer CMS
 
-Flatlayer CMS is a powerful, Git-based content management system built on Laravel. It combines the simplicity of flat-file content storage with advanced features like AI-powered vector search and a flexible query language. This makes Flatlayer ideal for managing and searching large documentation sets, content repositories, or any project requiring efficient content organization and retrieval.
+Flatlayer CMS is a powerful, API-first content management system built on Laravel and Git. It combines the simplicity of flat-file content storage with advanced features like AI-powered vector search and a flexible query language. This makes Flatlayer ideal for managing and searching large documentation sets, content repositories, or any project requiring efficient content organization and retrieval via API.
 
 ## Key Features
 
 - **Git-based Content Synchronization**: Seamlessly sync your content from Git repositories, enabling version control and collaborative editing.
 - **AI-powered Vector Search**: Utilize Jina.ai's advanced embedding and reranking models for intelligent content discovery.
-- **Advanced Query Language**: Powerful filtering capabilities for precise content retrieval.
-- **Image Processing and Caching**: Automatic image optimization and responsive image generation.
+- **Advanced Query Language**: Powerful filtering capabilities for precise content retrieval, including complex nested queries and JSON field filtering.
+- **Field Selection**: Specify exactly which fields to retrieve, reducing payload size and improving performance.
+- **Image Processing and Caching**: Automatic image optimization and efficient caching system.
 - **Webhook Support**: Enable automatic updates triggered by repository changes.
-- **Flexible Configuration**: Easily customizable through environment variables.
+- **Flexible Configuration**: Easily customizable through environment variables, including content sync configurations.
 - **Markdown Support**: Native handling of Markdown files with front matter.
 - **Tagging System**: Organize and filter content using a flexible tagging system.
 
@@ -20,6 +21,7 @@ Flatlayer CMS is a powerful, Git-based content management system built on Larave
 - Laravel 11.x
 - PostgreSQL database (recommended for vector search capabilities)
 - Git
+- Imagick PHP extension (for image processing)
 
 ## Installation
 
@@ -57,30 +59,7 @@ Flatlayer CMS is a powerful, Git-based content management system built on Larave
 
 ## Configuration
 
-Flatlayer CMS is primarily configured through environment variables. Copy the `.env.example` file to `.env` and customize the settings according to your needs. Here's an overview of key configuration options:
-
-### Application Settings
-
-```
-APP_NAME=Flatlayer
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://localhost
-```
-
-- `APP_KEY`: Generate this using `php artisan key:generate`
-- `APP_DEBUG`: Set to `false` in production
-- `APP_URL`: Set to your application's URL
-
-### Logging
-
-```
-LOG_CHANNEL=stack
-LOG_LEVEL=debug
-```
-
-Adjust `LOG_LEVEL` based on your environment (e.g., `error` for production).
+Flatlayer CMS is primarily configured through environment variables. Key configuration options include:
 
 ### Database
 
@@ -93,33 +72,6 @@ DB_USERNAME=
 DB_PASSWORD=
 ```
 
-Configure these settings to match your PostgreSQL database setup.
-
-### Session and Cache
-
-```
-SESSION_DRIVER=database
-CACHE_DRIVER=database
-```
-
-These settings use the database for session and cache storage. Adjust if needed.
-
-### Queue
-
-```
-QUEUE_CONNECTION=database
-```
-
-Configure your preferred queue connection. The default uses the database.
-
-### Filesystem
-
-```
-FILESYSTEM_DISK=local
-```
-
-Set your preferred filesystem disk. Options include `local`, `public`, `s3`, etc.
-
 ### Jina.ai Configuration
 
 ```
@@ -128,24 +80,11 @@ JINA_RERANK_MODEL=jina-reranker-v2-base-multilingual
 JINA_EMBED_MODEL=jina-embeddings-v2-base-en
 ```
 
-- Obtain your Jina API key from [jina.ai](https://jina.ai/)
-- The default models are set, but you can change them based on Jina AI documentation
-
 ### GitHub Webhook
 
 ```
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 ```
-
-Set this to match the secret you configure in your GitHub repository's webhook settings.
-
-### Media Asset Configuration
-
-```
-FLATLAYER_MEDIA_USE_SIGNATURES=false
-```
-
-Set to `true` in production to use signed URLs for media assets.
 
 ### Content Sync Configuration
 
@@ -156,15 +95,11 @@ FLATLAYER_SYNC_POSTS="path=/path/to/posts"
 FLATLAYER_SYNC_PAGES="path=/path/to/pages --pattern=**/*.md"
 ```
 
-Format: `FLATLAYER_SYNC_[TYPE]="path=/path/to/content --type=[type] --pattern=[glob_pattern]"`
-- `--type` and `--pattern` are optional
-- Default pattern is `**/*.md`
+Format: `FLATLAYER_SYNC_[TYPE]="path=/path/to/content --pattern=[glob_pattern]"`
 
-You can add multiple sync configurations for different content types.
+## Content Synchronization
 
-## Usage
-
-### Content Synchronization
+### Manual Sync
 
 Manually sync content:
 
@@ -172,50 +107,86 @@ Manually sync content:
 php artisan flatlayer:entry-sync --type=posts
 ```
 
-This can also be triggered automatically via webhook.
+### Webhook Sync
 
-### Image Cache Management
-
-Clear old image cache:
+Set up a GitHub webhook to trigger automatic syncs on repository changes. The webhook URL should be:
 
 ```
-php artisan image:clear-cache [days]
+POST https://your-domain.com/webhook/{type}
 ```
 
-### Content Querying
+Where `{type}` corresponds to your sync configuration (e.g., `posts`, `pages`).
 
-Use the powerful query language for filtering and searching:
+## API Usage
 
+### Content Retrieval
+
+#### List Entries
 ```
-GET /api/posts?filter={"title":{"$contains":"Laravel"},"tags":["tutorial"]}&search=eloquent
-```
-
-### Image Processing
-
-Generate responsive images:
-
-```html
-<img src="{{ route('media.transform', ['id' => $imageId, 'w' => 800, 'h' => 600]) }}" alt="Responsive Image">
+GET /api/entry/{type}
 ```
 
-## Extending Flatlayer
+Parameters:
+- `filter`: JSON string for filtering (optional)
+- `fields`: JSON array of fields to retrieve (optional)
+- `page`: Page number for pagination (optional)
+- `per_page`: Items per page (optional)
 
-### Custom Models
+Example:
+```
+GET /api/entry/posts?filter={"status":"published"}&fields=["id","title","excerpt"]&page=1&per_page=10
+```
 
-Extend the base model for new content types:
+#### Get Single Entry
+```
+GET /api/entry/{type}/{slug}
+```
 
-```php
-use App\Models\Entry;
+Parameters:
+- `fields`: JSON array of fields to retrieve (optional)
 
-class CustomContent extends Entry
+Example:
+```
+GET /api/entry/posts/my-blog-post?fields=["id","title","content","published_at"]
+```
+
+### Filtering
+
+Use the advanced filtering capabilities in the `filter` parameter:
+
+```json
 {
-    // Custom implementation
+  "status": "published",
+  "meta.category": { "$in": ["technology", "programming"] },
+  "$search": "Laravel",
+  "$tags": ["web-development"],
+  "$order": {
+    "published_at": "desc"
+  }
 }
 ```
 
-### Custom Commands
+### Field Selection
 
-Create new Artisan commands in `app/Console/Commands/`.
+Specify fields to retrieve using the `fields` parameter:
+
+```json
+["id", "title", ["published_at", "date"], "meta.author", "tags"]
+```
+
+### Image Transformation
+
+Transform images via API:
+
+```
+GET /image/{id}.{extension}?w=800&h=600&q=80
+```
+
+Parameters:
+- `w`: Width (optional)
+- `h`: Height (optional)
+- `q`: Quality (1-100, optional)
+- `fm`: Format (jpg, png, webp, optional)
 
 ## Development
 
@@ -265,4 +236,4 @@ For questions, issues, or feature requests, please use the GitHub issue tracker.
 
 ---
 
-Thank you for using Flatlayer CMS! We hope it serves your content management needs effectively.
+Thank you for using Flatlayer CMS! We hope it serves your content management and API needs effectively.
