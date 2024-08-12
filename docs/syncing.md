@@ -1,85 +1,108 @@
 # Markdown Sync Process Guide
 
-FlatLayer CMS provides a powerful synchronization mechanism to keep your content up-to-date with your GitHub repository. This guide explains how the markdown synchronization process works, including the GitHub webhook integration and the `MarkdownSyncJob`.
+Flatlayer CMS provides a flexible synchronization mechanism to keep your content up-to-date with your content sources. This guide explains how the markdown synchronization process works, focusing on the SyncConfigurationService and environment-based configuration.
 
 ## Overview
 
-The markdown sync process allows you to automatically update your FlatLayer CMS content whenever changes are pushed to your GitHub repository. This process involves several components:
+The markdown sync process allows you to automatically update your Flatlayer CMS content from various sources. This process now primarily involves:
 
-1. GitHub Webhook
-2. Webhook Controller
-3. ProcessGitHubWebhookJob
-4. MarkdownSyncJob
+1. SyncConfigurationService
+2. Environment-based Configuration
+3. GitHub Webhook (optional)
+4. EntrySyncJob
 
-## GitHub Webhook Setup
+## SyncConfigurationService
+
+The SyncConfigurationService is the core component of the new sync process. It's responsible for:
+
+1. Loading sync configurations from environment variables
+2. Parsing these configurations into a structured format
+3. Providing methods to access and manage these configurations
+
+## Environment-based Configuration
+
+Sync configurations are now stored in environment variables using the following format:
+
+```
+FLATLAYER_SYNC_{TYPE}="path/to/content --pattern=*.md"
+```
+
+Where `{TYPE}` is the content type (e.g., POST, PAGE, etc.), and the value contains the path and optional pattern for file matching.
+
+Example:
+```
+FLATLAYER_SYNC_POST="/path/to/posts --pattern=**/*.md"
+FLATLAYER_SYNC_PAGE="/path/to/pages"
+```
+
+## Configuration Options
+
+Each sync configuration can include:
+
+- `path`: The directory where your markdown files are located (required).
+- `--pattern`: The glob pattern to match markdown files (optional, defaults to `**/*.md`).
+
+## GitHub Webhook Setup (Optional)
+
+If you're using GitHub as your content source:
 
 1. In your GitHub repository, go to Settings > Webhooks > Add webhook.
-2. Set the Payload URL to `https://your-app-url.com/{modelSlug}/webhook`.
+2. Set the Payload URL to `https://your-app-url.com/webhook/{type}`.
 3. Set the Content type to `application/json`.
-4. Set a Secret key (you'll need this for your FlatLayer configuration).
+4. Set a Secret key (you'll need to add this to your `.env` file as `GITHUB_WEBHOOK_SECRET`).
 5. Choose which events should trigger the webhook (usually just the `push` event).
 
-## Webhook Controller
+## EntrySyncJob
 
-The `GitHubWebhookController` handles incoming webhook requests:
+The `EntrySyncJob` is responsible for the actual synchronization process:
 
-1. It verifies the webhook signature using the secret key you set in GitHub.
-2. It resolves the appropriate model based on the `{modelSlug}` in the URL.
-3. If everything is valid, it dispatches a `ProcessGitHubWebhookJob`.
-
-## ProcessGitHubWebhookJob
-
-This job is responsible for processing the webhook payload:
-
-1. It uses the `Git` library to pull the latest changes from the repository.
-2. If changes are detected, it triggers the `MarkdownSyncJob`.
-
-## MarkdownSyncJob
-
-The `MarkdownSyncJob` is the core of the synchronization process:
-
-1. It scans the configured directory for markdown files.
-2. For each file:
-    - If it's a new file, a new model instance is created.
-    - If it's an existing file, the corresponding model is updated.
-    - If a file has been deleted, the corresponding model is deleted.
+1. It uses the configurations provided by SyncConfigurationService.
+2. For each configured content type:
+    - It scans the specified directory for markdown files matching the given pattern.
+    - Creates new entries for new files.
+    - Updates existing entries for modified files.
+    - Deletes entries for removed files.
 3. It processes front matter, content, and associated media files.
-4. After syncing, it can trigger a webhook to rebuild your frontend (if configured).
 
 ## Manual Sync
 
-You can also trigger a manual sync using the Artisan command:
+You can trigger a manual sync using the Artisan command:
 
 ```
-php artisan flatlayer:markdown-sync {model}
+php artisan flatlayer:entry-sync --type={type}
 ```
 
-Replace `{model}` with the name of your model (e.g., `Post` or `Document`).
+Replace `{type}` with the type of content you want to sync (e.g., `post` or `page`).
 
-## Configuration
+You can also specify a path directly:
 
-The sync process is configured in `config/flatlayer.php`:
-
-```php
-'models' => [
-    App\Models\Post::class => [
-        'path' => '/path/to/your/markdown/files',
-        'source' => '*.md',
-        'hook' => 'https://your-webhook-url.com/posts',
-    ],
-    // ... other models
-],
+```
+php artisan flatlayer:entry-sync {path}
 ```
 
-- `path`: The directory where your markdown files are located.
-- `source`: The glob pattern to match markdown files.
-- `hook`: An optional webhook URL to trigger after syncing (e.g., to rebuild your frontend).
+## Additional Options
+
+The `flatlayer:entry-sync` command supports several options:
+
+- `--pull`: Pull latest changes from Git repository before syncing
+- `--skip`: Skip syncing if no changes are detected
+- `--dispatch`: Dispatch the job to the queue instead of running it immediately
 
 ## Best Practices
 
-1. Use meaningful commit messages in GitHub, as they can be used to track changes.
+1. Use meaningful commit messages in your content repository, as they can be used to track changes.
 2. Organize your markdown files in a logical directory structure.
 3. Use front matter to include metadata about your content.
 4. Regularly backup your database, especially before large synchronization operations.
+5. Use environment-specific configurations for different deployment environments.
 
-By understanding and properly configuring the markdown sync process, you can ensure that your FlatLayer CMS always reflects the latest content from your GitHub repository.
+## Troubleshooting
+
+If you encounter issues with the sync process:
+
+1. Check your environment variables to ensure they're correctly set.
+2. Verify file permissions for the configured content directories.
+3. Check the Laravel logs for any error messages.
+4. Ensure your webhook secret (if using GitHub) is correctly set in both GitHub and your `.env` file.
+
+By understanding and properly configuring the markdown sync process, you can ensure that your Flatlayer CMS always reflects the latest content from your designated sources.
