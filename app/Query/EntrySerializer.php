@@ -2,7 +2,6 @@
 
 namespace App\Query;
 
-use App\Markdown\EnhancedMarkdownRenderer;
 use App\Models\Entry;
 use App\Models\Image;
 use App\Query\Exceptions\CastException;
@@ -11,9 +10,7 @@ use App\Query\Exceptions\QueryException;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use League\CommonMark\Exception\CommonMarkException;
 
 class EntrySerializer
 {
@@ -117,9 +114,9 @@ class EntrySerializer
     {
         return match (true) {
             Str::startsWith($field, 'meta.') => $this->getMetaValue($item, Str::after($field, 'meta.'), $options),
-            Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.'), $options),
+            Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.')),
             $field === 'tags' => $item->tags->pluck('name')->toArray(),
-            $field === 'images' => $this->getImages($item, $options),
+            $field === 'images' => $this->getImages($item),
             $field === 'meta' => $this->getAllMetaValues($item, $options),
             default => $this->getDefaultFieldValue($item, $field, $options),
         };
@@ -247,32 +244,32 @@ class EntrySerializer
     /**
      * Get images from a specific collection of an Entry.
      */
-    protected function getImage(Entry $item, string $collection, mixed $options = null): array
+    protected function getImage(Entry $item, string $collection): array
     {
         return $item->getImages($collection)
-            ->map(fn ($mediaItem) => $this->formatImage($mediaItem, $options))
+            ->map(fn ($image) => $this->formatImage($image))
             ->toArray();
     }
 
     /**
      * Get formatted images for an entry.
      */
-    protected function getImages(Entry $entry, mixed $options = null): array
+    protected function getImages(Entry $entry): array
     {
         return $entry->images()
             ->get()
             ->groupBy('collection')
             ->map(fn ($imagesInCollection) => $imagesInCollection
-                ->map(fn ($image) => $this->formatImage($image, $options))
+                ->map(fn ($image) => $this->formatImage($image))
                 ->toArray()
             )
             ->toArray();
     }
 
     /**
-     * Format an image with the given options.
+     * Format an image with basic information.
      */
-    protected function formatImage(Image $image, mixed $options = null): array
+    protected function formatImage(Image $image): array
     {
         return $image->toArray();
     }
