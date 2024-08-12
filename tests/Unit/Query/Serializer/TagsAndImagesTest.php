@@ -67,13 +67,13 @@ class TagsAndImagesTest extends TestCase
         $this->assertCount(1, $result['images']['featured']);
 
         $image = $result['images']['featured'][0];
-        $expectedImageKeys = ['id', 'url', 'html', 'meta'];
+        $expectedImageKeys = ['id', 'filename', 'extension', 'thumbhash'];
         foreach ($expectedImageKeys as $key) {
             $this->assertArrayHasKey($key, $image);
         }
 
-        $this->assertEquals(800, $image['meta']['width']);
-        $this->assertEquals(600, $image['meta']['height']);
+        $this->assertEquals(800, $image['width']);
+        $this->assertEquals(600, $image['height']);
     }
 
     public function test_image_cropping()
@@ -91,12 +91,6 @@ class TagsAndImagesTest extends TestCase
 
         $this->assertIsArray($result['images']['featured']);
         $this->assertNotEmpty($result['images']['featured']);
-
-        $image = $result['images']['featured'][0];
-        $this->assertStringContainsString('width="150"', $image['html']);
-        $this->assertStringContainsString('height="150"', $image['html']);
-        $this->assertStringContainsString('class="featured-image"', $image['html']);
-        $this->assertStringContainsString('sizes="100vw"', $image['html']);
     }
 
     public function test_multiple_images_in_different_collections()

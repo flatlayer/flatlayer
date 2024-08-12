@@ -4,20 +4,14 @@ namespace App\Services;
 
 use App\Exceptions\ImageDimensionException;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
-use Spatie\ImageOptimizer\OptimizerChainFactory;
 
 class ImageTransformationService
 {
-    private const CACHE_PREFIX = 'image_last_access:';
-
     public function __construct(
-        private readonly ImageManager $manager = new ImageManager(new Driver),
-        private readonly string $diskName = 'public'
+        private readonly ImageManager $manager = new ImageManager(new Driver)
     ) {}
 
     /**
@@ -29,7 +23,7 @@ class ImageTransformationService
 
         $this->applyTransformations($image, $params);
 
-        return $this->encodeAndOptimize($image, $params, $imagePath);
+        return $this->encodeImage($image, $params);
     }
 
     /**
@@ -44,54 +38,29 @@ class ImageTransformationService
 
         $this->validateDimensions($originalWidth, $originalHeight, $requestedWidth, $requestedHeight);
 
-        match (true) {
-            $requestedWidth && $requestedHeight => $image->cover($requestedWidth, $requestedHeight),
-            $requestedWidth => $image->scale(width: $requestedWidth),
-            $requestedHeight => $image->scale(height: $requestedHeight),
-            default => null,
-        };
+        if ($requestedWidth && $requestedHeight) {
+            $image->cover($requestedWidth, $requestedHeight);
+        } elseif ($requestedWidth) {
+            $image->scale(width: $requestedWidth);
+        } elseif ($requestedHeight) {
+            $image->scale(height: $requestedHeight);
+        }
     }
 
     /**
      * Encode and optimize the image.
      */
-    private function encodeAndOptimize(\Intervention\Image\Image $image, array $params, string $imagePath): string
+    private function encodeImage(\Intervention\Image\Image $image, array $params): string
     {
+        $format = $params['fm'] ?? 'jpg';
         $quality = (int) ($params['q'] ?? 90);
-        $format = $params['fm'] ?? pathinfo($imagePath, PATHINFO_EXTENSION);
 
-        $encoded = $this->encodeImage($image, $format, $quality);
-
-        return $this->optimizeImage($encoded);
-    }
-
-    /**
-     * Encode the image in the specified format.
-     */
-    private function encodeImage(\Intervention\Image\Image $image, string $format, int $quality): string
-    {
         return match ($format) {
-            'jpg', 'jpeg' => $image->toJpeg($quality),
             'png' => $image->toPng(),
             'webp' => $image->toWebp($quality),
             'gif' => $image->toGif(),
-            default => $image->encode(),
+            default => $image->toJpeg($quality),
         };
-    }
-
-    /**
-     * Optimize the encoded image.
-     */
-    private function optimizeImage(string $encoded): string
-    {
-        $optimizer = OptimizerChainFactory::create();
-        $tempFile = tempnam(sys_get_temp_dir(), 'optimized_image');
-        file_put_contents($tempFile, $encoded);
-        $optimizer->optimize($tempFile);
-        $optimizedImage = file_get_contents($tempFile);
-        unlink($tempFile);
-
-        return $optimizedImage;
     }
 
     /**
@@ -131,60 +100,25 @@ class ImageTransformationService
      */
     private function calculateOutputDimensions(int $originalWidth, int $originalHeight, ?int $requestedWidth, ?int $requestedHeight): array
     {
-        // Return original dimensions if no resize requested
         if ($requestedWidth === null && $requestedHeight === null) {
             return ['width' => $originalWidth, 'height' => $originalHeight];
         }
 
         $aspectRatio = $originalWidth / $originalHeight;
 
-        // Calculate new dimensions
         $width = $requestedWidth ?? ($requestedHeight ? round($requestedHeight * $aspectRatio) : $originalWidth);
         $height = $requestedHeight ?? ($requestedWidth ? round($requestedWidth / $aspectRatio) : $originalHeight);
 
         return ['width' => (int) $width, 'height' => (int) $height];
     }
 
-    /**
-     * Generate a cache key for the given image ID and parameters.
-     */
-    public function generateCacheKey(mixed $id, array $params): string
+    public function getImageMetadata(string $imagePath): array
     {
-        ksort($params);
-        $params = array_map(fn ($value) => is_numeric($value) ? (int) $value : $value, $params);
-
-        return md5($id.serialize($params));
-    }
-
-    /**
-     * Get the cache path for a given cache key and format.
-     */
-    public function getCachePath(string $cacheKey, string $format): string
-    {
-        return "cache/images/{$cacheKey}.{$format}";
-    }
-
-    /**
-     * Cache an image and update its last access time.
-     */
-    public function cacheImage(string $cachePath, string $imageData): void
-    {
-        Storage::disk($this->diskName)->put($cachePath, $imageData);
-        $this->updateLastAccessTime($cachePath);
-    }
-
-    /**
-     * Get a cached image if it exists and update its last access time.
-     */
-    public function getCachedImage(string $cachePath): ?string
-    {
-        if (Storage::disk($this->diskName)->exists($cachePath)) {
-            $this->updateLastAccessTime($cachePath);
-
-            return Storage::disk($this->diskName)->get($cachePath);
-        }
-
-        return null;
+        $image = $this->manager->read($imagePath);
+        return [
+            'width' => $image->width(),
+            'height' => $image->height(),
+        ];
     }
 
     /**
@@ -203,24 +137,17 @@ class ImageTransformationService
     }
 
     /**
-     * Get the content type for a given image format.
+     * @param string $extension
+     * @return string
      */
-    private function getContentType(string $format): string
+    private function getContentType(string $extension): string
     {
-        return match ($format) {
+        return match ($extension) {
             'jpg', 'jpeg' => 'image/jpeg',
             'png' => 'image/png',
             'webp' => 'image/webp',
             'gif' => 'image/gif',
             default => 'application/octet-stream',
         };
-    }
-
-    /**
-     * Update the last access time for a cached image.
-     */
-    private function updateLastAccessTime(string $cachePath): void
-    {
-        Cache::put(self::CACHE_PREFIX.$cachePath, now()->timestamp);
     }
 }

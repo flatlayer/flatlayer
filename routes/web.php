@@ -12,11 +12,12 @@ Route::get('/', function () {
 });
 
 // ContentItem routes
-Route::get('/content/{type}', [ContentController::class, 'index'])->name('content.list');
-Route::get('/content/{type}/{slug}', [ContentController::class, 'show'])->name('content.detail');
+Route::get('/entry/{type}', [ContentController::class, 'index'])->name('entry.list');
+Route::get('/entry/{type}/{slug}', [ContentController::class, 'show'])->name('entry.detail');
 
 // Media transform route
 Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('image.transform');
+Route::get('/image/{id}/metadata', [ImageTransformController::class, 'metadata'])->name('image.metadata');
 
 // Webhook route
 Route::post('/webhook/{type}', [WebhookHandlerController::class, 'handle'])

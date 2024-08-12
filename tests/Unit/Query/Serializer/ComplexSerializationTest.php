@@ -103,11 +103,12 @@ class ComplexSerializationTest extends TestCase
         $this->assertIsString($result['published_at']);
         $this->assertIsArray($result['tags']);
         $this->assertArrayHasKey('featured', $result['images']);
-        $this->assertStringContainsString('sizes="(min-width: 768px) 50vw, 100vw"', $result['images']['featured'][0]['html']);
-        $this->assertStringContainsString('class="featured-image"', $result['images']['featured'][0]['html']);
-        $this->assertStringContainsString('loading="lazy"', $result['images']['featured'][0]['html']);
-        $this->assertStringContainsString('width="400"', $result['images']['featured'][0]['html']);
-        $this->assertStringContainsString('height="300"', $result['images']['featured'][0]['html']);
+
+        $this->assertIsInt($result['images']['featured'][0]['id']);
+        $this->assertIsString($result['images']['featured'][0]['filename']);
+        $this->assertEquals(800, $result['images']['featured'][0]['width']);
+        $this->assertEquals(600, $result['images']['featured'][0]['height']);
+        $this->assertIsString($result['images']['featured'][0]['thumbhash']);
     }
 
     public function test_multiple_image_collections()
@@ -140,7 +141,7 @@ class ComplexSerializationTest extends TestCase
         $this->assertCount(1, $result['images']['featured']);
         $this->assertCount(2, $result['images']['gallery']);
 
-        $this->assertEquals('gallery-image-1.jpg', $result['images']['gallery'][0]['meta']['filename']);
-        $this->assertEquals('gallery-image-2.jpg', $result['images']['gallery'][1]['meta']['filename']);
+        $this->assertEquals('gallery-image-1.jpg', $result['images']['gallery'][0]['filename']);
+        $this->assertEquals('gallery-image-2.jpg', $result['images']['gallery'][1]['filename']);
     }
 }

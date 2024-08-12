@@ -24,23 +24,20 @@ class ContentDetailControllerTest extends TestCase
             'content' => 'This is a test post.',
         ]);
 
-        $response = $this->getJson("/content/post/{$entry->slug}");
+        $response = $this->getJson("/entry/post/{$entry->slug}");
 
         $response->assertStatus(200)
             ->assertJson([
                 'title' => 'Test Post',
                 'slug' => 'test-post',
-                'content' => [
-                    "markdown" => "This is a test post.",
-                    "html" => "<p>This is a test post.</p>\n"
-                ],
+                'content' => "This is a test post.",
                 'type' => 'post',
             ]);
     }
 
     public function test_returns_404_for_non_existent_entry()
     {
-        $response = $this->getJson('/content/post/non-existent-slug');
+        $response = $this->getJson('/entry/post/non-existent-slug');
 
         $response->assertStatus(404);
     }
@@ -55,7 +52,7 @@ class ContentDetailControllerTest extends TestCase
         ]);
 
         // Attempt to retrieve a 'post' entry using 'document' type
-        $response = $this->getJson("/content/document/{$entry->slug}");
+        $response = $this->getJson("/entry/document/{$entry->slug}");
 
         $response->assertStatus(404);
     }
@@ -76,17 +73,14 @@ class ContentDetailControllerTest extends TestCase
             'content' => 'This is a test document.',
         ]);
 
-        $postResponse = $this->getJson("/content/post/{$post->slug}");
-        $documentResponse = $this->getJson("/content/document/{$document->slug}");
+        $postResponse = $this->getJson("/entry/post/{$post->slug}");
+        $documentResponse = $this->getJson("/entry/document/{$document->slug}");
 
         $postResponse->assertStatus(200)
             ->assertJson([
                 'title' => 'Test Post',
                 'slug' => 'test-post',
-                'content' => [
-                    "markdown" => "This is a test post.",
-                    "html" => "<p>This is a test post.</p>\n"
-                ],
+                'content' => "This is a test post.",
                 'type' => 'post',
             ]);
 
@@ -94,10 +88,7 @@ class ContentDetailControllerTest extends TestCase
             ->assertJson([
                 'title' => 'Test Document',
                 'slug' => 'test-document',
-                'content' => [
-                    "markdown" => "This is a test document.",
-                    "html" => "<p>This is a test document.</p>\n"
-                ],
+                'content' => "This is a test document.",
                 'type' => 'document',
             ]);
     }

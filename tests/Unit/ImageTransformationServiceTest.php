@@ -63,47 +63,6 @@ class ImageTransformationServiceTest extends TestCase
         $this->assertEquals(300, $resultImage->height());
     }
 
-    public function test_generate_cache_key()
-    {
-        $id = 1;
-        $params = ['w' => 500, 'h' => 300, 'q' => 80];
-        $cacheKey = $this->imageService->generateCacheKey($id, $params);
-
-        $this->assertIsString($cacheKey);
-        $this->assertEquals(32, strlen($cacheKey)); // MD5 hash length
-    }
-
-    public function test_get_cache_path()
-    {
-        $cacheKey = md5('test');
-        $format = 'jpg';
-        $cachePath = $this->imageService->getCachePath($cacheKey, $format);
-
-        $this->assertEquals("cache/images/{$cacheKey}.{$format}", $cachePath);
-    }
-
-    public function test_cache_image()
-    {
-        $cachePath = 'cache/images/test.jpg';
-        $imageData = 'fake image data';
-
-        $this->imageService->cacheImage($cachePath, $imageData);
-
-        $this->assertTrue(Storage::disk($this->diskName)->exists($cachePath));
-        $this->assertEquals($imageData, Storage::disk($this->diskName)->get($cachePath));
-    }
-
-    public function test_get_cached_image()
-    {
-        $cachePath = 'cache/images/test.jpg';
-        $imageData = 'fake image data';
-        Storage::disk($this->diskName)->put($cachePath, $imageData);
-
-        $result = $this->imageService->getCachedImage($cachePath);
-
-        $this->assertEquals($imageData, $result);
-    }
-
     public function test_create_image_response()
     {
         $imageData = 'fake image data';

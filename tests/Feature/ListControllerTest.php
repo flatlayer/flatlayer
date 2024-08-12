@@ -20,7 +20,7 @@ class ListControllerTest extends TestCase
     {
         Entry::factory()->count(20)->create(['type' => 'post']);
 
-        $response = $this->getJson('/content/post');
+        $response = $this->getJson('/entry/post');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -36,7 +36,7 @@ class ListControllerTest extends TestCase
     {
         Entry::factory()->count(20)->create(['type' => 'post']);
 
-        $response = $this->getJson('/content/post?per_page=10');
+        $response = $this->getJson('/entry/post?per_page=10');
 
         $response->assertStatus(200)
             ->assertJsonCount(10, 'data');
@@ -44,7 +44,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_404_for_invalid_type()
     {
-        $response = $this->getJson('/content/invalid-type');
+        $response = $this->getJson('/entry/invalid-type');
 
         $response->assertStatus(404);
     }
@@ -60,7 +60,7 @@ class ListControllerTest extends TestCase
         $postC->attachTag('tag1');
 
         $filter = json_encode(['$tags' => ['tag1']]);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -80,7 +80,7 @@ class ListControllerTest extends TestCase
         $postC->attachTag('tag1');
 
         $filter = json_encode(['$tags' => ['tag1', 'tag2']]);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -95,7 +95,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
 
         $filter = json_encode(['title' => 'Post A']);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -109,7 +109,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
 
         $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -127,7 +127,7 @@ class ListControllerTest extends TestCase
             'published_at' => ['$gte' => now()->subDays(4)->toDateTimeString()],
             'title' => ['$ne' => 'Post C'],
         ]);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -139,7 +139,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'Laravel Tutorial', 'content' => 'Learn Laravel', 'type' => 'post']);
         Entry::factory()->create(['title' => 'PHP Basics', 'content' => 'Introduction to PHP', 'type' => 'post']);
 
-        $response = $this->getJson('/content/post?search=Laravel');
+        $response = $this->getJson('/entry/post?search=Laravel');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -157,7 +157,7 @@ class ListControllerTest extends TestCase
 
         $fields = json_encode(['title', 'excerpt']);
 
-        $response = $this->getJson("/content/post?fields={$fields}");
+        $response = $this->getJson("/entry/post?fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonStructure(['data' => [['title', 'excerpt']]])
@@ -181,7 +181,7 @@ class ListControllerTest extends TestCase
 
         $fields = json_encode(['title', 'meta.author', 'meta.seo.description']);
 
-        $response = $this->getJson("/content/post?fields={$fields}");
+        $response = $this->getJson("/entry/post?fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonStructure(['data' => [[
@@ -202,7 +202,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
 
         $order = json_encode(['title' => 'desc']);
-        $response = $this->getJson("/content/post?order={$order}");
+        $response = $this->getJson("/entry/post?order={$order}");
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -214,7 +214,7 @@ class ListControllerTest extends TestCase
     public function test_index_handles_invalid_json_filters()
     {
         $invalidFilter = 'invalid-json';
-        $response = $this->getJson("/content/post?filter={$invalidFilter}");
+        $response = $this->getJson("/entry/post?filter={$invalidFilter}");
 
         $response->assertStatus(400)
             ->assertJson(['error' => 'The filter field must be a valid JSON string.']);
@@ -223,7 +223,7 @@ class ListControllerTest extends TestCase
     public function test_index_handles_empty_result_set()
     {
         $filter = json_encode(['title' => 'Non-existent Post']);
-        $response = $this->getJson("/content/post?filter={$filter}");
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(404);
     }

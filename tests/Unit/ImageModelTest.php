@@ -120,21 +120,4 @@ class ImageModelTest extends TestCase
         $this->assertNotNull($thumbhash);
         $this->assertIsString($thumbhash);
     }
-
-    public function test_img_tag_includes_thumbhash()
-    {
-        $entry = Entry::factory()->create(['type' => 'post']);
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $path = $file->store('test');
-
-        $image = $entry->addImage(Storage::path($path));
-        $image->thumbhash = 'fake_thumbhash_value';
-        $image->save();
-
-        $sizes = ['100vw', 'md:75vw', 'lg:50vw'];
-        $imgTag = $image->getImgTag($sizes);
-
-        $this->assertStringContainsString('data-thumbhash="fake_thumbhash_value"', $imgTag);
-        $this->assertStringContainsString('sizes="(min-width: 1024px) 50vw, (min-width: 768px) 75vw, 100vw"', $imgTag);
-    }
 }

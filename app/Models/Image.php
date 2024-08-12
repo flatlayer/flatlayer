@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\ResponsiveImageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -82,48 +81,20 @@ class Image extends Model
         return null;
     }
 
-    /**
-     * Generate an HTML img tag for the image.
-     */
-    public function getImgTag(array $sizes, array $attributes = [], bool $isFluid = true, ?array $displaySize = null): string
+    public function getExtension(): string
     {
-        $service = app(ResponsiveImageService::class);
-
-        $defaultAttributes = [
-            'alt' => $attributes['alt'] ?? '',
-            'data-thumbhash' => $this->thumbhash,
-        ];
-
-        $attributes = array_merge($defaultAttributes, $attributes);
-
-        return $service->generateImgTag($this, $sizes, $attributes, $isFluid, $displaySize);
+        return pathinfo($this->filename, PATHINFO_EXTENSION);
     }
 
-    /**
-     * Get the URL for the image with optional transformations.
-     */
-    public function getUrl(array $transforms = []): string
+    public function toArray(): array
     {
-        // Prioritize the 'fm' (format) transform if it exists
-        $extension = $transforms['fm'] ?? pathinfo($this->path, PATHINFO_EXTENSION);
-
-        $route = route('image.transform', [
+        return [
             'id' => $this->id,
-            'extension' => ! empty($extension) ? $extension : 'jpg',
-        ]);
-
-        if (! empty($transforms)) {
-            $queryString = http_build_query($transforms);
-            $route .= '?'.$queryString;
-        }
-
-        if (config('flatlayer.images.use_signatures', true)) {
-            return URL::signedRoute('image.transform', array_merge(
-                ['id' => $this->id, 'extension' => $extension],
-                $transforms
-            ));
-        }
-
-        return $route;
+            'extension' => $this->getExtension(),
+            'filename' => $this->filename,
+            'width' => $this->dimensions['width'] ?? null,
+            'height' => $this->dimensions['height'] ?? null,
+            'thumbhash' => $this->thumbhash ?? null,
+        ];
     }
 }

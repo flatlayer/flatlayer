@@ -118,35 +118,11 @@ class EntrySerializer
         return match (true) {
             Str::startsWith($field, 'meta.') => $this->getMetaValue($item, Str::after($field, 'meta.'), $options),
             Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.'), $options),
-            $field === 'content' => $this->getContentValue($item, $options),
             $field === 'tags' => $item->tags->pluck('name')->toArray(),
             $field === 'images' => $this->getImages($item, $options),
             $field === 'meta' => $this->getAllMetaValues($item, $options),
             default => $this->getDefaultFieldValue($item, $field, $options),
         };
-    }
-
-    protected function getContentValue(Entry $item, mixed $options = null): array
-    {
-        $markdown = $item->content;
-        $html = $this->convertMarkdownToHtml($item, $markdown);
-
-        return [
-            'markdown' => $markdown,
-            'html' => $html,
-        ];
-    }
-
-    protected function convertMarkdownToHtml(Entry $item, string $markdown): string
-    {
-        try {
-            $renderer = new EnhancedMarkdownRenderer($item);
-            return $renderer->convertToHtml($markdown)->getContent();
-        } catch (CommonMarkException $e) {
-            // Log the error and return the original markdown
-            \Log::error("Error converting markdown to HTML: " . $e->getMessage());
-            return $markdown;
-        }
     }
 
     /**
@@ -298,27 +274,6 @@ class EntrySerializer
      */
     protected function formatImage(Image $image, mixed $options = null): array
     {
-        $sizes = $options['sizes'] ?? ['100vw'];
-        $attributes = $options['attributes'] ?? [];
-        $fluid = $options['fluid'] ?? true;
-        $displaySize = $options['display_size'] ?? null;
-
-        $customProperties = is_string($image->custom_properties)
-            ? json_decode($image->custom_properties, true)
-            : ($image->custom_properties ?? []);
-
-        $meta = array_merge([
-            'width' => $image->getWidth(),
-            'height' => $image->getHeight(),
-            'aspect_ratio' => $image->getAspectRatio(),
-            'filename' => $image->filename,
-        ], $customProperties);
-
-        return [
-            'id' => $image->id,
-            'url' => $image->getUrl(),
-            'html' => $image->getImgTag(sizes: $sizes, attributes: $attributes, isFluid: $fluid, displaySize: $displaySize),
-            'meta' => $meta,
-        ];
+        return $image->toArray();
     }
 }
