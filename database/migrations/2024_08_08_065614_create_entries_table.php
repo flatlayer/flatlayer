@@ -22,9 +22,6 @@ return new class extends Migration
             // Create a composite unique index on type and slug
             $table->unique(['type', 'slug']);
 
-            // Add a GIN index for the meta JSON field for better performance on JSON queries
-            $table->index('meta', null, 'gin');
-
             // Add a vector column for search functionality
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $table->vector('embedding', 768)->nullable();
@@ -35,6 +32,11 @@ return new class extends Migration
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
         });
+
+        // Add a functional index for the meta JSON field
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('CREATE INDEX entries_meta_gin_index ON entries USING GIN ((meta::jsonb))');
+        }
     }
 
     public function down(): void
