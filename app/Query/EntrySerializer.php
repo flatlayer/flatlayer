@@ -2,6 +2,7 @@
 
 namespace App\Query;
 
+use App\Markdown\EnhancedMarkdownRenderer;
 use App\Models\Entry;
 use App\Models\Image;
 use App\Query\Exceptions\CastException;
@@ -12,6 +13,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use League\CommonMark\Exception\CommonMarkException;
 
 class EntrySerializer
 {
@@ -116,11 +118,35 @@ class EntrySerializer
         return match (true) {
             Str::startsWith($field, 'meta.') => $this->getMetaValue($item, Str::after($field, 'meta.'), $options),
             Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.'), $options),
+            $field === 'content' => $this->getContentValue($item, $options),
             $field === 'tags' => $item->tags->pluck('name')->toArray(),
             $field === 'images' => $this->getImages($item, $options),
             $field === 'meta' => $this->getAllMetaValues($item, $options),
             default => $this->getDefaultFieldValue($item, $field, $options),
         };
+    }
+
+    protected function getContentValue(Entry $item, mixed $options = null): array
+    {
+        $markdown = $item->content;
+        $html = $this->convertMarkdownToHtml($item, $markdown);
+
+        return [
+            'markdown' => $markdown,
+            'html' => $html,
+        ];
+    }
+
+    protected function convertMarkdownToHtml(Entry $item, string $markdown): string
+    {
+        try {
+            $renderer = new EnhancedMarkdownRenderer($item);
+            return $renderer->convertToHtml($markdown)->getContent();
+        } catch (CommonMarkException $e) {
+            // Log the error and return the original markdown
+            \Log::error("Error converting markdown to HTML: " . $e->getMessage());
+            return $markdown;
+        }
     }
 
     /**

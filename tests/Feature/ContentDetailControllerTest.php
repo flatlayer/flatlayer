@@ -30,7 +30,10 @@ class ContentDetailControllerTest extends TestCase
             ->assertJson([
                 'title' => 'Test Post',
                 'slug' => 'test-post',
-                'content' => 'This is a test post.',
+                'content' => [
+                    "markdown" => "This is a test post.",
+                    "html" => "<p>This is a test post.</p>\n"
+                ],
                 'type' => 'post',
             ]);
     }
@@ -80,7 +83,10 @@ class ContentDetailControllerTest extends TestCase
             ->assertJson([
                 'title' => 'Test Post',
                 'slug' => 'test-post',
-                'content' => 'This is a test post.',
+                'content' => [
+                    "markdown" => "This is a test post.",
+                    "html" => "<p>This is a test post.</p>\n"
+                ],
                 'type' => 'post',
             ]);
 
@@ -88,7 +94,10 @@ class ContentDetailControllerTest extends TestCase
             ->assertJson([
                 'title' => 'Test Document',
                 'slug' => 'test-document',
-                'content' => 'This is a test document.',
+                'content' => [
+                    "markdown" => "This is a test document.",
+                    "html" => "<p>This is a test document.</p>\n"
+                ],
                 'type' => 'document',
             ]);
     }
