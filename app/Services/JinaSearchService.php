@@ -16,22 +16,22 @@ class JinaSearchService
     private const RERANK_ENDPOINT = 'https://api.jina.ai/v1/rerank';
 
     /**
-     * @param  string  $apiKey  The API key for Jina AI
-     * @param  string  $rerankModel  The model to use for reranking
-     * @param  string  $embeddingModel  The model to use for embedding
+     * @param string $apiKey The API key for Jina AI
+     * @param string $rerankModel The model to use for reranking
+     * @param string $embeddingModel The model to use for embedding
      */
     public function __construct(
-        protected string $apiKey,
-        protected string $rerankModel,
-        protected string $embeddingModel = 'jina-embeddings-v2-base-en'
+        protected readonly string $apiKey,
+        protected readonly string $rerankModel,
+        protected readonly string $embeddingModel = 'jina-embeddings-v2-base-en'
     ) {}
 
     /**
      * Rerank documents based on a query.
      *
-     * @param  string  $query  The query to rerank documents against
-     * @param  array  $documents  The documents to rerank
-     * @param  int  $topN  The number of top results to return
+     * @param string $query The query to rerank documents against
+     * @param array $documents The documents to rerank
+     * @param int $topN The number of top results to return
      * @return array The reranked documents
      *
      * @throws \Exception If the API request fails
@@ -52,13 +52,13 @@ class JinaSearchService
             return $response->json() ?? [];
         }
 
-        throw new \Exception('Jina API rerank request failed: '.$response->body());
+        throw new \Exception('Jina API rerank request failed: ' . $response->body());
     }
 
     /**
      * Generate embeddings for the given texts.
      *
-     * @param  array  $texts  The texts to generate embeddings for
+     * @param array $texts The texts to generate embeddings for
      * @return array The generated embeddings
      *
      * @throws \Exception If the API request fails
@@ -75,12 +75,10 @@ class JinaSearchService
         ]);
 
         if ($response->successful()) {
-            $result = $response->json();
-
-            return $result['data'] ?? [];
+            return $response->json('data', []);
         }
 
-        throw new \Exception('Jina API embedding request failed: '.$response->body());
+        throw new \Exception('Jina API embedding request failed: ' . $response->body());
     }
 
     /**
@@ -96,7 +94,7 @@ class JinaSearchService
      */
     public static function fake(): FakeJinaSearchService
     {
-        $fake = new FakeJinaSearchService;
+        $fake = new FakeJinaSearchService();
         App::instance(JinaSearchService::class, $fake);
 
         return $fake;
