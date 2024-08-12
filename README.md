@@ -1,15 +1,17 @@
 # Flatlayer CMS
 
-Flatlayer CMS is a simple, Git-based content management system built on Laravel. It offers powerful features like AI-powered vector search and advanced query capabilities, making it ideal for managing and searching large documentation sets or content repositories.
+Flatlayer CMS is a powerful, Git-based content management system built on Laravel. It combines the simplicity of flat-file content storage with advanced features like AI-powered vector search and a flexible query language. This makes Flatlayer ideal for managing and searching large documentation sets, content repositories, or any project requiring efficient content organization and retrieval.
 
 ## Key Features
 
-- Git-based content synchronization
-- AI-powered vector search using Jina.ai
-- Advanced query language for content filtering
-- Image processing and caching
-- Webhook support for automatic updates
-- Configurable via environment variables
+- **Git-based Content Synchronization**: Seamlessly sync your content from Git repositories, enabling version control and collaborative editing.
+- **AI-powered Vector Search**: Utilize Jina.ai's advanced embedding and reranking models for intelligent content discovery.
+- **Advanced Query Language**: Powerful filtering capabilities for precise content retrieval.
+- **Image Processing and Caching**: Automatic image optimization and responsive image generation.
+- **Webhook Support**: Enable automatic updates triggered by repository changes.
+- **Flexible Configuration**: Easily customizable through environment variables.
+- **Markdown Support**: Native handling of Markdown files with front matter.
+- **Tagging System**: Organize and filter content using a flexible tagging system.
 
 ## Requirements
 
@@ -32,10 +34,11 @@ Flatlayer CMS is a simple, Git-based content management system built on Laravel.
    composer install
    ```
 
-3. Copy the `.env.example` file to `.env` and configure your environment variables:
+3. Configure your environment:
    ```
    cp .env.example .env
    ```
+   Edit `.env` with your specific settings.
 
 4. Generate an application key:
    ```
@@ -54,11 +57,9 @@ Flatlayer CMS is a simple, Git-based content management system built on Laravel.
 
 ## Configuration
 
-Flatlayer CMS is primarily configured through environment variables. Refer to the `.env.example` file for a complete list of configuration options. Here are some key configurations:
+Flatlayer CMS is primarily configured through environment variables. Key configurations include:
 
 ### Database
-
-Update your `.env` file with your PostgreSQL database credentials:
 
 ```
 DB_CONNECTION=pgsql
@@ -69,9 +70,7 @@ DB_USERNAME=your_username
 DB_PASSWORD=your_password
 ```
 
-### Jina.ai Configuration
-
-Flatlayer uses Jina.ai for vector search and result reranking. Add the following to your `.env` file:
+### Jina.ai for Vector Search
 
 ```
 JINA_API_KEY=your_jina_api_key
@@ -81,63 +80,54 @@ JINA_EMBED_MODEL=jina-embeddings-v2-base-en
 
 ### GitHub Webhook
 
-To enable automatic updates via GitHub webhooks:
-
 1. Set up a webhook in your GitHub repository settings.
-2. Set the `GITHUB_WEBHOOK_SECRET` in your `.env` file to match the secret you configured in GitHub.
+2. Configure the secret in your `.env` file:
+   ```
+   GITHUB_WEBHOOK_SECRET=your_webhook_secret
+   ```
 
-### Content Sync Configuration
+### Content Sync
 
-Configure your content synchronization settings in the `.env` file:
+Define content sources in your `.env` file:
 
 ```
 FLATLAYER_SYNC_POSTS="path=/path/to/posts"
 FLATLAYER_SYNC_PAGES="path=/path/to/pages --pattern=**/*.md"
 ```
 
-You can add multiple sync configurations for different content types.
-
 ## Usage
 
-### Syncing Content
+### Content Synchronization
 
-To manually sync content from your configured repositories:
+Manually sync content:
 
 ```
 php artisan flatlayer:entry-sync --type=posts
 ```
 
-This command should be run whenever your Git repository is updated. It can also be triggered automatically via a webhook.
+This can also be triggered automatically via webhook.
 
-### Clearing Image Cache
+### Image Cache Management
 
-Run the following command daily to remove old image cache:
-
-```
-php artisan image:clear-cache
-```
-
-You can adjust the number of days after which to clear cache by passing an argument:
+Clear old image cache:
 
 ```
-php artisan image:clear-cache 7
+php artisan image:clear-cache [days]
 ```
 
-### Querying Content
+### Content Querying
 
-Flatlayer provides a powerful query language for filtering and searching content. Use the API endpoints with query parameters:
+Use the powerful query language for filtering and searching:
 
 ```
 GET /api/posts?filter={"title":{"$contains":"Laravel"},"tags":["tutorial"]}&search=eloquent
 ```
 
-This example filters posts with "Laravel" in the title, tagged as "tutorial", and searches for the term "eloquent" using vector search.
-
 ### Image Processing
 
-Flatlayer automatically processes images referenced in your content. Use the `media.transform` route to generate responsive images:
+Generate responsive images:
 
-```
+```html
 <img src="{{ route('media.transform', ['id' => $imageId, 'w' => 800, 'h' => 600]) }}" alt="Responsive Image">
 ```
 
@@ -145,33 +135,67 @@ Flatlayer automatically processes images referenced in your content. Use the `me
 
 ### Custom Models
 
-Create new models that extend the base Flatlayer model to add support for new content types:
+Extend the base model for new content types:
 
 ```php
-use App\Models\FlatlayerModel;
+use App\Models\Entry;
 
-class CustomContent extends FlatlayerModel
+class CustomContent extends Entry
 {
-    // ... your model implementation
+    // Custom implementation
 }
 ```
 
 ### Custom Commands
 
-You can create custom Artisan commands to extend Flatlayer's functionality. Place your command classes in the `app/Console/Commands` directory.
+Create new Artisan commands in `app/Console/Commands/`.
+
+## Development
+
+### Coding Standards
+
+We use Laravel Pint for code styling. Run before committing:
+
+```
+composer format
+```
+
+### Static Analysis
+
+We use Larastan for static analysis:
+
+```
+composer larastan
+```
 
 ## Testing
 
-Run the test suite with:
+Run the test suite:
 
 ```
-php artisan test
+composer test
 ```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch: `git checkout -b feature/your-feature-name`
+3. Make your changes and commit them: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature/your-feature-name`
+5. Submit a pull request
+
+Please ensure your code adheres to our coding standards and is well-documented.
 
 ## License
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Support
+
+For questions, issues, or feature requests, please use the GitHub issue tracker.
+
+---
+
+Thank you for using Flatlayer CMS! We hope it serves your content management needs effectively.
