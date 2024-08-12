@@ -15,29 +15,25 @@ trait HasTags
         return $this->belongsToMany(Tag::class);
     }
 
-    public function scopeWithAllTags(Builder $query, $tagNames): Builder
+    public function scopeWithAllTags(Builder $query, array|string $tagNames): Builder
     {
         $tagNames = is_array($tagNames) ? $tagNames : [$tagNames];
 
-        foreach ($tagNames as $tagName) {
-            $query->whereHas('tags', function (Builder $query) use ($tagName) {
-                $query->where('name', $tagName);
-            });
-        }
-
-        return $query;
-    }
-
-    public function scopeWithAnyTags(Builder $query, $tagNames): Builder
-    {
-        $tagNames = is_array($tagNames) ? $tagNames : [$tagNames];
-
-        return $query->whereHas('tags', function (Builder $query) use ($tagNames) {
-            $query->whereIn('name', $tagNames);
+        return $query->where(function (Builder $query) use ($tagNames) {
+            foreach ($tagNames as $tagName) {
+                $query->whereHas('tags', fn (Builder $q) => $q->where('name', $tagName));
+            }
         });
     }
 
-    public function attachTag($tagName): static
+    public function scopeWithAnyTags(Builder $query, array|string $tagNames): Builder
+    {
+        $tagNames = is_array($tagNames) ? $tagNames : [$tagNames];
+
+        return $query->whereHas('tags', fn (Builder $q) => $q->whereIn('name', $tagNames));
+    }
+
+    public function attachTag(string $tagName): static
     {
         $tag = $this->getTagModels($tagName)->first();
         $this->tags()->syncWithoutDetaching([$tag->id]);
@@ -45,16 +41,15 @@ trait HasTags
         return $this;
     }
 
-    public function attachTags($tagNames): static
+    public function attachTags(array|string $tagNames): static
     {
         $tags = $this->getTagModels($tagNames);
-        $tagIds = $tags->pluck('id')->all();
-        $this->tags()->syncWithoutDetaching($tagIds);
+        $this->tags()->syncWithoutDetaching($tags->pluck('id')->all());
 
         return $this;
     }
 
-    public function detachTags($tagNames): static
+    public function detachTags(array|string $tagNames): static
     {
         $tags = $this->getTagModels($tagNames);
         $this->tags()->detach($tags->pluck('id'));
@@ -62,7 +57,7 @@ trait HasTags
         return $this;
     }
 
-    public function syncTags($tagNames): static
+    public function syncTags(array|string $tagNames): static
     {
         $tags = $this->getTagModels($tagNames);
         $this->tags()->sync($tags->pluck('id'));
@@ -73,10 +68,14 @@ trait HasTags
 
     protected function getTagModels(Arrayable|array|string $tagNames): Collection
     {
-        $tagNames = is_array($tagNames) ? $tagNames : [$tagNames];
+        $tagNames = match (true) {
+            $tagNames instanceof Arrayable => $tagNames->toArray(),
+            is_string($tagNames) => [$tagNames],
+            default => $tagNames,
+        };
 
-        return collect($tagNames)->map(function ($tagName) {
-            return Tag::firstOrCreate(['name' => $tagName]);
-        })->unique('id');
+        return collect($tagNames)
+            ->map(fn (string $tagName) => Tag::firstOrCreate(['name' => $tagName]))
+            ->unique('id');
     }
 }

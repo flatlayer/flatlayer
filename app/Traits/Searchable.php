@@ -4,7 +4,9 @@ namespace App\Traits;
 
 use App\Services\SearchService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\App;
 
 /**
  * Trait Searchable
@@ -19,8 +21,10 @@ trait Searchable
      */
     public static function bootSearchable(): void
     {
-        static::saving(function ($model) {
-            $model->updateSearchVectorIfNeeded();
+        static::saving(function (Model $model) {
+            if ($model instanceof self) {
+                $model->updateSearchVectorIfNeeded();
+            }
         });
     }
 
@@ -29,12 +33,17 @@ trait Searchable
      */
     public function updateSearchVectorIfNeeded(): void
     {
-        if (
-            ($this->isNewSearchableRecord() && empty($this->embedding)) ||
-            $this->hasSearchableChanges()
-        ) {
+        if ($this->shouldUpdateSearchVector()) {
             $this->updateSearchVector();
         }
+    }
+
+    /**
+     * Determine if the search vector should be updated.
+     */
+    protected function shouldUpdateSearchVector(): bool
+    {
+        return $this->isNewSearchableRecord() || $this->hasSearchableChanges();
     }
 
     /**
@@ -42,7 +51,7 @@ trait Searchable
      */
     protected function isNewSearchableRecord(): bool
     {
-        return ! $this->exists || $this->wasRecentlyCreated;
+        return !$this->exists || $this->wasRecentlyCreated;
     }
 
     /**
@@ -51,10 +60,7 @@ trait Searchable
     protected function hasSearchableChanges(): bool
     {
         $originalModel = $this->getOriginalSearchableModel();
-        $originalSearchableText = $originalModel->toSearchableText();
-        $newSearchableText = $this->toSearchableText();
-
-        return $originalSearchableText !== $newSearchableText;
+        return $this->toSearchableText() !== $originalModel->toSearchableText();
     }
 
     /**
@@ -62,12 +68,10 @@ trait Searchable
      */
     protected function getOriginalSearchableModel(): static
     {
-        $originalAttributes = $this->getOriginal();
-        $tempModel = new static;
-        $tempModel->setRawAttributes($originalAttributes);
-        $tempModel->exists = true;
-
-        return $tempModel;
+        return tap(new static, function ($model) {
+            $model->setRawAttributes($this->getOriginal());
+            $model->exists = true;
+        });
     }
 
     /**
@@ -75,8 +79,7 @@ trait Searchable
      */
     public function updateSearchVector(): void
     {
-        $text = $this->toSearchableText();
-        $this->embedding = app(SearchService::class)->getEmbedding($text);
+        $this->embedding = App::make(SearchService::class)->getEmbedding($this->toSearchableText());
     }
 
     /**
@@ -87,25 +90,30 @@ trait Searchable
     /**
      * Perform a search query.
      *
-     * @param  string  $query  The search query
-     * @param  int  $limit  The maximum number of results to return
-     * @param  bool  $rerank  Whether to rerank the results
-     * @param  Builder|null  $builder  An optional query builder to start with
+     * @param string $query The search query
+     * @param int $limit The maximum number of results to return
+     * @param bool $rerank Whether to rerank the results
+     * @param Builder|null $builder An optional query builder to start with
      * @return Collection The search results
+     * @throws \Exception
      */
-    public static function search(string $query, int $limit = 40, bool $rerank = true, ?Builder $builder = null): Collection
-    {
-        return app(SearchService::class)->search($query, $limit, $rerank, $builder);
+    public static function search(
+        string $query,
+        int $limit = 40,
+        bool $rerank = true,
+        ?Builder $builder = null
+    ): Collection {
+        return App::make(SearchService::class)->search($query, $limit, $rerank, $builder ?? static::query());
     }
 
     /**
      * Scope a query to search for similar records based on embedding.
      *
-     * @param  Builder  $query
-     * @param  array  $embedding
+     * @param Builder $query
+     * @param array $embedding
      * @return Builder
      */
-    public function scopeSearchSimilar($query, $embedding)
+    public function scopeSearchSimilar(Builder $query, array $embedding): Builder
     {
         return $query->selectRaw('*, (1 - (embedding <=> ?)) as similarity', [$embedding])
             ->orderByDesc('similarity');
