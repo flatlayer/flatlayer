@@ -95,6 +95,7 @@ class Image extends Model
             'width' => $this->dimensions['width'] ?? null,
             'height' => $this->dimensions['height'] ?? null,
             'thumbhash' => $this->thumbhash ?? null,
+            'meta' => $this->custom_properties ?? [],
         ];
     }
 }
