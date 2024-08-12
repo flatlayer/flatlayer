@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Field Selection feature in Flatlayer CMS allows API consumers to specify exactly which fields they want to retrieve and how they want those fields formatted. This powerful functionality enables clients to request only the data they need, in the format they prefer, potentially reducing payload size and improving application performance.
+The Field Selection feature in Flatlayer CMS allows API consumers to specify exactly which fields they want to retrieve from the content entries. This functionality enables clients to request only the data they need, potentially reducing payload size and improving application performance.
 
 ## Basic Structure
 
@@ -10,10 +10,10 @@ Field selection is specified using a JSON array. Each element in the array can b
 
 ```json
 [
-  "field1",
-  "field2",
-  ["field3", <options>],
-  ["nested.field", <options>]
+    "field1",
+    "field2",
+    ["field3", <options>],
+    ["nested.field", <options>]
 ]
 ```
 
@@ -32,7 +32,7 @@ This will return only the specified fields for each item in the result set.
 For fields that require special formatting or additional options, use an array with two elements:
 
 1. The field name (string)
-2. The options (string for simple casting, or object for complex options)
+2. The options (string for simple casting)
 
 ### Simple Casting
 
@@ -40,10 +40,10 @@ For basic type casting, provide the desired type as a string:
 
 ```json
 [
-  "id",
-  ["published_at", "date"],
-  ["views_count", "integer"],
-  ["is_featured", "boolean"]
+    "id",
+    ["published_at", "date"],
+    ["views_count", "integer"],
+    ["is_featured", "boolean"]
 ]
 ```
 
@@ -56,70 +56,103 @@ Supported cast types:
 - `"datetime"`
 - `"array"`
 
-### Complex Options
-
-For fields that require more complex options (like images), provide an object:
-
-```json
-[
-  "id",
-  "title",
-  ["featured_image", {
-    "sizes": ["100vw"],
-    "attributes": {"class": "featured-img"},
-    "fluid": true,
-    "display_size": [800, 600]
-  }]
-]
-```
-
 ## Nested Fields
 
 To select nested fields (particularly useful for `meta` fields), use dot notation:
 
 ```json
 [
-  "id",
-  "title",
-  "meta.description",
-  ["meta.view_count", "integer"]
+    "id",
+    "title",
+    "meta.description",
+    ["meta.view_count", "integer"]
 ]
 ```
 
 ## Images
 
-Image fields support several options to control how they're returned:
+There are two ways to select images:
 
-- `sizes`: An array of size descriptors for responsive images
-- `attributes`: An object of HTML attributes to add to the image tag
-- `fluid`: A boolean indicating if the image should use fluid sizing
-- `display_size`: An array with two elements [width, height] for the display size
+1. Select all images:
+   ```json
+   ["id", "title", "images"]
+   ```
+   This will return an object containing all image collections, with each image including its full data set.
 
-Example:
+2. Select images from a specific collection:
+   ```json
+   ["id", "title", "images.featured"]
+   ```
+   This will return an array of images from the specified collection (in this case, "featured").
+
+Example response for all images:
 ```json
-[
-  "id",
-  "title",
-  ["hero_image", {
-    "sizes": ["(min-width: 768px) 50vw", "100vw"],
-    "attributes": {"class": "hero-img", "loading": "lazy"},
-    "fluid": true,
-    "display_size": [1200, 800]
-  }]
-]
+{
+  "id": 1,
+  "title": "Example Post",
+  "images": {
+    "featured": [
+      {
+        "id": 1,
+        "filename": "featured-image.jpg",
+        "extension": "jpg",
+        "width": 1200,
+        "height": 800,
+        "thumbhash": "abcdef1234567890",
+        "meta": {
+          "alt": "Featured image description",
+          "caption": "Image caption"
+        }
+      }
+    ],
+    "gallery": [
+      {
+        "id": 2,
+        "filename": "gallery-image-1.jpg",
+        "extension": "jpg",
+        "width": 800,
+        "height": 600,
+        "thumbhash": "0987654321fedcba",
+        "meta": {
+          "alt": "Gallery image 1 description"
+        }
+      },
+      {
+        "id": 3,
+        "filename": "gallery-image-2.png",
+        "extension": "png",
+        "width": 1000,
+        "height": 750,
+        "thumbhash": "1a2b3c4d5e6f7g8h",
+        "meta": {
+          "alt": "Gallery image 2 description"
+        }
+      }
+    ]
+  }
+}
 ```
 
-## Multiple Image Collections
-
-If your content items support multiple image collections, you can specify them using dot notation:
-
+Example response for a specific image collection:
 ```json
-[
-  "id",
-  "title",
-  ["images.hero", {"sizes": ["100vw"], "display_size": [1200, 800]}],
-  ["images.gallery", {"sizes": ["100vw", "md:50vw"], "fluid": true}]
-]
+{
+  "id": 1,
+  "title": "Example Post",
+  "images.featured": [
+    {
+      "id": 1,
+      "filename": "featured-image.jpg",
+      "extension": "jpg",
+      "width": 1200,
+      "height": 800,
+      "thumbhash": "abcdef1234567890",
+      "meta": {
+        "alt": "Featured image description",
+        "caption": "Image caption"
+      }
+    }
+  ]
+}
 ```
 
 ## Tags
@@ -150,26 +183,26 @@ In addition to predefined cast types, you can use callable functions for custom 
 Field selection can be combined with filtering in API requests. Use the `fields` parameter for field selection and the `filter` parameter for filtering:
 
 ```
-GET /api/content?fields=["id","title",["published_at","date"],["images.featured",{"sizes":["100vw"]}]]&filter={"published_at":{"$gte":"2023-01-01"},"$orderBy":{"published_at":"desc"}}
+GET /api/content?fields=["id","title",["published_at","date"],"images.featured"]&filter={"published_at":{"$gte":"2023-01-01"},"$orderBy":{"published_at":"desc"}}
 ```
 
-This request would return content items published since January 1, 2023, ordered by publish date descending, including only the id, title, formatted publish date, and featured image URL.
+This request would return content items published since January 1, 2023, ordered by publish date descending, including only the id, title, formatted publish date, and featured images.
 
 ## Usage in List vs Detail Views
 
 - In list views (when requesting multiple items), you might want to select fewer fields to reduce payload size:
 
 ```
-GET /api/content?fields=["id","title","excerpt",["images.thumbnail",{"sizes":["100px"]}]]
+GET /api/content?fields=["id","title","excerpt","images.thumbnail"]
 ```
 
 - In detail views (when requesting a single item), you might select more fields:
 
 ```
-GET /api/content/my-blog-post?fields=["id","title","content",["published_at","date"],["images.featured",{"sizes":["100vw"]}],"meta.author","meta.category","tags"]
+GET /api/content/my-blog-post?fields=["id","title","content",["published_at","date"],"images","meta.author","meta.category","tags"]
 ```
 
-By using field selection effectively, you can optimize your API requests to retrieve exactly the data you need in the format that best suits your application.
+By using field selection effectively, you can optimize your API requests to retrieve exactly the data you need.
 
 ## Default Fields
 

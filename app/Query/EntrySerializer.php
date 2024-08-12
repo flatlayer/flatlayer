@@ -114,7 +114,7 @@ class EntrySerializer
     {
         return match (true) {
             Str::startsWith($field, 'meta.') => $this->getMetaValue($item, Str::after($field, 'meta.'), $options),
-            Str::startsWith($field, 'images.') => $this->getImage($item, Str::after($field, 'images.')),
+            Str::startsWith($field, 'images.') => $this->getImagesFromCollection($item, Str::after($field, 'images.')),
             $field === 'tags' => $item->tags->pluck('name')->toArray(),
             $field === 'images' => $this->getImages($item),
             $field === 'meta' => $this->getAllMetaValues($item, $options),
@@ -244,10 +244,11 @@ class EntrySerializer
     /**
      * Get images from a specific collection of an Entry.
      */
-    protected function getImage(Entry $item, string $collection): array
+    protected function getImagesFromCollection(Entry $item, string $collection): array
     {
         return $item->getImages($collection)
             ->map(fn ($image) => $this->formatImage($image))
+            ->values()
             ->toArray();
     }
 
@@ -261,6 +262,7 @@ class EntrySerializer
             ->groupBy('collection')
             ->map(fn ($imagesInCollection) => $imagesInCollection
                 ->map(fn ($image) => $this->formatImage($image))
+                ->values()
                 ->toArray()
             )
             ->toArray();
