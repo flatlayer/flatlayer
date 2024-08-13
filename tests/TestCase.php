@@ -26,6 +26,9 @@ abstract class TestCase extends BaseTestCase
         Log::shouldReceive('info')->andReturnUsing(function ($message) {
             echo $message."\n";
         });
+        Log::shouldReceive('error')->andReturnUsing(function ($message) {
+            echo "ERROR: " . $message."\n";
+        });
         $this->loggingToPrint = true;
     }
 

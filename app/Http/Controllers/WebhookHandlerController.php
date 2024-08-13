@@ -13,24 +13,22 @@ class WebhookHandlerController extends Controller
 
     public function handle(Request $request, string $type)
     {
-        $payload = $request->all();
-        $signature = $request->header('X-Hub-Signature-256');
-
-        if (! $this->verifySignature($payload, $signature)) {
-            Log::warning('Invalid GitHub webhook signature');
-
-            return response('Invalid signature', 403);
-        }
-
-        if (! $this->syncConfigService->hasConfig($type)) {
-            Log::error("Configuration for {$type} not found");
-
-            return response("Configuration for {$type} not found", 400);
-        }
-
         try {
-            $config = $this->syncConfigService->getConfig($type);
-            $args = array_merge($config, [
+            $payload = $request->all();
+            $signature = $request->header('X-Hub-Signature-256');
+
+            if (! $this->verifySignature($payload, $signature)) {
+                Log::warning('Invalid GitHub webhook signature');
+                return response('Invalid signature', 403);
+            }
+
+            if (! $this->syncConfigService->hasConfig($type)) {
+                Log::error("Configuration for {$type} not found");
+                return response("Configuration for {$type} not found", 400);
+            }
+
+            $args = $this->syncConfigService->getConfigAsArgs($type);
+            $args = array_merge($args, [
                 '--type' => $type,
                 '--pull' => true,
                 '--skip' => true,
@@ -41,9 +39,9 @@ class WebhookHandlerController extends Controller
 
             return response('Sync initiated', 202);
         } catch (\Exception $e) {
-            Log::error('Error executing content sync: '.$e->getMessage());
-
-            return response('Error executing sync', 500);
+            Log::error('Error in webhook handler: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+            return response('Error executing sync: ' . $e->getMessage(), 500);
         }
     }
 

@@ -92,6 +92,31 @@ class SyncConfigurationService
     }
 
     /**
+     * Get the configuration for a specific type as command-line arguments.
+     *
+     * @param string $type The configuration type
+     * @return array The configuration array as command-line arguments
+     */
+    public function getConfigAsArgs(string $type): array
+    {
+        $config = $this->getConfig($type);
+        $args = [];
+
+        foreach ($config as $key => $value) {
+            $argKey = '--' . strtolower($key);
+            if (is_bool($value)) {
+                if ($value) {
+                    $args[$argKey] = true;
+                }
+            } else {
+                $args[$argKey] = $value;
+            }
+        }
+
+        return $args;
+    }
+
+    /**
      * Set the configuration for a specific type.
      *
      * @param string $type The configuration type
