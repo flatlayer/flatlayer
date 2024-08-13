@@ -2,11 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputDefinition;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Input\StringInput;
 
 /**
  * Manages synchronization configurations for different content types.
@@ -17,21 +14,28 @@ use Symfony\Component\Console\Input\StringInput;
  * manipulate these configurations.
  *
  * Configurations are stored in the format:
- * FLATLAYER_SYNC_{TYPE} = "path/to/content --pattern=*.md"
+ * FLATLAYER_SYNC_{TYPE}_{SETTING} = "value"
  *
- * Where {TYPE} is the content type (e.g., POST, PAGE, etc.), and the value
- * contains the path and optional pattern for file matching.
+ * Where:
+ * {TYPE} is the content type (e.g., POSTS, PAGES, etc.)
+ * {SETTING} is one of PATH, PATTERN, WEBHOOK, or PULL
+ *
+ * Example:
+ * FLATLAYER_SYNC_POSTS_PATH="/path/to/posts"
+ * FLATLAYER_SYNC_POSTS_PATTERN="*.md"
+ * FLATLAYER_SYNC_POSTS_WEBHOOK="http://deploy.com/webhook"
+ * FLATLAYER_SYNC_POSTS_PULL=true
  */
 class SyncConfigurationService
 {
+    private const CONFIG_PREFIX = 'FLATLAYER_SYNC_';
+    private const VALID_SETTINGS = ['PATH', 'PATTERN', 'WEBHOOK', 'PULL'];
+    private const DEFAULT_PATTERN = '**/*.md';
+
     /**
      * @var array<string, array> Stored configurations
      */
     protected array $configs = [];
-
-    private const CONFIG_PREFIX = 'FLATLAYER_SYNC_';
-
-    private const DEFAULT_PATTERN = '**/*.md';
 
     public function __construct()
     {
@@ -43,73 +47,104 @@ class SyncConfigurationService
      */
     protected function loadConfigsFromEnv(): void
     {
-        $this->configs = collect($_ENV)
-            ->filter(fn ($_, $key) => str_starts_with($key, self::CONFIG_PREFIX))
-            ->map(fn ($value, $key) => [
-                'type' => Str::kebab(Str::lower(Str::after($key, self::CONFIG_PREFIX))),
-                'config' => $this->parseConfig($value),
-            ])
-            ->pluck('config', 'type')
-            ->all();
+        $envVars = array_filter($_ENV, fn($key) => str_starts_with($key, self::CONFIG_PREFIX), ARRAY_FILTER_USE_KEY);
+
+        foreach ($envVars as $key => $value) {
+            $parts = explode('_', Str::after($key, self::CONFIG_PREFIX));
+            $type = Str::lower($parts[0]);
+            $setting = $parts[1] ?? null;
+
+            if (in_array($setting, self::VALID_SETTINGS)) {
+                $this->configs[$type][$setting] = $this->parseValue($setting, $value);
+            }
+        }
+
+        // Set default pattern if not specified
+        foreach ($this->configs as &$config) {
+            $config['PATTERN'] = $config['PATTERN'] ?? self::DEFAULT_PATTERN;
+        }
+    }
+
+    /**
+     * Parse the value based on the setting type.
+     *
+     * @param string $setting
+     * @param string $value
+     * @return string|bool
+     */
+    protected function parseValue(string $setting, string $value): string|bool
+    {
+        return match ($setting) {
+            'PULL' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            default => $value,
+        };
     }
 
     /**
      * Get the configuration for a specific type.
      *
-     * @param  string  $type  The configuration type
-     * @return array|null The configuration array, or null if not found
+     * @param string $type The configuration type
+     * @return array The configuration array, or an empty array if not found
      */
-    public function getConfig(string $type): ?array
+    public function getConfig(string $type): array
     {
-        return $this->configs[$type] ?? null;
+        return $this->configs[Str::lower($type)] ?? [];
     }
 
     /**
      * Set the configuration for a specific type.
      *
-     * @param  string  $type  The configuration type
-     * @param  string  $config  The configuration string
+     * @param string $type The configuration type
+     * @param array $config The configuration array
      */
-    public function setConfig(string $type, string $config): void
+    public function setConfig(string $type, array $config): void
     {
-        $this->configs[$type] = $this->parseConfig($config);
+        $this->configs[Str::lower($type)] = array_merge(
+            $this->configs[Str::lower($type)] ?? [],
+            array_change_key_case($config, CASE_UPPER)
+        );
     }
 
     /**
      * Check if a configuration exists for a specific type.
      *
-     * @param  string  $type  The configuration type
+     * @param string $type The configuration type
      * @return bool True if the configuration exists, false otherwise
      */
     public function hasConfig(string $type): bool
     {
-        return isset($this->configs[$type]);
+        return isset($this->configs[Str::lower($type)]);
     }
 
     /**
-     * Parse a configuration string into an array.
+     * Get a specific setting for a configuration type.
      *
-     * @param  string  $config  The configuration string
-     * @return array The parsed configuration
+     * @param string $type The configuration type
+     * @param string $setting The setting name (PATH, PATTERN, WEBHOOK, or PULL)
+     * @return string|bool|null The setting value, or null if not found
      */
-    protected function parseConfig(string $config): array
+    public function getSetting(string $type, string $setting): string|bool|null
     {
-        $definition = new InputDefinition([
-            new InputArgument('path', InputArgument::REQUIRED),
-            new InputOption('pattern', null, InputOption::VALUE_OPTIONAL, '', self::DEFAULT_PATTERN),
-        ]);
+        return Arr::get($this->configs, [Str::lower($type), Str::upper($setting)]);
+    }
 
-        $input = new StringInput($config);
-        $input->bind($definition);
+    /**
+     * Set a specific setting for a configuration type.
+     *
+     * @param string $type The configuration type
+     * @param string $setting The setting name (PATH, PATTERN, WEBHOOK, or PULL)
+     * @param string|bool $value The setting value
+     */
+    public function setSetting(string $type, string $setting, string|bool $value): void
+    {
+        $type = Str::lower($type);
+        $setting = Str::upper($setting);
 
-        $args = ['path' => $input->getArgument('path')];
-
-        $pattern = $input->getOption('pattern');
-        if ($pattern !== self::DEFAULT_PATTERN) {
-            $args['--pattern'] = $pattern;
+        if (!isset($this->configs[$type])) {
+            $this->configs[$type] = [];
         }
 
-        return $args;
+        $this->configs[$type][$setting] = $value;
     }
 
     /**

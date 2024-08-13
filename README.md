@@ -88,14 +88,35 @@ GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
 ### Content Sync Configuration
 
-Configure your content sources:
+Configure your content sources using environment variables. Each content type (e.g., posts, pages) has its own set of configuration options:
 
 ```
-FLATLAYER_SYNC_POSTS="path=/path/to/posts"
-FLATLAYER_SYNC_PAGES="path=/path/to/pages --pattern=**/*.md"
+FLATLAYER_SYNC_[TYPE]_PATH="/path/to/content"
+FLATLAYER_SYNC_[TYPE]_PATTERN="*.md"
+FLATLAYER_SYNC_[TYPE]_WEBHOOK="http://example.com/webhook/[type]"
+FLATLAYER_SYNC_[TYPE]_PULL=true
 ```
 
-Format: `FLATLAYER_SYNC_[TYPE]="path=/path/to/content --pattern=[glob_pattern]"`
+Replace `[TYPE]` with your content type (e.g., POSTS, PAGES). Available settings for each type are:
+
+- `PATH`: The directory path where the content is located
+- `PATTERN`: The glob pattern for finding content files (default is usually "*.md")
+- `WEBHOOK`: The webhook URL for this content type (optional)
+- `PULL`: Whether to pull latest changes from Git before syncing (true/false)
+
+Example configuration for posts and pages:
+
+```
+FLATLAYER_SYNC_POSTS_PATH="/path/to/posts"
+FLATLAYER_SYNC_POSTS_PATTERN="*.md"
+FLATLAYER_SYNC_POSTS_WEBHOOK="http://example.com/webhook/posts"
+FLATLAYER_SYNC_POSTS_PULL=true
+
+FLATLAYER_SYNC_PAGES_PATH="/path/to/pages"
+FLATLAYER_SYNC_PAGES_PATTERN="**/*.md"
+FLATLAYER_SYNC_PAGES_WEBHOOK="http://example.com/webhook/pages"
+FLATLAYER_SYNC_PAGES_PULL=false
+```
 
 ## Content Synchronization
 

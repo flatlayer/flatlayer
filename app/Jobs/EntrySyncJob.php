@@ -17,7 +17,8 @@ use Illuminate\Support\Str;
  * Class EntrySyncJob
  *
  * This job synchronizes Markdown files with database entries.
- * It can pull latest changes from a Git repository and process files.
+ * It can pull latest changes from a Git repository, process files,
+ * and optionally trigger a webhook after completion.
  */
 class EntrySyncJob implements ShouldQueue
 {
@@ -36,13 +37,15 @@ class EntrySyncJob implements ShouldQueue
      * @param  string  $pattern  The file pattern to match (default: '*.md')
      * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
+     * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
      */
     public function __construct(
         protected string $path,
         protected string $type,
         protected string $pattern = '*.md',
         protected bool $shouldPull = false,
-        protected bool $skipIfNoChanges = false
+        protected bool $skipIfNoChanges = false,
+        protected ?string $webhookUrl = null
     ) {}
 
     /**
@@ -59,7 +62,6 @@ class EntrySyncJob implements ShouldQueue
             $changesDetected = $this->pullLatestChanges($git);
             if (! $changesDetected && $this->skipIfNoChanges) {
                 Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
-
                 return;
             }
         }
@@ -72,6 +74,8 @@ class EntrySyncJob implements ShouldQueue
 
         $existingSlugs = Entry::where('type', $this->type)->pluck('slug')->flip();
         $processedSlugs = [];
+        $updatedCount = 0;
+        $createdCount = 0;
 
         foreach ($files as $file) {
             $slug = $this->getSlugFromFilename($file);
@@ -79,15 +83,23 @@ class EntrySyncJob implements ShouldQueue
 
             try {
                 $item = Entry::syncFromMarkdown($file, $this->type, true);
-                Log::info($existingSlugs->has($slug) ? "Updated content item: {$slug}" : "Created new content item: {$slug}");
+                if ($existingSlugs->has($slug)) {
+                    $updatedCount++;
+                    Log::info("Updated content item: {$slug}");
+                } else {
+                    $createdCount++;
+                    Log::info("Created new content item: {$slug}");
+                }
             } catch (\Exception $e) {
                 Log::error("Error processing file {$file}: ".$e->getMessage());
             }
         }
 
-        $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
+        $deletedCount = $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
 
         Log::info("Content sync completed for type: {$this->type}");
+
+        $this->triggerWebhook($updatedCount, $createdCount, $deletedCount, count($files));
     }
 
     /**
@@ -135,17 +147,46 @@ class EntrySyncJob implements ShouldQueue
 
     /**
      * Delete entries that no longer have corresponding files.
+     *
+     * @param  \Illuminate\Support\Collection  $existingSlugs
+     * @param  array  $processedSlugs
+     * @return int  The number of deleted entries
      */
-    private function deleteRemovedEntries(\Illuminate\Support\Collection $existingSlugs, array $processedSlugs): void
+    private function deleteRemovedEntries(\Illuminate\Support\Collection $existingSlugs, array $processedSlugs): int
     {
         $slugsToDelete = $existingSlugs->diffKeys(array_flip($processedSlugs));
         $deleteCount = $slugsToDelete->count();
         Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
 
-        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) {
+        $totalDeleted = 0;
+        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) use (&$totalDeleted) {
             $deletedCount = Entry::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
+            $totalDeleted += $deletedCount;
             Log::info("Deleted {$deletedCount} content items");
         });
+
+        return $totalDeleted;
+    }
+
+    /**
+     * Trigger the webhook job if a webhook URL is set.
+     *
+     * @param  int  $updatedCount  Number of updated entries
+     * @param  int  $createdCount  Number of created entries
+     * @param  int  $deletedCount  Number of deleted entries
+     * @param  int  $totalFiles  Total number of files processed
+     */
+    private function triggerWebhook(int $updatedCount, int $createdCount, int $deletedCount, int $totalFiles): void
+    {
+        if ($this->webhookUrl) {
+            dispatch(new WebhookTriggerJob($this->webhookUrl, $this->type, [
+                'files_processed' => $totalFiles,
+                'entries_updated' => $updatedCount,
+                'entries_created' => $createdCount,
+                'entries_deleted' => $deletedCount,
+            ]));
+            Log::info("Webhook job dispatched for type: {$this->type}");
+        }
     }
 
     /**
@@ -161,6 +202,7 @@ class EntrySyncJob implements ShouldQueue
             'pattern' => $this->pattern,
             'shouldPull' => $this->shouldPull,
             'skipIfNoChanges' => $this->skipIfNoChanges,
+            'webhookUrl' => $this->webhookUrl,
         ];
     }
 }

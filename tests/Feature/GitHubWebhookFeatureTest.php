@@ -56,8 +56,9 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->syncConfigService->shouldReceive('getConfig')
             ->with('post')
             ->andReturn([
-                'path' => $tempDir,
-                '--pattern' => '*.md',
+                'PATH' => $tempDir,
+                'PATTERN' => '*.md',
+                'PULL' => true,
             ]);
 
         $response = $this->postJson('/webhook/post', $payload, [
@@ -154,8 +155,8 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->syncConfigService->shouldReceive('getConfig')
             ->with('post')
             ->andReturn([
-                'path' => '/path/to/posts',
-                '--pattern' => '**/*.md',
+                'PATH' => '/path/to/posts',
+                'PATTERN' => '**/*.md',
             ]);
 
         // Simulate a sync error
@@ -171,6 +172,74 @@ class GitHubWebhookFeatureTest extends TestCase
 
         $response->assertStatus(500);
         $response->assertSee('Error executing sync');
+    }
+
+    public function test_webhook_respects_pull_configuration()
+    {
+        $tempDir = Storage::path('temp_posts');
+        mkdir($tempDir, 0755, true);
+
+        $payload = ['repository' => ['name' => 'test-repo']];
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('post')
+            ->andReturn(true);
+
+        $this->syncConfigService->shouldReceive('getConfig')
+            ->with('post')
+            ->andReturn([
+                'PATH' => $tempDir,
+                'PATTERN' => '*.md',
+                'PULL' => false,
+            ]);
+
+        $response = $this->postJson('/webhook/post', $payload, [
+            'X-Hub-Signature-256' => $signature,
+        ]);
+
+        $response->assertStatus(202);
+
+        Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
+            $config = $job->getJobConfig();
+            return $config['shouldPull'] === false;
+        });
+
+        rmdir($tempDir);
+    }
+
+    public function test_webhook_handles_custom_pattern()
+    {
+        $tempDir = Storage::path('temp_custom');
+        mkdir($tempDir, 0755, true);
+
+        $payload = ['repository' => ['name' => 'test-repo']];
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+
+        $this->syncConfigService->shouldReceive('hasConfig')
+            ->with('custom')
+            ->andReturn(true);
+
+        $this->syncConfigService->shouldReceive('getConfig')
+            ->with('custom')
+            ->andReturn([
+                'PATH' => $tempDir,
+                'PATTERN' => '*.custom',
+                'PULL' => true,
+            ]);
+
+        $response = $this->postJson('/webhook/custom', $payload, [
+            'X-Hub-Signature-256' => $signature,
+        ]);
+
+        $response->assertStatus(202);
+
+        Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
+            $config = $job->getJobConfig();
+            return $config['type'] === 'custom' && $config['pattern'] === '*.custom';
+        });
+
+        rmdir($tempDir);
     }
 
     protected function tearDown(): void
