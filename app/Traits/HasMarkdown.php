@@ -124,14 +124,4 @@ trait HasMarkdown
     {
         return app(MarkdownProcessingService::class)->generateSlugFromFilename($filename);
     }
-
-    /**
-     * Get the parsed HTML content of the Markdown.
-     */
-    public function getParsedContent(): string
-    {
-        return (new EnhancedMarkdownRenderer($this))
-            ->convertToHtml($this->content)
-            ->getContent();
-    }
 }
