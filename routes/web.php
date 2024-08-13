@@ -11,11 +11,12 @@ Route::get('/', function () {
     ]);
 });
 
-// ContentItem routes
+// Entry routes
 Route::get('/entry/{type}', [ContentController::class, 'index'])->name('entry.list');
-Route::get('/entry/{type}/{slug}', [ContentController::class, 'show'])->name('entry.detail');
+Route::get('/entry/batch/{type}', [ContentController::class, 'batch'])->name('entry.batch');
+Route::get('/entry/{type}/{slug}', [ContentController::class, 'show'])->name('entry.show');
 
-// Media transform route
+// Image transform route
 Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('image.transform');
 Route::get('/image/{id}/metadata', [ImageTransformController::class, 'metadata'])->name('image.metadata');
 
