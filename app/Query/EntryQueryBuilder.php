@@ -21,31 +21,41 @@ class EntryQueryBuilder implements Countable
         protected readonly bool $isSearch = false
     ) {}
 
-    public function paginate(int $perPage = 15, array $columns = ['*'], string $pageName = 'page', ?int $page = null): LengthAwarePaginator
-    {
-        return $this->isSearch
-            ? $this->paginateSearchResults($perPage, $pageName, $page)
-            : $this->results->paginate($perPage, $columns, $pageName, $page);
+    public function simplePaginate(
+        int $perPage = 15,
+        array $columns = ['*'],
+        string $pageName = 'page',
+        ?int $page = null,
+        EntrySerializer $arrayConverter = null,
+        array $fields = [],
+        ?bool $isSearch = null
+    ): SimplePaginator {
+        $page = $page ?: max(1, request()->input($pageName, 1));
+        $total = $this->count();
+
+        $items = $this->forPage($page, $perPage)->get($columns);
+
+        return new SimplePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            $arrayConverter,
+            $fields,
+            $isSearch ?? $this->isSearch
+        );
     }
 
     /**
      * Paginate search results.
      */
-    protected function paginateSearchResults(int $perPage, string $pageName, ?int $page = null): LengthAwarePaginator
+    public function forPage(int $page, int $perPage): static
     {
-        $page = $page ?: LengthAwarePaginator::resolveCurrentPage($pageName);
-        $results = $this->results->forPage($page, $perPage);
+        $offset = max(0, ($page - 1) * $perPage);
 
-        return new LengthAwarePaginator(
-            $results,
-            $this->results->count(),
-            $perPage,
-            $page,
-            [
-                'path' => LengthAwarePaginator::resolveCurrentPath(),
-                'pageName' => $pageName,
-            ]
-        );
+        return $this->isSearch
+            ? new static($this->results->slice($offset, $perPage), $this->isSearch)
+            : new static($this->results->skip($offset)->take($perPage), $this->isSearch);
     }
 
     public function get(array $columns = ['*']): Collection|EloquentCollection

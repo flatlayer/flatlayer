@@ -25,9 +25,11 @@ class ListControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data',
-                'current_page',
-                'per_page',
-                'total',
+                'pagination' => [
+                    'current_page',
+                    'total_pages',
+                    'per_page',
+                ],
             ])
             ->assertJsonCount(15, 'data'); // Default per_page is 15
     }

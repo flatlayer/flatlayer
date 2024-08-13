@@ -6,6 +6,7 @@ use App\Http\Requests\ListRequest;
 use App\Models\Entry;
 use App\Query\EntryFilter;
 use App\Query\EntrySerializer;
+use App\Query\Exceptions\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -15,6 +16,9 @@ class ListController extends Controller
         protected EntrySerializer $arrayConverter
     ) {}
 
+    /**
+     * @throws QueryException
+     */
     public function index(ListRequest $request, ?string $type = null): JsonResponse
     {
         $query = Entry::query();
@@ -32,32 +36,18 @@ class ListController extends Controller
 
         $perPage = $request->input('per_page', 15);
         $page = $request->input('page', 1);
-
-        $paginatedResult = $filteredResult->paginate($perPage, ['*'], 'page', $page);
-
         $fields = $request->getFields();
 
-        $items = $filteredResult->isSearch()
-            ? $paginatedResult->getCollection()->map(fn ($item) => ['item' => $item, 'relevance' => $item->relevance ?? null])
-            : $paginatedResult->getCollection();
-
-        $transformedItems = $items->map(function ($item) use ($fields, $filteredResult) {
-            $transformedItem = $this->arrayConverter->toSummaryArray($filteredResult->isSearch() ? $item['item'] : $item, $fields);
-            if ($filteredResult->isSearch()) {
-                $transformedItem['relevance'] = $item['relevance'];
-            }
-
-            return $transformedItem;
-        })->all();
-
-        $transformedResults = new LengthAwarePaginator(
-            $transformedItems,
-            $paginatedResult->total(),
+        $paginatedResult = $filteredResult->simplePaginate(
             $perPage,
+            ['*'],
+            'page',
             $page,
-            ['path' => $request->url(), 'query' => $request->query()]
+            $this->arrayConverter,
+            $fields,
+            $filteredResult->isSearch()
         );
 
-        return response()->json($transformedResults);
+        return response()->json($paginatedResult->toArray());
     }
 }
