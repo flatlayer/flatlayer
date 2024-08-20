@@ -64,7 +64,7 @@ class BatchShowControllerTest extends TestCase
                 'data' => [
                     ['title', 'slug'],
                     ['title', 'slug'],
-                ]
+                ],
             ])
             ->assertJsonMissing(['content']);
     }
@@ -97,7 +97,7 @@ class BatchShowControllerTest extends TestCase
 
     public function test_batch_show_handles_empty_slugs_string()
     {
-        $response = $this->getJson("/entry/batch/post?slugs=");
+        $response = $this->getJson('/entry/batch/post?slugs=');
 
         $response->assertStatus(400)
             ->assertJsonStructure(['error']);
@@ -127,7 +127,7 @@ class BatchShowControllerTest extends TestCase
         $post2 = Entry::factory()->create(['type' => 'post', 'slug' => 'slug-2']);
         $post3 = Entry::factory()->create(['type' => 'post', 'slug' => 'slug-3']);
 
-        $response = $this->getJson("/entry/batch/post?slugs=slug-2,slug-3,slug-1");
+        $response = $this->getJson('/entry/batch/post?slugs=slug-2,slug-3,slug-1');
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -168,7 +168,7 @@ class BatchShowControllerTest extends TestCase
             'content' => 'This is a regular post.',
         ]);
 
-        $response = $this->getJson("/entry/batch/post?slugs=" . urlencode("{$post1->slug},{$post2->slug}"));
+        $response = $this->getJson('/entry/batch/post?slugs='.urlencode("{$post1->slug},{$post2->slug}"));
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')

@@ -1,8 +1,8 @@
 <?php
 
+use App\Http\Controllers\ImageTransformController;
 use App\Http\Controllers\ListController;
 use App\Http\Controllers\ShowController;
-use App\Http\Controllers\ImageTransformController;
 use App\Http\Controllers\WebhookHandlerController;
 use Illuminate\Support\Facades\Route;
 

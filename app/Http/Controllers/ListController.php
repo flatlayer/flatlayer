@@ -8,7 +8,6 @@ use App\Query\EntryFilter;
 use App\Query\EntrySerializer;
 use App\Query\Exceptions\QueryException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class ListController extends Controller
 {

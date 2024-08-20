@@ -31,9 +31,9 @@ class WebhookTriggerJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param string $webhookUrl The URL to send the webhook request to
-     * @param string $contentType The type of content that was synced
-     * @param array $payload Additional payload data to send with the webhook
+     * @param  string  $webhookUrl  The URL to send the webhook request to
+     * @param  string  $contentType  The type of content that was synced
+     * @param  array  $payload  Additional payload data to send with the webhook
      */
     public function __construct(
         protected string $webhookUrl,
@@ -53,7 +53,7 @@ class WebhookTriggerJob implements ShouldQueue
                 'content_type' => $this->contentType,
                 'event' => 'sync_completed',
                 'timestamp' => now()->toIso8601String(),
-                ...$this->payload
+                ...$this->payload,
             ]);
 
             if ($response->successful()) {
@@ -63,7 +63,7 @@ class WebhookTriggerJob implements ShouldQueue
                 $this->fail($response->body());
             }
         } catch (\Exception $e) {
-            Log::error("Error triggering webhook for {$this->contentType}: " . $e->getMessage());
+            Log::error("Error triggering webhook for {$this->contentType}: ".$e->getMessage());
             $this->fail($e);
         }
     }
@@ -72,10 +72,9 @@ class WebhookTriggerJob implements ShouldQueue
      * Handle a job failure.
      *
      * @param  \Throwable|string  $exception
-     * @return void
      */
     public function failed($exception): void
     {
-        Log::error("WebhookTriggerJob failed for {$this->contentType}: " . $exception);
+        Log::error("WebhookTriggerJob failed for {$this->contentType}: ".$exception);
     }
 }

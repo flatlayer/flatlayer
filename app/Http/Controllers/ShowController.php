@@ -19,7 +19,7 @@ class ShowController extends Controller
             ->where('slug', $slug)
             ->first();
 
-        if (!$contentItem) {
+        if (! $contentItem) {
             return response()->json(['error' => 'No item found for the specified type and slug'], 404);
         }
 

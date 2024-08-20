@@ -6,7 +6,6 @@ use App\Jobs\EntrySyncJob;
 use App\Services\SyncConfigurationService;
 use CzProject\GitPhp\Git;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 class EntrySyncCommand extends Command
 {
@@ -35,6 +34,7 @@ class EntrySyncCommand extends Command
 
         if (! $type) {
             $this->error("The '--type' option is required.");
+
             return Command::FAILURE;
         }
 
@@ -42,12 +42,13 @@ class EntrySyncCommand extends Command
 
         $path = $this->option('path') ?? $config['PATH'] ?? null;
         $pattern = $this->option('pattern') ?? $config['PATTERN'] ?? '*.md';
-        $shouldPull = (bool) ( $config['PULL'] ?? $this->option('pull') ?? false );
+        $shouldPull = (bool) ($config['PULL'] ?? $this->option('pull') ?? false);
         $skipIfNoChanges = $this->option('skip') ?? false;
         $webhookUrl = $this->option('webhook') ?? $config['WEBHOOK'] ?? null;
 
         if (! $path) {
             $this->error("Path not provided in configuration or command line for type '{$type}'.");
+
             return Command::FAILURE;
         }
 
@@ -55,6 +56,7 @@ class EntrySyncCommand extends Command
 
         if (! $fullPath || ! is_dir($fullPath)) {
             $this->error("The provided path '{$path}' does not exist or is not a directory.");
+
             return Command::FAILURE;
         }
 

@@ -2,7 +2,6 @@
 
 namespace App\Traits;
 
-use App\Markdown\EnhancedMarkdownRenderer;
 use App\Services\MarkdownProcessingService;
 use Carbon\Carbon;
 

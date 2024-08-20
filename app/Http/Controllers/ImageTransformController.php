@@ -7,7 +7,6 @@ use App\Http\Requests\ImageTransformRequest;
 use App\Models\Image;
 use App\Services\ImageTransformationService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 
 class ImageTransformController extends Controller
 {

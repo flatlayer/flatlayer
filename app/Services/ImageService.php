@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Entry;
 use App\Models\Image;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -41,25 +42,66 @@ class ImageService
         ]);
     }
 
-    /**
-     * Synchronize images for a model.
-     */
-    public function syncImages(Model $model, array $filenames, string $collectionName = 'default'): void
+    public function syncImage(Entry $model, string $path, string $collectionName = 'default'): Image
     {
-        $existingMedia = $model->images()->where('collection', $collectionName)->get()->keyBy('filename');
-        $newFilenames = collect($filenames)->keyBy(fn (string $path): string => basename($path));
+        $filename = basename($path);
+        $image = $model->images()
+            ->where('collection', $collectionName)
+            ->where('filename', $filename)
+            ->first();
 
-        $existingMedia->diffKeys($newFilenames)->each->delete();
+        $fileInfo = $this->getFileInfo($path);
 
-        $newFilenames->each(function (string $fullPath, string $filename) use ($model, $collectionName, $existingMedia) {
-            $fileInfo = $this->getFileInfo($fullPath);
+        if ($image) {
+            $this->updateImageIfNeeded($image, $fileInfo);
+        } else {
+            $image = $this->addImageToModel($model, $path, $collectionName, $fileInfo);
+        }
 
-            if ($existingMedia->has($filename)) {
-                $this->updateImageIfNeeded($existingMedia->get($filename), $fileInfo);
-            } else {
-                $this->addImageToModel($model, $fullPath, $collectionName, $fileInfo);
+        return $image;
+    }
+
+    /**
+     * Synchronize images for an entry.
+     */
+    public function syncImagesForEntry(Entry $entry, Arrayable|array $imagePaths, string $collectionName): void
+    {
+        $imagePaths = collect($imagePaths);
+        $existingImages = $entry->getImages($collectionName);
+        $existingPaths = $existingImages->pluck('path');
+
+        $pathsToAdd = $imagePaths->diff($existingPaths);
+        $pathsToRemove = $existingPaths->diff($imagePaths);
+
+        $pathsToAdd->each(fn ($path) => $this->addImageToModel($entry, $path, $collectionName));
+        $existingImages->whereIn('path', $pathsToRemove)->each->delete();
+    }
+
+    /**
+     * Synchronize content images for an entry.
+     */
+    public function syncContentImages(Entry $entry, string $content, string $basePath): string
+    {
+        $pattern = '/!\[(.*?)\]\((.*?)(?:\s+"(.*?)")?\)/';
+        $usedImages = [];
+
+        return preg_replace_callback($pattern, function ($matches) use ($entry, $basePath, &$usedImages) {
+            [, $alt, $src, $title] = array_pad($matches, 4, null);
+
+            if (filter_var($src, FILTER_VALIDATE_URL)) {
+                return $matches[0];
             }
-        });
+
+            $fullPath = $this->resolveMediaPath($src, $basePath);
+            if (! File::exists($fullPath)) {
+                return $matches[0];
+            }
+
+            $image = $this->syncImage($entry, $fullPath, 'content');
+            $usedImages[] = $image->id;
+
+            return $this->generateResponsiveImageTag($image, $alt, $title);
+        }, $content);
     }
 
     /**
@@ -183,5 +225,39 @@ class ImageService
         [$width, $height, $pixels] = extract_size_and_pixels_with_gd((string) $resizedImage);
 
         return Thumbhash::convertHashToString(Thumbhash::RGBAToHash($width, $height, $pixels));
+    }
+
+    /**
+     * Resolve the full path of a media item.
+     */
+    public function resolveMediaPath(string $mediaItem, string $basePath): string
+    {
+        $fullPath = dirname($basePath).'/'.$mediaItem;
+
+        return File::exists($fullPath) ? $fullPath : $mediaItem;
+    }
+
+    /**
+     * Generate a responsive image tag.
+     */
+    protected function generateResponsiveImageTag(Image $image, string $alt, ?string $title): string
+    {
+        $props = [
+            'imageData' => json_encode($image->toArray()),
+            'baseUrl' => json_encode(config('app.url')),
+            'alt' => json_encode($alt),
+        ];
+
+        if ($title !== null) {
+            $props['title'] = json_encode($title);
+        }
+
+        $encodedProps = implode(' ', array_map(
+            fn ($key, $value) => $key.'={'.$value.'}',
+            array_keys($props),
+            $props
+        ));
+
+        return "<ResponsiveImage {$encodedProps} />";
     }
 }

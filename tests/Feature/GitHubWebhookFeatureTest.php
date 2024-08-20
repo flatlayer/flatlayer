@@ -208,8 +208,9 @@ class GitHubWebhookFeatureTest extends TestCase
 
         $response->assertStatus(202);
 
-        Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
+        Queue::assertPushed(EntrySyncJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['type'] === 'custom' && $config['pattern'] === '*.custom';
         });
 

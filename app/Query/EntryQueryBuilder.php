@@ -5,7 +5,6 @@ namespace App\Query;
 use Countable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class EntryQueryBuilder implements Countable
@@ -26,7 +25,7 @@ class EntryQueryBuilder implements Countable
         array $columns = ['*'],
         string $pageName = 'page',
         ?int $page = null,
-        EntrySerializer $arrayConverter = null,
+        ?EntrySerializer $arrayConverter = null,
         array $fields = [],
         ?bool $isSearch = null
     ): SimplePaginator {

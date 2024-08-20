@@ -29,7 +29,9 @@ use Illuminate\Support\Str;
 class SyncConfigurationService
 {
     private const CONFIG_PREFIX = 'FLATLAYER_SYNC_';
+
     private const VALID_SETTINGS = ['PATH', 'PATTERN', 'WEBHOOK', 'PULL'];
+
     private const DEFAULT_PATTERN = '**/*.md';
 
     /**
@@ -47,7 +49,7 @@ class SyncConfigurationService
      */
     protected function loadConfigsFromEnv(): void
     {
-        $envVars = array_filter($_ENV, fn($key) => str_starts_with($key, self::CONFIG_PREFIX), ARRAY_FILTER_USE_KEY);
+        $envVars = array_filter($_ENV, fn ($key) => str_starts_with($key, self::CONFIG_PREFIX), ARRAY_FILTER_USE_KEY);
 
         foreach ($envVars as $key => $value) {
             $parts = explode('_', Str::after($key, self::CONFIG_PREFIX));
@@ -67,10 +69,6 @@ class SyncConfigurationService
 
     /**
      * Parse the value based on the setting type.
-     *
-     * @param string $setting
-     * @param string $value
-     * @return string|bool
      */
     protected function parseValue(string $setting, string $value): string|bool
     {
@@ -83,7 +81,7 @@ class SyncConfigurationService
     /**
      * Get the configuration for a specific type.
      *
-     * @param string $type The configuration type
+     * @param  string  $type  The configuration type
      * @return array The configuration array, or an empty array if not found
      */
     public function getConfig(string $type): array
@@ -94,7 +92,7 @@ class SyncConfigurationService
     /**
      * Get the configuration for a specific type as command-line arguments.
      *
-     * @param string $type The configuration type
+     * @param  string  $type  The configuration type
      * @return array The configuration array as command-line arguments
      */
     public function getConfigAsArgs(string $type): array
@@ -103,7 +101,7 @@ class SyncConfigurationService
         $args = [];
 
         foreach ($config as $key => $value) {
-            $argKey = '--' . strtolower($key);
+            $argKey = '--'.strtolower($key);
             if (is_bool($value)) {
                 if ($value) {
                     $args[$argKey] = true;
@@ -119,8 +117,8 @@ class SyncConfigurationService
     /**
      * Set the configuration for a specific type.
      *
-     * @param string $type The configuration type
-     * @param array $config The configuration array
+     * @param  string  $type  The configuration type
+     * @param  array  $config  The configuration array
      */
     public function setConfig(string $type, array $config): void
     {
@@ -133,7 +131,7 @@ class SyncConfigurationService
     /**
      * Check if a configuration exists for a specific type.
      *
-     * @param string $type The configuration type
+     * @param  string  $type  The configuration type
      * @return bool True if the configuration exists, false otherwise
      */
     public function hasConfig(string $type): bool
@@ -144,8 +142,8 @@ class SyncConfigurationService
     /**
      * Get a specific setting for a configuration type.
      *
-     * @param string $type The configuration type
-     * @param string $setting The setting name (PATH, PATTERN, WEBHOOK, or PULL)
+     * @param  string  $type  The configuration type
+     * @param  string  $setting  The setting name (PATH, PATTERN, WEBHOOK, or PULL)
      * @return string|bool|null The setting value, or null if not found
      */
     public function getSetting(string $type, string $setting): string|bool|null
@@ -156,16 +154,16 @@ class SyncConfigurationService
     /**
      * Set a specific setting for a configuration type.
      *
-     * @param string $type The configuration type
-     * @param string $setting The setting name (PATH, PATTERN, WEBHOOK, or PULL)
-     * @param string|bool $value The setting value
+     * @param  string  $type  The configuration type
+     * @param  string  $setting  The setting name (PATH, PATTERN, WEBHOOK, or PULL)
+     * @param  string|bool  $value  The setting value
      */
     public function setSetting(string $type, string $setting, string|bool $value): void
     {
         $type = Str::lower($type);
         $setting = Str::upper($setting);
 
-        if (!isset($this->configs[$type])) {
+        if (! isset($this->configs[$type])) {
             $this->configs[$type] = [];
         }
 

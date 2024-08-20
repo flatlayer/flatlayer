@@ -65,6 +65,7 @@ class ShowRequest extends FormRequest
     {
         $slugs = $this->input('slugs', '');
         $slugs = array_unique(array_filter(array_map('trim', explode(',', $slugs))));
+
         return $slugs;
     }
 
@@ -80,8 +81,6 @@ class ShowRequest extends FormRequest
 
     /**
      * Check if this is a batch request.
-     *
-     * @return bool
      */
     public function isBatchRequest(): bool
     {

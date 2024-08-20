@@ -18,6 +18,7 @@ class EntrySyncCommandTest extends TestCase
     use RefreshDatabase;
 
     protected $syncConfigService;
+
     protected $git;
 
     protected function setUp(): void

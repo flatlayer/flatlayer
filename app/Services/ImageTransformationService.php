@@ -115,6 +115,7 @@ class ImageTransformationService
     public function getImageMetadata(string $imagePath): array
     {
         $image = $this->manager->read($imagePath);
+
         return [
             'width' => $image->width(),
             'height' => $image->height(),
@@ -136,10 +137,6 @@ class ImageTransformationService
         ]);
     }
 
-    /**
-     * @param string $extension
-     * @return string
-     */
     private function getContentType(string $extension): string
     {
         return match ($extension) {

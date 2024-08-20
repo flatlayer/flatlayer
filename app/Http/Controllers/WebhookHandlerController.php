@@ -19,11 +19,13 @@ class WebhookHandlerController extends Controller
 
             if (! $this->verifySignature($payload, $signature)) {
                 Log::warning('Invalid GitHub webhook signature');
+
                 return response('Invalid signature', 403);
             }
 
             if (! $this->syncConfigService->hasConfig($type)) {
                 Log::error("Configuration for {$type} not found");
+
                 return response("Configuration for {$type} not found", 400);
             }
 
@@ -39,9 +41,10 @@ class WebhookHandlerController extends Controller
 
             return response('Sync initiated', 202);
         } catch (\Exception $e) {
-            Log::error('Error in webhook handler: ' . $e->getMessage());
+            Log::error('Error in webhook handler: '.$e->getMessage());
             Log::error($e->getTraceAsString());
-            return response('Error executing sync: ' . $e->getMessage(), 500);
+
+            return response('Error executing sync: '.$e->getMessage(), 500);
         }
     }
 

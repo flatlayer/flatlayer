@@ -18,7 +18,9 @@
         "spatie/image-optimizer": "^1.7",
         "srwiez/thumbhash": "^1.2",
         "webuni/front-matter": "^2.0",
-        "ext-gd": "*"
+        "ext-gd": "*",
+        "ext-dom": "*",
+        "ext-libxml": "*"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.1",

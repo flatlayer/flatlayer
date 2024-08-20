@@ -14,8 +14,7 @@ class SimplePaginator
         protected readonly EntrySerializer $arrayConverter,
         protected readonly array $fields = [],
         protected readonly bool $isSearch = false
-    ) {
-    }
+    ) {}
 
     public function items(): Collection
     {
@@ -29,6 +28,7 @@ class SimplePaginator
             if ($this->isSearch) {
                 $transformedItem['relevance'] = $item->relevance ?? null;
             }
+
             return $transformedItem;
         });
 

@@ -62,6 +62,7 @@ class EntrySyncJob implements ShouldQueue
             $changesDetected = $this->pullLatestChanges($git);
             if (! $changesDetected && $this->skipIfNoChanges) {
                 Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
+
                 return;
             }
         }
@@ -148,9 +149,7 @@ class EntrySyncJob implements ShouldQueue
     /**
      * Delete entries that no longer have corresponding files.
      *
-     * @param  \Illuminate\Support\Collection  $existingSlugs
-     * @param  array  $processedSlugs
-     * @return int  The number of deleted entries
+     * @return int The number of deleted entries
      */
     private function deleteRemovedEntries(\Illuminate\Support\Collection $existingSlugs, array $processedSlugs): int
     {

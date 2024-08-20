@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Models\Entry;
-use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Webuni\FrontMatter\FrontMatter;
@@ -13,7 +11,7 @@ use Webuni\FrontMatter\FrontMatter;
 class MarkdownProcessingService
 {
     public function __construct(
-        protected readonly ImageService $imageProcessingService
+        protected readonly ImageService $imageService
     ) {}
 
     /**
@@ -72,11 +70,11 @@ class MarkdownProcessingService
     {
         foreach ($images as $collectionName => $imagePaths) {
             $fullPaths = collect(Arr::wrap($imagePaths))
-                ->map(fn ($path) => $this->resolveMediaPath($path, $filename))
+                ->map(fn ($path) => $this->imageService->resolveMediaPath($path, $filename))
                 ->filter(fn ($path) => File::exists($path))
                 ->values();
 
-            $this->syncImagesCollection($entry, $fullPaths, $collectionName);
+            $this->imageService->syncImagesForEntry($entry, $fullPaths, $collectionName);
         }
     }
 
@@ -85,73 +83,16 @@ class MarkdownProcessingService
      */
     public function processMarkdownImages(Entry $entry, string $markdownContent, string $filename): string
     {
-        $pattern = '/!\[(.*?)\]\((.*?)\)/';
-        $imagePaths = new Collection;
+        $processedContent = $this->imageService->syncContentImages($entry, $markdownContent, $filename);
 
-        $processedContent = preg_replace_callback($pattern, function ($matches) use ($filename, &$imagePaths) {
-            [$fullMatch, $altText, $imagePath] = $matches;
-
-            if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
-                return $fullMatch;
-            }
-
-            $fullImagePath = $this->resolveMediaPath($imagePath, $filename);
-
-            if (File::exists($fullImagePath)) {
-                $imagePaths->push($fullImagePath);
-
-                return "![{$altText}]({$fullImagePath})";
-            }
-
-            return $fullMatch;
-        }, $markdownContent);
-
-        $this->imageProcessingService->syncImages($entry, $imagePaths->all(), 'content');
+        // Remove unused images
+        $usedImages = $entry->images()->where('collection', 'content')->pluck('id');
+        $entry->images()
+            ->where('collection', 'content')
+            ->whereNotIn('id', $usedImages)
+            ->delete();
 
         return $processedContent;
-    }
-
-    /**
-     * Resolve the full path of a media item.
-     */
-    protected function resolveMediaPath(string $mediaItem, string $markdownFilename): string
-    {
-        $fullPath = dirname($markdownFilename).'/'.$mediaItem;
-
-        return File::exists($fullPath) ? $fullPath : $mediaItem;
-    }
-
-    /**
-     * Sync images for a specific collection.
-     *
-     * @param  Entry  $entry  The entry to sync images for
-     * @param  Arrayable|array  $newImagePaths  The new image paths to sync
-     * @param  string  $collectionName  The name of the image collection
-     */
-    protected function syncImagesCollection(Entry $entry, Arrayable|array $newImagePaths, string $collectionName): void
-    {
-        $newImagePaths = Collection::make($newImagePaths);
-        $existingImages = $entry->getImages($collectionName);
-        $existingPaths = $existingImages->pluck('path');
-
-        $pathsToAdd = $newImagePaths->diff($existingPaths);
-        $pathsToRemove = $existingPaths->diff($newImagePaths);
-
-        // Add new images
-        $pathsToAdd->each(fn ($path) => $this->addImageToEntry($entry, $path, $collectionName));
-
-        // Remove images that are no longer present
-        $existingImages->whereIn('path', $pathsToRemove)->each->delete();
-    }
-
-    /**
-     * Add an image to an entry.
-     */
-    protected function addImageToEntry(Entry $entry, string $path, string $collectionName): void
-    {
-        if (method_exists($entry, 'addImage')) {
-            $entry->addImage($path, $collectionName);
-        }
     }
 
     /**
