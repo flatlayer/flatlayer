@@ -14,14 +14,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(JinaSearchService::class, function ($app) {
-            $apiKey = config('flatlayer.search.jina.key');
-            $rerankModel = config('flatlayer.search.jina.rerank');
-            $embeddingModel = config('flatlayer.search.jina.embed');
-
-            return new JinaSearchService($apiKey, $rerankModel, $embeddingModel);
-        });
-
         $this->app->singleton(MarkdownProcessingService::class, function ($app) {
             return new MarkdownProcessingService($app->make(ImageService::class));
         });
@@ -32,6 +24,5 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
     }
 }

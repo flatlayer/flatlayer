@@ -2,11 +2,9 @@
 
 return [
     'search' => [
-        'jina' => [
-            'key' => env('JINA_API_KEY'),
-            'rerank' => env('JINA_RERANK_MODEL', 'jina-reranker-v2-base-multilingual'),
-            'embed' => env('JINA_EMBED_MODEL', 'jina-embeddings-v2-base-en'),
-        ],
+        'openai' => [
+            'embedding' => env('OPENAI_SEARCH_EMBEDDING_MODEL', 'text-embedding-3-small'),
+        ]
     ],
 
     'images' => [
