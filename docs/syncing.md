@@ -4,7 +4,7 @@ Flatlayer CMS provides a flexible synchronization mechanism to keep your content
 
 ## Overview
 
-The markdown sync process allows you to automatically update your Flatlayer CMS content from various sources. This process now primarily involves:
+The markdown sync process allows you to automatically update your Flatlayer CMS content from various sources. This process involves:
 
 1. SyncConfigurationService
 2. Environment-based Configuration
@@ -13,7 +13,7 @@ The markdown sync process allows you to automatically update your Flatlayer CMS 
 
 ## SyncConfigurationService
 
-The SyncConfigurationService is the core component of the new sync process. It's responsible for:
+The SyncConfigurationService is the core component of the sync process. It's responsible for:
 
 1. Loading sync configurations from environment variables
 2. Parsing these configurations into a structured format
@@ -21,26 +21,32 @@ The SyncConfigurationService is the core component of the new sync process. It's
 
 ## Environment-based Configuration
 
-Sync configurations are now stored in environment variables using the following format:
+Sync configurations are stored in environment variables using the following format:
 
 ```
-FLATLAYER_SYNC_{TYPE}="path/to/content --pattern=*.md"
+FLATLAYER_SYNC_{TYPE}_{SETTING}="value"
 ```
 
-Where `{TYPE}` is the content type (e.g., POST, PAGE, etc.), and the value contains the path and optional pattern for file matching.
+Where:
+- `{TYPE}` is the content type (e.g., POSTS, PAGES, etc.)
+- `{SETTING}` is one of PATH, PATTERN, WEBHOOK, or PULL
 
 Example:
 ```
-FLATLAYER_SYNC_POST="/path/to/posts --pattern=**/*.md"
-FLATLAYER_SYNC_PAGE="/path/to/pages"
+FLATLAYER_SYNC_POSTS_PATH="/path/to/posts"
+FLATLAYER_SYNC_POSTS_PATTERN="*.md"
+FLATLAYER_SYNC_POSTS_WEBHOOK="http://example.com/webhook/posts"
+FLATLAYER_SYNC_POSTS_PULL=true
 ```
 
 ## Configuration Options
 
 Each sync configuration can include:
 
-- `path`: The directory where your markdown files are located (required).
-- `--pattern`: The glob pattern to match markdown files (optional, defaults to `**/*.md`).
+- `PATH`: The directory where your markdown files are located (required).
+- `PATTERN`: The glob pattern to match markdown files (optional, defaults to `*.md`).
+- `WEBHOOK`: The webhook URL for this content type (optional).
+- `PULL`: Whether to pull latest changes from Git before syncing (true/false, optional).
 
 ## GitHub Webhook Setup (Optional)
 
@@ -72,21 +78,23 @@ You can trigger a manual sync using the Artisan command:
 php artisan flatlayer:entry-sync --type={type}
 ```
 
-Replace `{type}` with the type of content you want to sync (e.g., `post` or `page`).
-
-You can also specify a path directly:
-
-```
-php artisan flatlayer:entry-sync {path}
-```
+Replace `{type}` with the type of content you want to sync (e.g., `posts` or `pages`).
 
 ## Additional Options
 
 The `flatlayer:entry-sync` command supports several options:
 
+- `--path`: Override the path to the content folder
+- `--pattern`: Override the glob pattern for finding content files
 - `--pull`: Pull latest changes from Git repository before syncing
 - `--skip`: Skip syncing if no changes are detected
 - `--dispatch`: Dispatch the job to the queue instead of running it immediately
+- `--webhook`: URL of the webhook to trigger after sync
+
+Example:
+```
+php artisan flatlayer:entry-sync --type=posts --path=/custom/path --pattern="**/*.md" --pull --dispatch
+```
 
 ## Best Practices
 

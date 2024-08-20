@@ -1,6 +1,6 @@
-# FlatLayer CMS Image Setup and Management
+# FlatLayer CMS Image Management
 
-This guide provides detailed instructions for setting up and managing images in your FlatLayer CMS project. It covers image processing, caching, optimization, and maintenance.
+This guide provides detailed instructions for managing images in your FlatLayer CMS project. It covers image processing, optimization, and usage.
 
 ## Prerequisites
 
@@ -9,111 +9,83 @@ Before setting up image handling in FlatLayer CMS, ensure you have the following
 - PHP 8.2 or higher
 - Composer
 - Laravel 11.x
-- Imagick PHP extension (typically pre-installed on Laravel Forge)
+- GD PHP extension (typically pre-installed on most PHP installations)
 
 ## Image Processing Setup
 
-FlatLayer CMS uses the Intervention Image library for image processing. This library is already included in the project dependencies.
+FlatLayer CMS uses the Intervention Image library with the GD driver for image processing. This library is already included in the project dependencies.
 
-1. Verify Imagick installation:
+1. Verify GD installation:
 
    ```bash
-   php -m | grep imagick
+   php -m | grep gd
    ```
 
-   If Imagick is not listed, you'll need to install it. On most systems, you can use:
+   If GD is not listed, you'll need to install it. On most systems, you can use:
 
    ```bash
-   sudo apt-get install php-imagick
+   sudo apt-get install php-gd
    ```
 
    Restart your web server after installation.
 
-2. Configure the image driver in `config/image.php`:
-
-   ```php
-   <?php
-
-   return [
-       'driver' => 'imagick'
-   ];
-   ```
-
-## Image Caching
-
-FlatLayer CMS implements an image caching system to improve performance. Cached images are stored in the `storage/app/public/cache/images` directory.
-
-To enable image caching:
-
-1. Ensure your `config/flatlayer.php` file has the following setting:
-
-   ```php
-   'media' => [
-       'use_signatures' => true,
-   ],
-   ```
-
-2. In your `.env` file, set the `CACHE_DRIVER` to your preferred caching method (e.g., file, redis):
-
-   ```
-   CACHE_DRIVER=file
-   ```
+2. The image processing is automatically configured to use the GD driver in the `ImageTransformationService`.
 
 ## Image Optimization
 
-FlatLayer CMS uses the Spatie Image Optimizer package for image optimization. This package is already included in the project dependencies.
+FlatLayer CMS uses the Intervention Image library's built-in optimization features when processing images.
 
-To set up image optimization:
+The optimization is automatically applied when processing images through the `ImageTransformationService`.
 
-1. Install the required optimization tools on your server. For detailed instructions, refer to the [Spatie Image Optimizer documentation](https://github.com/spatie/image-optimizer#optimization-tools).
+## Image Transformations
 
-2. The optimization is automatically applied when processing images through the `ImageService`.
+FlatLayer CMS provides an API endpoint for image transformations. You can resize, change the format, and adjust the quality of images on-the-fly.
 
-## Maintenance
+### Transformation API
 
-To keep your image cache manageable, FlatLayer CMS provides a command to clear old cached images.
+To transform an image, use the following endpoint:
 
-### Setting Up Weekly Cache Clearing
-
-1. The `image:clear-cache` command is defined in `app/Console/Commands/ClearImageCache.php` with the following signature:
-
-   ```php
-   protected $signature = 'image:clear-cache {days=30 : Number of days old to clear}';
-   ```
-
-   This is the correct way to set a default value for the `days` argument.
-
-2. To run this command weekly, add the following to your `app/Console/Kernel.php` file in the `schedule` method:
-
-   ```php
-   protected function schedule(Schedule $schedule)
-   {
-       $schedule->command('image:clear-cache')->weekly();
-   }
-   ```
-
-3. Ensure your server's cron job is set up to run Laravel's scheduler. Add this line to your crontab:
-
-   ```
-   * * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
-   ```
-
-### Manual Cache Clearing
-
-You can manually clear the image cache at any time by running:
-
-```bash
-php artisan image:clear-cache
+```
+GET /image/{id}.{extension}
 ```
 
-Or specify a custom number of days:
+Parameters:
+- `id`: The ID of the image in the database
+- `extension`: The desired output format (jpg, png, webp, gif)
 
-```bash
-php artisan image:clear-cache 60
+Query parameters:
+- `w`: Width (optional)
+- `h`: Height (optional)
+- `q`: Quality (1-100, optional)
+
+Example:
+```
+GET /image/123.webp?w=800&h=600&q=80
 ```
 
-This will clear cached images older than 60 days.
+This will retrieve image with ID 123, convert it to WebP format, resize it to 800x600 pixels, and set the quality to 80%.
+
+## CDN Integration
+
+FlatLayer CMS no longer implements its own caching system for images. Instead, it's recommended to use a Content Delivery Network (CDN) for caching and serving images. Popular CDN options include:
+
+- Cloudflare
+- Amazon CloudFront
+- Fastly
+- Akamai
+
+When setting up your CDN, configure it to cache responses from your image transformation endpoint. This will provide efficient delivery of transformed images to your users.
+
+## Best Practices
+
+1. **Use appropriate image formats**: WebP is generally the best choice for web images due to its superior compression. Use JPEG for photographs and PNG for images with transparency.
+
+2. **Responsive images**: Use the `srcset` attribute in your HTML to provide multiple image sizes for different device resolutions.
+
+3. **Lazy loading**: Implement lazy loading for images that are not immediately visible on page load to improve initial page load times.
+
+4. **Optimize original uploads**: While FlatLayer CMS optimizes images during transformation, it's still beneficial to upload pre-optimized images to reduce storage and processing requirements.
 
 ## Conclusion
 
-With these steps, your FlatLayer CMS should be fully set up for efficient image processing, caching, and optimization. Regular maintenance through the scheduled cache clearing will help manage disk space and keep your application running smoothly.
+With these guidelines, your FlatLayer CMS should be fully set up for efficient image processing and optimization. By leveraging a CDN for caching and delivery, you can ensure fast loading times for your images across different geographical locations.

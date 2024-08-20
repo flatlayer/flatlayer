@@ -167,17 +167,6 @@ Tags are automatically included as an array of tag names when the "tags" field i
 ]
 ```
 
-## Custom Casting
-
-In addition to predefined cast types, you can use callable functions for custom casting:
-
-```json
-[
-  ["meta.views", "integer"],
-  ["meta.rating", function(value) { return number_format(value, 1) + " stars"; }]
-]
-```
-
 ## Combining with Filtering
 
 Field selection can be combined with filtering in API requests. Use the `fields` parameter for field selection and the `filter` parameter for filtering:
