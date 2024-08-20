@@ -73,4 +73,59 @@ class SearchableTest extends TestCase
         $this->assertGreaterThanOrEqual(0.1, $results[1]->relevance, 'Second result should have lower but positive relevance');
         $this->assertGreaterThan($results[1]->relevance, $results[0]->relevance, 'First result should be more relevant than the second');
     }
+
+    public function test_strip_mdx_components()
+    {
+        $entry = new class extends Entry
+        {
+            public function stripMdxComponents(string $content): string
+            {
+                return parent::stripMdxComponents($content);
+            }
+        };
+
+        $testCases = [
+            [
+                'input' => '<ComponentName prop={{"foo": "bar"}}>Internal Content</ComponentName>',
+                'expected' => 'Internal Content',
+            ],
+            [
+                'input' => 'Text before <Component1>Content 1</Component1> text between <Component2 prop="value">Content 2</Component2> text after',
+                'expected' => 'Text before Content 1 text between Content 2 text after',
+            ],
+            [
+                'input' => 'Self-closing tag <SelfClosingComponent /> should be removed',
+                'expected' => 'Self-closing tag should be removed',
+            ],
+            [
+                'input' => 'Nested components <Outer><Inner>Nested Content</Inner></Outer>',
+                'expected' => 'Nested components Nested Content',
+            ],
+            [
+                'input' => 'Multiple self-closing tags <Tag1 /><Tag2 /><Tag3 /> in content',
+                'expected' => 'Multiple self-closing tags in content',
+            ],
+        ];
+
+        foreach ($testCases as $index => $case) {
+            $result = $entry->stripMdxComponents($case['input']);
+            $this->assertEquals($case['expected'], $result, "Test case {$index} failed");
+        }
+    }
+
+    public function test_to_searchable_text_strips_mdx_components()
+    {
+        $entry = Entry::factory()->create([
+            'title' => 'Test Title',
+            'content' => 'This is <Component1>searchable content</Component1> with <Component2 prop="value" />MDX components.',
+            'type' => 'post',
+        ]);
+
+        $searchableText = $entry->toSearchableText();
+
+        $this->assertStringContainsString('Test Title', $searchableText);
+        $this->assertStringContainsString('This is searchable content with MDX components.', $searchableText);
+        $this->assertStringNotContainsString('<Component1>', $searchableText);
+        $this->assertStringNotContainsString('<Component2', $searchableText);
+    }
 }

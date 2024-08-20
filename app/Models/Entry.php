@@ -71,7 +71,7 @@ class Entry extends Model
      */
     public function toSearchableText(): string
     {
-        return $this->title."\n\n".$this->content;
+        return $this->title."\n\n".$this->stripMdxComponents($this->content);
     }
 
     /**

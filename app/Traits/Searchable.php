@@ -3,6 +3,8 @@
 namespace App\Traits;
 
 use App\Services\SearchService;
+use DOMDocument;
+use DOMNode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -87,6 +89,58 @@ trait Searchable
      * Convert the model to searchable text.
      */
     abstract public function toSearchableText(): string;
+
+    /**
+     * Strip MDX-style components from the content.
+     */
+    protected function stripMdxComponents(string $content): string
+    {
+        // Wrap content in a root element to ensure we can parse partial HTML/XML
+        $wrappedContent = '<root>'.$content.'</root>';
+
+        $dom = new DOMDocument;
+
+        // Disable libxml errors and clear the error buffer
+        $internalErrors = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+
+        // Load HTML, suppressing warnings
+        $dom->loadHTML($wrappedContent, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+
+        // Restore libxml error handling and clear the error buffer
+        libxml_use_internal_errors($internalErrors);
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($dom);
+        $rootNode = $dom->documentElement;
+
+        // Extract text content recursively
+        $textContent = $this->extractTextContent($rootNode);
+
+        // Normalize whitespace
+        $textContent = preg_replace('/\s+/', ' ', $textContent);
+
+        return trim($textContent);
+    }
+
+    /**
+     * Recursively extract text content from DOM nodes.
+     */
+    private function extractTextContent(DOMNode $node): string
+    {
+        if ($node->nodeType === XML_TEXT_NODE) {
+            return $node->nodeValue;
+        }
+
+        $text = '';
+        if ($node->hasChildNodes()) {
+            foreach ($node->childNodes as $childNode) {
+                $text .= $this->extractTextContent($childNode);
+            }
+        }
+
+        return $text;
+    }
 
     /**
      * Perform a search query.
