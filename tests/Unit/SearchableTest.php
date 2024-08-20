@@ -128,4 +128,59 @@ class SearchableTest extends TestCase
         $this->assertStringNotContainsString('<Component1>', $searchableText);
         $this->assertStringNotContainsString('<Component2', $searchableText);
     }
+
+    public function test_strip_complex_mdx_components()
+    {
+        $entry = new class extends Entry
+        {
+            public function stripMdxComponents(string $content): string
+            {
+                return parent::stripMdxComponents($content);
+            }
+        };
+
+        $testCases = [
+            [
+                'input' => '<Component prop={{"key": "value", "nested": {"foo": "bar"}}}>Complex JSON prop</Component>',
+                'expected' => 'Complex JSON prop',
+            ],
+            [
+                'input' => '<Component prop={42}>Numeric prop</Component>',
+                'expected' => 'Numeric prop',
+            ],
+            [
+                'input' => '<Component prop="Simple string">String prop</Component>',
+                'expected' => 'String prop',
+            ],
+            [
+                'input' => 'Text with <inlineCode>code {with} braces</inlineCode> and <a href="https://example.com">link</a>',
+                'expected' => 'Text with code {with} braces and link',
+            ],
+            [
+                'input' => "<Component1 prop1=\"value1\">\n  <Component2 prop2={{\"key\": \"value\"}}>\n    Nested component\n  </Component2>\n</Component1>",
+                'expected' => 'Nested component',
+            ],
+            [
+                'input' => '<Component prop={true}>Boolean prop</Component>',
+                'expected' => 'Boolean prop',
+            ],
+            [
+                'input' => '<Component prop={null}>Null prop</Component>',
+                'expected' => 'Null prop',
+            ],
+            [
+                'input' => '<Component prop={[1, 2, 3]}>Array prop</Component>',
+                'expected' => 'Array prop',
+            ],
+            [
+                'input' => "<Component>\n  Multi-line\n  content\n</Component>",
+                'expected' => 'Multi-line content',
+            ],
+        ];
+
+        foreach ($testCases as $index => $case) {
+            $result = $entry->stripMdxComponents($case['input']);
+            $this->assertEquals($case['expected'], $result, "Complex test case {$index} failed");
+        }
+    }
 }
