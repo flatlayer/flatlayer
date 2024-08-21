@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use App\Services\ImageService;
 use Tests\TestCase;
 
 class MarkdownProcessingServiceTest extends TestCase
@@ -114,18 +115,19 @@ class MarkdownProcessingServiceTest extends TestCase
 
     public function test_resolve_media_path_returns_correct_path()
     {
-        $method = new \ReflectionMethod(MarkdownProcessingService::class, 'resolveMediaPath');
+        $imageService = app(ImageService::class);
+        $method = new \ReflectionMethod(ImageService::class, 'resolveMediaPath');
         $method->setAccessible(true);
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
         Storage::disk('local')->put('posts/image.jpg', 'fake image content');
 
         // Test with existing file
-        $result = $method->invoke($this->service, 'image.jpg', $markdownPath);
+        $result = $method->invoke($imageService, 'image.jpg', $markdownPath);
         $this->assertEquals(Storage::disk('local')->path('posts/image.jpg'), $result);
 
         // Test with non-existent file
-        $result = $method->invoke($this->service, 'non_existent.jpg', $markdownPath);
+        $result = $method->invoke($imageService, 'non_existent.jpg', $markdownPath);
         $this->assertEquals('non_existent.jpg', $result);
     }
 }

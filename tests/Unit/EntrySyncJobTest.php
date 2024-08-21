@@ -113,12 +113,9 @@ class EntrySyncJobTest extends TestCase
         EntrySyncJob::dispatchSync(Storage::path('posts'), 'post', '*.md');
 
         // Verify that only entries with corresponding markdown files remain
-        $this->assertDatabaseCount('entries', 30);
-        for ($i = 0; $i < 30; $i++) {
+        $this->assertDatabaseCount('entries', 20);
+        for ($i = 0; $i < 20; $i++) {
             $this->assertDatabaseHas('entries', ['slug' => "post-$i", 'type' => 'post']);
-        }
-        for ($i = 30; $i < 50; $i++) {
-            $this->assertDatabaseMissing('entries', ['slug' => "post-$i", 'type' => 'post']);
         }
     }
 

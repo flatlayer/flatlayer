@@ -112,14 +112,10 @@ class MarkdownModelTest extends TestCase
         $imageManager = new ImageManager(new Driver);
 
         // Create test images
-        $image1 = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#ff0000');
-        });
-        Storage::disk('local')->put('image1.jpg', $image1->toJpeg());
+        $image1 = $imageManager->create(100, 100)->fill('#ff0000');
+        $image3 = $imageManager->create(100, 100)->fill('#00ff00');
 
-        $image3 = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#00ff00');
-        });
+        Storage::disk('local')->put('image1.jpg', $image1->toJpeg());
         Storage::disk('local')->put('image3.png', $image3->toPng());
 
         // Create markdown file with image references
@@ -134,10 +130,28 @@ class MarkdownModelTest extends TestCase
 
         $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
 
-        // Check if image paths are correctly updated
-        $this->assertStringContainsString('![Alt Text 1]('.Storage::disk('local')->path('image1.jpg').')', $model->content);
+        // Check if image tags are replaced with ResponsiveImage components
+        $this->assertStringContainsString('<ResponsiveImage', $model->content);
+        $this->assertStringContainsString('imageData=', $model->content);
+        $this->assertStringContainsString('baseUrl=', $model->content);
+        $this->assertStringContainsString('alt={"Alt Text 1"}', $model->content);
+        $this->assertStringContainsString('alt={"Alt Text 3"}', $model->content);
+
+        // Check if external URLs are left unchanged
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
-        $this->assertStringContainsString('![Alt Text 3]('.Storage::disk('local')->path('image3.png').')', $model->content);
+
+        // Verify image records in database
+        $this->assertDatabaseHas('images', [
+            'entry_id' => $model->id,
+            'collection' => 'content',
+            'filename' => 'image1.jpg',
+        ]);
+
+        $this->assertDatabaseHas('images', [
+            'entry_id' => $model->id,
+            'collection' => 'content',
+            'filename' => 'image3.png',
+        ]);
 
         $this->assertEquals(2, $model->images()->count());
         $this->assertTrue($model->images()->get()->contains('collection', 'content'));
