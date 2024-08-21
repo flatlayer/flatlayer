@@ -45,7 +45,7 @@ class SearchService
     protected function pgVectorSearch(Builder $builder, array $embedding, int $limit): Collection
     {
         return $builder
-            ->selectRaw('*, (1 - (embedding <=> ?)) as relevance', [new Vector($embedding)])
+            ->selectRaw('*, (1 - (embedding <=> ?)) as similarity', [new Vector($embedding)])
             ->orderByDesc('similarity')
             ->limit($limit)
             ->get();
