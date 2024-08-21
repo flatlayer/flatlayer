@@ -295,7 +295,6 @@ class EntryFilter
 
         return $modelClass::search(
             $this->search,
-            rerank: true,
             builder: $this->builder
         );
     }

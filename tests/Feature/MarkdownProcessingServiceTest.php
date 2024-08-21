@@ -69,11 +69,11 @@ class MarkdownProcessingServiceTest extends TestCase
         $imageManager = new ImageManager(new Driver);
 
         $markdownContent = '
-        # Test Content
-        ![Alt Text 1](image1.jpg)
-        ![Alt Text 2](https://example.com/image2.jpg)
-        ![Alt Text 3](image3.png)
-    ';
+    # Test Content
+    ![Alt Text 1](image1.jpg)
+    ![Alt Text 2](https://example.com/image2.jpg)
+    ![Alt Text 3](image3.png)
+';
 
         // Create test images
         $image1 = $imageManager->create(100, 100)->fill('#ff0000');
@@ -86,10 +86,15 @@ class MarkdownProcessingServiceTest extends TestCase
 
         $result = $this->service->processMarkdownImages($this->entry, $markdownContent, $markdownPath);
 
-        // Check if image paths are updated correctly
-        $this->assertStringContainsString('![Alt Text 1]('.Storage::disk('local')->path('posts/image1.jpg').')', $result);
+        // Check if image tags are replaced with ResponsiveImage components
+        $this->assertStringContainsString('<ResponsiveImage', $result);
+        $this->assertStringContainsString('imageData=', $result);
+        $this->assertStringContainsString('baseUrl=', $result);
+        $this->assertStringContainsString('alt={"Alt Text 1"}', $result);
+        $this->assertStringContainsString('alt={"Alt Text 3"}', $result);
+
+        // Check if external URLs are left unchanged
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
-        $this->assertStringContainsString('![Alt Text 3]('.Storage::disk('local')->path('posts/image3.png').')', $result);
 
         // Verify image records in database
         $this->assertDatabaseHas('images', [

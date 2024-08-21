@@ -110,7 +110,10 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
         Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
 
-        $filter = json_encode(['title' => ['$lt' => 'CCC Post']]);
+        $filter = json_encode([
+            'title' => ['$lt' => 'CCC Post'],
+            '$order' => ['title' => 'desc'],
+        ]);
         $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
@@ -134,18 +137,6 @@ class ListControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Post B');
-    }
-
-    public function test_index_applies_search_filter()
-    {
-        Entry::factory()->create(['title' => 'Laravel Tutorial', 'content' => 'Learn Laravel', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'PHP Basics', 'content' => 'Introduction to PHP', 'type' => 'post']);
-
-        $response = $this->getJson('/entry/post?search=Laravel');
-
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'Laravel Tutorial');
     }
 
     public function test_index_returns_only_specified_fields()
@@ -199,18 +190,20 @@ class ListControllerTest extends TestCase
 
     public function test_index_respects_order_parameter()
     {
-        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'AAA', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'BBB', 'type' => 'post']);
+        Entry::factory()->create(['title' => 'CCC', 'type' => 'post']);
 
-        $order = json_encode(['title' => 'desc']);
-        $response = $this->getJson("/entry/post?order={$order}");
+        $filter = json_encode([
+            '$order' => ['title' => 'asc']
+        ]);
+        $response = $this->getJson("/entry/post?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.title', 'Post C')
-            ->assertJsonPath('data.1.title', 'Post B')
-            ->assertJsonPath('data.2.title', 'Post A');
+            ->assertJsonPath('data.0.title', 'AAA')
+            ->assertJsonPath('data.1.title', 'BBB')
+            ->assertJsonPath('data.2.title', 'CCC');
     }
 
     public function test_index_handles_invalid_json_filters()

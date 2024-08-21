@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use App\Services\ImageService;
-use App\Services\JinaSearchService;
 use App\Services\MarkdownProcessingService;
 use Illuminate\Support\ServiceProvider;
 

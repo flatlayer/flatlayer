@@ -52,20 +52,24 @@ abstract class TestCase extends BaseTestCase
         ];
     }
 
-    protected function fakeOpenAi()
+    protected function fakeOpenAi(int $count = 20)
     {
+        // Save the current random seed
+        $currentSeed = mt_rand();
+
+        // Set a fixed seed for reproducibility
+        mt_srand(42);
+
         // Create 20 fake embeddings
         $fakeEmbeddings = [];
-        for ($i = 0; $i < 20; $i++) {
+        for ($i = 0; $i < $count; $i++) {
             $fakeEmbeddings[] = array_map(
                 fn() => mt_rand(0, 100) / 100, // Random float between 0 and 1
                 array_fill(0, 1536, 0)
             );
         }
 
-        $embeddingIndex = 0;
-
-        $fakeResponses = array_map(function ($embedding) use (&$embeddingIndex) {
+        $fakeResponses = array_map(function ($embedding) {
             return CreateResponse::fake([
                 'data' => [
                     [
@@ -82,6 +86,9 @@ abstract class TestCase extends BaseTestCase
                 ],
             ]);
         }, $fakeEmbeddings);
+
+        // Restore the original random seed
+        mt_srand($currentSeed);
 
         OpenAI::fake($fakeResponses);
     }

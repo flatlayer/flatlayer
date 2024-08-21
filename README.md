@@ -5,7 +5,7 @@ Flatlayer CMS is a powerful, API-first content management system built on Larave
 ## Key Features
 
 - **Git-based Content Synchronization**: Seamlessly sync your content from Git repositories, enabling version control and collaborative editing.
-- **AI-powered Vector Search**: Utilize Jina.ai's advanced embedding and reranking models for intelligent content discovery.
+- **AI-powered Vector Search**: Utilize OpenAI's advanced embedding model for intelligent content discovery.
 - **Advanced Query Language**: Powerful filtering capabilities for precise content retrieval, including complex nested queries and JSON field filtering.
 - **Field Selection**: Specify exactly which fields to retrieve, reducing payload size and improving performance.
 - **Image Processing and Caching**: Automatic image optimization and efficient caching system.
@@ -72,12 +72,12 @@ DB_USERNAME=
 DB_PASSWORD=
 ```
 
-### Jina.ai Configuration
+### OpenAI Configuration
 
 ```
-JINA_API_KEY=your_jina_api_key
-JINA_RERANK_MODEL=jina-reranker-v2-base-multilingual
-JINA_EMBED_MODEL=jina-embeddings-v2-base-en
+OPENAI_API_KEY=openai_api_key
+OPENAI_ORGANIZATION=openai_organization
+OPENAI_SEARCH_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
 ### GitHub Webhook
