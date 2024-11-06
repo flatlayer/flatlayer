@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use App\Services\ImageService;
 use Tests\TestCase;
 
 class MarkdownProcessingServiceTest extends TestCase
@@ -69,11 +70,11 @@ class MarkdownProcessingServiceTest extends TestCase
         $imageManager = new ImageManager(new Driver);
 
         $markdownContent = '
-        # Test Content
-        ![Alt Text 1](image1.jpg)
-        ![Alt Text 2](https://example.com/image2.jpg)
-        ![Alt Text 3](image3.png)
-    ';
+    # Test Content
+    ![Alt Text 1](image1.jpg)
+    ![Alt Text 2](https://example.com/image2.jpg)
+    ![Alt Text 3](image3.png)
+';
 
         // Create test images
         $image1 = $imageManager->create(100, 100)->fill('#ff0000');
@@ -86,10 +87,15 @@ class MarkdownProcessingServiceTest extends TestCase
 
         $result = $this->service->processMarkdownImages($this->entry, $markdownContent, $markdownPath);
 
-        // Check if image paths are updated correctly
-        $this->assertStringContainsString('![Alt Text 1]('.Storage::disk('local')->path('posts/image1.jpg').')', $result);
+        // Check if image tags are replaced with ResponsiveImage components
+        $this->assertStringContainsString('<ResponsiveImage', $result);
+        $this->assertStringContainsString('imageData=', $result);
+        $this->assertStringContainsString('baseUrl=', $result);
+        $this->assertStringContainsString('alt={"Alt Text 1"}', $result);
+        $this->assertStringContainsString('alt={"Alt Text 3"}', $result);
+
+        // Check if external URLs are left unchanged
         $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
-        $this->assertStringContainsString('![Alt Text 3]('.Storage::disk('local')->path('posts/image3.png').')', $result);
 
         // Verify image records in database
         $this->assertDatabaseHas('images', [
@@ -109,18 +115,19 @@ class MarkdownProcessingServiceTest extends TestCase
 
     public function test_resolve_media_path_returns_correct_path()
     {
-        $method = new \ReflectionMethod(MarkdownProcessingService::class, 'resolveMediaPath');
+        $imageService = app(ImageService::class);
+        $method = new \ReflectionMethod(ImageService::class, 'resolveMediaPath');
         $method->setAccessible(true);
 
         $markdownPath = Storage::disk('local')->path('posts/test-post.md');
         Storage::disk('local')->put('posts/image.jpg', 'fake image content');
 
         // Test with existing file
-        $result = $method->invoke($this->service, 'image.jpg', $markdownPath);
+        $result = $method->invoke($imageService, 'image.jpg', $markdownPath);
         $this->assertEquals(Storage::disk('local')->path('posts/image.jpg'), $result);
 
         // Test with non-existent file
-        $result = $method->invoke($this->service, 'non_existent.jpg', $markdownPath);
+        $result = $method->invoke($imageService, 'non_existent.jpg', $markdownPath);
         $this->assertEquals('non_existent.jpg', $result);
     }
 }

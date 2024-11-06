@@ -1,260 +1,205 @@
 # Flatlayer CMS
 
-Flatlayer CMS is a powerful, API-first content management system built on Laravel and Git. It combines the simplicity of flat-file content storage with advanced features like AI-powered vector search and a flexible query language. This makes Flatlayer ideal for managing and searching large documentation sets, content repositories, or any project requiring efficient content organization and retrieval via API.
+A powerful, API-first headless CMS built on Laravel that combines Git-based content management with AI-powered search capabilities. Flatlayer seamlessly integrates Markdown content from Git repositories while providing advanced querying, image processing, and vector search features through a clean REST API.
 
-## Key Features
+## ✨ Key Features
 
-- **Git-based Content Synchronization**: Seamlessly sync your content from Git repositories, enabling version control and collaborative editing.
-- **AI-powered Vector Search**: Utilize Jina.ai's advanced embedding and reranking models for intelligent content discovery.
-- **Advanced Query Language**: Powerful filtering capabilities for precise content retrieval, including complex nested queries and JSON field filtering.
-- **Field Selection**: Specify exactly which fields to retrieve, reducing payload size and improving performance.
-- **Image Processing and Caching**: Automatic image optimization and efficient caching system.
-- **Webhook Support**: Enable automatic updates triggered by repository changes.
-- **Flexible Configuration**: Easily customizable through environment variables, including content sync configurations.
-- **Markdown Support**: Native handling of Markdown files with front matter.
-- **Tagging System**: Organize and filter content using a flexible tagging system.
+### Content Management
+- **Git Integration**: Sync content directly from Git repositories with automatic updates via webhooks
+- **Markdown + Front Matter**: Native support for Markdown files with YAML front matter
+- **Flexible Content Types**: Support for multiple content types (posts, pages, docs, etc.)
+- **Rich Media Handling**: Automatic image processing, optimization, and responsive image generation
+- **Tagging System**: Organize and filter content with a flexible tagging system
 
-## Requirements
+### Search & Retrieval
+- **AI-Powered Search**: Vector search using OpenAI embeddings for intelligent content discovery
+- **Advanced Query Language**: Rich filtering with support for:
+    - Complex nested queries
+    - JSON field filtering
+    - Tag-based filtering
+    - Full-text search
+    - Custom ordering
+- **Field Selection**: GraphQL-like field selection to optimize response payload size
+- **Built-in Pagination**: Efficient handling of large content sets
 
+### Image Processing
+- **On-the-fly Transformations**: Resize, crop, and optimize images via URL parameters
+- **Multiple Formats**: Support for JPEG, PNG, WebP, and GIF
+- **Automatic Optimization**: Built-in image optimization and caching
+- **Thumbhash Generation**: Automatic generation of image previews
+
+## 🚀 Quick Start
+
+### Prerequisites
 - PHP 8.2+
-- Composer
-- Laravel 11.x
-- PostgreSQL database (recommended for vector search capabilities)
+- PostgreSQL 12+ (recommended for vector search)
 - Git
-- Imagick PHP extension (for image processing)
+- Composer
+- PHP Extensions: gd, fileinfo, dom, libxml
 
-## Installation
+### Installation
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/flatlayer-cms.git
-   cd flatlayer-cms
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/flatlayer-cms.git
+cd flatlayer-cms
 
-2. Install dependencies:
-   ```
-   composer install
-   ```
+# Install dependencies
+composer install
 
-3. Configure your environment:
-   ```
-   cp .env.example .env
-   ```
-   Edit `.env` with your specific settings.
+# Configure environment
+cp .env.example .env
+php artisan key:generate
 
-4. Generate an application key:
-   ```
-   php artisan key:generate
-   ```
+# Set up database
+php artisan migrate
 
-5. Run database migrations:
-   ```
-   php artisan migrate
-   ```
-
-6. Set up the storage link:
-   ```
-   php artisan storage:link
-   ```
-
-## Configuration
-
-Flatlayer CMS is primarily configured through environment variables. Key configuration options include:
-
-### Database
-
+# Create storage link
+php artisan storage:link
 ```
+
+## ⚙️ Configuration
+
+### Essential Environment Variables
+
+```env
+# Database Configuration
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_DATABASE=flatlayer
-DB_USERNAME=
-DB_PASSWORD=
-```
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
 
-### Jina.ai Configuration
+# OpenAI Configuration (for vector search)
+OPENAI_API_KEY=your_openai_key
+OPENAI_ORGANIZATION=your_org_id
+OPENAI_SEARCH_EMBEDDING_MODEL=text-embedding-3-small
 
-```
-JINA_API_KEY=your_jina_api_key
-JINA_RERANK_MODEL=jina-reranker-v2-base-multilingual
-JINA_EMBED_MODEL=jina-embeddings-v2-base-en
-```
-
-### GitHub Webhook
-
-```
+# GitHub Webhook Configuration
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 ```
 
-### Content Sync Configuration
+### Content Source Configuration
 
-Configure your content sources using environment variables. Each content type (e.g., posts, pages) has its own set of configuration options:
+Configure content sources using environment variables:
 
-```
-FLATLAYER_SYNC_[TYPE]_PATH="/path/to/content"
-FLATLAYER_SYNC_[TYPE]_PATTERN="*.md"
-FLATLAYER_SYNC_[TYPE]_WEBHOOK="http://example.com/webhook/[type]"
-FLATLAYER_SYNC_[TYPE]_PULL=true
-```
-
-Replace `[TYPE]` with your content type (e.g., POSTS, PAGES). Available settings for each type are:
-
-- `PATH`: The directory path where the content is located
-- `PATTERN`: The glob pattern for finding content files (default is usually "*.md")
-- `WEBHOOK`: The webhook URL for this content type (optional)
-- `PULL`: Whether to pull latest changes from Git before syncing (true/false)
-
-Example configuration for posts and pages:
-
-```
+```env
+# Example: Blog Posts Configuration
 FLATLAYER_SYNC_POSTS_PATH="/path/to/posts"
 FLATLAYER_SYNC_POSTS_PATTERN="*.md"
 FLATLAYER_SYNC_POSTS_WEBHOOK="http://example.com/webhook/posts"
 FLATLAYER_SYNC_POSTS_PULL=true
 
-FLATLAYER_SYNC_PAGES_PATH="/path/to/pages"
-FLATLAYER_SYNC_PAGES_PATTERN="**/*.md"
-FLATLAYER_SYNC_PAGES_WEBHOOK="http://example.com/webhook/pages"
-FLATLAYER_SYNC_PAGES_PULL=false
+# Example: Documentation Pages Configuration
+FLATLAYER_SYNC_DOCS_PATH="/path/to/docs"
+FLATLAYER_SYNC_DOCS_PATTERN="**/*.md"
+FLATLAYER_SYNC_DOCS_WEBHOOK="http://example.com/webhook/docs"
+FLATLAYER_SYNC_DOCS_PULL=true
 ```
 
-## Content Synchronization
+## 🔌 API Reference
 
-### Manual Sync
-
-Manually sync content:
-
-```
-php artisan flatlayer:entry-sync --type=posts
-```
-
-### Webhook Sync
-
-Set up a GitHub webhook to trigger automatic syncs on repository changes. The webhook URL should be:
-
-```
-POST https://your-domain.com/webhook/{type}
-```
-
-Where `{type}` corresponds to your sync configuration (e.g., `posts`, `pages`).
-
-## API Usage
-
-### Content Retrieval
+### Content Endpoints
 
 #### List Entries
-```
-GET /api/entry/{type}
+```http
+GET /entry/{type}?filter={filter}&fields={fields}&page={page}&per_page={per_page}
 ```
 
-Parameters:
-- `filter`: JSON string for filtering (optional)
-- `fields`: JSON array of fields to retrieve (optional)
-- `page`: Page number for pagination (optional)
-- `per_page`: Items per page (optional)
+Query Parameters:
+- `filter`: JSON string for filtering
+- `fields`: JSON array of fields to retrieve
+- `page`: Page number (default: 1)
+- `per_page`: Items per page (default: 15)
 
 Example:
-```
-GET /api/entry/posts?filter={"status":"published"}&fields=["id","title","excerpt"]&page=1&per_page=10
+```http
+GET /entry/posts?filter={"meta.category":{"$in":["tech","programming"]},"$tags":["tutorial"]}&fields=["title","excerpt","published_at"]
 ```
 
 #### Get Single Entry
+```http
+GET /entry/{type}/{slug}?fields={fields}
 ```
-GET /api/entry/{type}/{slug}
+
+#### Batch Retrieve Entries
+```http
+GET /entry/batch/{type}?slugs={slug1,slug2,slug3}&fields={fields}
+```
+
+### Image Transformation
+
+```http
+GET /image/{id}.{extension}?w={width}&h={height}&q={quality}&fm={format}
 ```
 
 Parameters:
-- `fields`: JSON array of fields to retrieve (optional)
+- `w`: Width in pixels
+- `h`: Height in pixels
+- `q`: Quality (1-100)
+- `fm`: Format (jpg, png, webp)
 
-Example:
-```
-GET /api/entry/posts/my-blog-post?fields=["id","title","content","published_at"]
-```
+## 🔍 Advanced Querying
 
-### Filtering
-
-Use the advanced filtering capabilities in the `filter` parameter:
+### Filter Examples
 
 ```json
 {
-  "status": "published",
-  "meta.category": { "$in": ["technology", "programming"] },
-  "$search": "Laravel",
-  "$tags": ["web-development"],
+  "$or": [
+    {
+      "type": "post",
+      "meta.category": "technology",
+      "published_at": {
+        "$gte": "2024-01-01"
+      }
+    },
+    {
+      "type": "tutorial",
+      "$tags": ["programming", "beginner"],
+      "meta.difficulty": {
+        "$in": ["beginner", "intermediate"]
+      }
+    }
+  ],
+  "$search": "Laravel development",
   "$order": {
     "published_at": "desc"
   }
 }
 ```
 
-### Field Selection
-
-Specify fields to retrieve using the `fields` parameter:
+### Field Selection Examples
 
 ```json
-["id", "title", ["published_at", "date"], "meta.author", "tags"]
+[
+  "id",
+  "title",
+  ["published_at", "date"],
+  "meta.author",
+  "meta.category",
+  "tags",
+  "images.featured"
+]
 ```
 
-### Image Transformation
+## 🛠️ Development
 
-Transform images via API:
+```bash
+# Run tests
+composer test
 
-```
-GET /image/{id}.{extension}?w=800&h=600&q=80
-```
-
-Parameters:
-- `w`: Width (optional)
-- `h`: Height (optional)
-- `q`: Quality (1-100, optional)
-- `fm`: Format (jpg, png, webp, optional)
-
-## Development
-
-### Coding Standards
-
-We use Laravel Pint for code styling. Run before committing:
-
-```
+# Format code
 composer format
-```
 
-### Static Analysis
-
-We use Larastan for static analysis:
-
-```
+# Run static analysis
 composer larastan
 ```
 
-## Testing
+## 📖 Documentation
 
-Run the test suite:
+For detailed documentation on the Query Language, Content Sync Configuration, and API Usage, please visit our [Wiki](link-to-wiki).
 
-```
-composer test
-```
-
-## Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a new branch: `git checkout -b feature/your-feature-name`
-3. Make your changes and commit them: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin feature/your-feature-name`
-5. Submit a pull request
-
-Please ensure your code adheres to our coding standards and is well-documented.
-
-## License
+## 📄 License
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-
-## Support
-
-For questions, issues, or feature requests, please use the GitHub issue tracker.
-
----
-
-Thank you for using Flatlayer CMS! We hope it serves your content management and API needs effectively.

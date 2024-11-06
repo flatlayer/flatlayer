@@ -2,11 +2,12 @@
 
 namespace Tests;
 
-use App\Services\JinaSearchService;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Log;
+use OpenAI\Laravel\Facades\OpenAI;
+use OpenAI\Responses\Embeddings\CreateResponse;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -16,7 +17,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        JinaSearchService::fake();
+        $this->fakeOpenAi();
 
         $this->loggingToPrint = false;
     }
@@ -49,5 +50,46 @@ abstract class TestCase extends BaseTestCase
         return [
             __DIR__.'/Factories',
         ];
+    }
+
+    protected function fakeOpenAi(int $count = 20)
+    {
+        // Save the current random seed
+        $currentSeed = mt_rand();
+
+        // Set a fixed seed for reproducibility
+        mt_srand(42);
+
+        // Create 20 fake embeddings
+        $fakeEmbeddings = [];
+        for ($i = 0; $i < $count; $i++) {
+            $fakeEmbeddings[] = array_map(
+                fn() => mt_rand(0, 100) / 100, // Random float between 0 and 1
+                array_fill(0, 1536, 0)
+            );
+        }
+
+        $fakeResponses = array_map(function ($embedding) {
+            return CreateResponse::fake([
+                'data' => [
+                    [
+                        'embedding' => $embedding,
+                        'index' => 0,
+                        'object' => 'embedding',
+                    ]
+                ],
+                'model' => 'text-embedding-3-small',
+                'object' => 'list',
+                'usage' => [
+                    'prompt_tokens' => 5,
+                    'total_tokens' => 5,
+                ],
+            ]);
+        }, $fakeEmbeddings);
+
+        // Restore the original random seed
+        mt_srand($currentSeed);
+
+        OpenAI::fake($fakeResponses);
     }
 }

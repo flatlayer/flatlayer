@@ -52,12 +52,15 @@ class ImageModelTest extends TestCase
 
         $file3 = UploadedFile::fake()->image('test3.jpg', 300, 300);
         $path3 = $file3->store('test');
+
+        // Update this line to use the correct method and parameters
         $entry->syncImages([Storage::path($path1), Storage::path($path3)]);
 
         $this->assertDatabaseHas('images', ['id' => $image1->id]);
         $this->assertDatabaseMissing('images', ['id' => $image2->id]);
         $this->assertDatabaseHas('images', [
             'entry_id' => $entry->id,
+            'filename' => basename($path3),
             'dimensions' => json_encode(['width' => 300, 'height' => 300]),
         ]);
     }

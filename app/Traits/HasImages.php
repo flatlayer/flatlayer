@@ -52,9 +52,9 @@ trait HasImages
     /**
      * Sync images for a specific collection.
      */
-    public function syncImages(array $filenames, string $collectionName = 'default'): void
+    public function syncImages(array $paths, string $collectionName = 'default'): void
     {
-        app(ImageService::class)->syncImages($this, $filenames, $collectionName);
+        app(ImageService::class)->syncImagesForEntry($this, $paths, $collectionName);
     }
 
     /**

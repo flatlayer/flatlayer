@@ -105,6 +105,7 @@ class BatchShowControllerTest extends TestCase
 
     public function test_batch_show_handles_large_number_of_slugs()
     {
+        $this->fakeOpenAi(100);
         $slugs = [];
         for ($i = 0; $i < 100; $i++) {
             $post = Entry::factory()->create([

@@ -6,21 +6,22 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-dom": "*",
         "ext-fileinfo": "*",
+        "ext-gd": "*",
         "ext-json": "*",
+        "ext-libxml": "*",
         "czproject/git-php": "^4.2",
         "intervention/image": "^3.7",
         "laravel/framework": "^11.9",
         "laravel/tinker": "^2.9",
         "league/commonmark": "^2.5",
         "markrogoyski/math-php": "^2.10",
+        "openai-php/laravel": "^0.10.1",
         "pgvector/pgvector": "^0.2.0",
         "spatie/image-optimizer": "^1.7",
         "srwiez/thumbhash": "^1.2",
-        "webuni/front-matter": "^2.0",
-        "ext-gd": "*",
-        "ext-dom": "*",
-        "ext-libxml": "*"
+        "webuni/front-matter": "^2.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.1",

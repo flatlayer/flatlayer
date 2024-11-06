@@ -156,10 +156,9 @@ trait Searchable
     public static function search(
         string $query,
         int $limit = 40,
-        bool $rerank = true,
         ?Builder $builder = null
     ): Collection {
-        return App::make(SearchService::class)->search($query, $limit, $rerank, $builder ?? static::query());
+        return App::make(SearchService::class)->search($query, $limit, $builder ?? static::query());
     }
 
     /**

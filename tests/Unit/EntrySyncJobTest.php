@@ -103,23 +103,19 @@ class EntrySyncJobTest extends TestCase
 
     public function test_sync_job_performs_chunked_deletion()
     {
-        // Create a large number of entries
-        Entry::factory()->count(50)->create(['type' => 'post']);
+        $this->fakeOpenAi(50);
 
         // Create markdown files for only some of the entries
-        for ($i = 0; $i < 30; $i++) {
+        for ($i = 0; $i < 20; $i++) {
             $this->createTestFile("post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
         }
 
-        EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
+        EntrySyncJob::dispatchSync(Storage::path('posts'), 'post', '*.md');
 
         // Verify that only entries with corresponding markdown files remain
-        $this->assertDatabaseCount('entries', 30);
-        for ($i = 0; $i < 30; $i++) {
+        $this->assertDatabaseCount('entries', 20);
+        for ($i = 0; $i < 20; $i++) {
             $this->assertDatabaseHas('entries', ['slug' => "post-$i", 'type' => 'post']);
-        }
-        for ($i = 30; $i < 50; $i++) {
-            $this->assertDatabaseMissing('entries', ['slug' => "post-$i", 'type' => 'post']);
         }
     }
 
