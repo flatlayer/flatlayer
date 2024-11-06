@@ -64,7 +64,7 @@ abstract class TestCase extends BaseTestCase
         $fakeEmbeddings = [];
         for ($i = 0; $i < $count; $i++) {
             $fakeEmbeddings[] = array_map(
-                fn() => mt_rand(0, 100) / 100, // Random float between 0 and 1
+                fn () => mt_rand(0, 100) / 100, // Random float between 0 and 1
                 array_fill(0, 1536, 0)
             );
         }
@@ -76,7 +76,7 @@ abstract class TestCase extends BaseTestCase
                         'embedding' => $embedding,
                         'index' => 0,
                         'object' => 'embedding',
-                    ]
+                    ],
                 ],
                 'model' => 'text-embedding-3-small',
                 'object' => 'list',

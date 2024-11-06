@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Entry;
+use App\Services\ImageService;
 use App\Services\MarkdownProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
-use App\Services\ImageService;
 use Tests\TestCase;
 
 class MarkdownProcessingServiceTest extends TestCase

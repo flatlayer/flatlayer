@@ -195,7 +195,7 @@ class ListControllerTest extends TestCase
         Entry::factory()->create(['title' => 'CCC', 'type' => 'post']);
 
         $filter = json_encode([
-            '$order' => ['title' => 'asc']
+            '$order' => ['title' => 'asc'],
         ]);
         $response = $this->getJson("/entry/post?filter={$filter}");
 

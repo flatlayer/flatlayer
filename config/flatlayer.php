@@ -4,7 +4,7 @@ return [
     'search' => [
         'openai' => [
             'embedding' => env('OPENAI_SEARCH_EMBEDDING_MODEL', 'text-embedding-3-small'),
-        ]
+        ],
     ],
 
     'images' => [

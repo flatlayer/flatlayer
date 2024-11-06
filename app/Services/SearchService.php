@@ -6,10 +6,10 @@ use App\Models\Entry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use OpenAI\Laravel\Facades\OpenAI;
-use Pgvector\Vector;
 use MathPHP\LinearAlgebra\Vector as MathVector;
 use MathPHP\Statistics\Distance;
+use OpenAI\Laravel\Facades\OpenAI;
+use Pgvector\Vector;
 
 class SearchService
 {
@@ -54,18 +54,21 @@ class SearchService
     /**
      * Perform a fallback search using cosine similarity.
      *
-     * @param Builder $builder The query builder
-     * @param array $embedding The query embedding
-     * @param int $limit The maximum number of results to return
+     * @param  Builder  $builder  The query builder
+     * @param  array  $embedding  The query embedding
+     * @param  int  $limit  The maximum number of results to return
      * @return Collection The search results
+     *
      * @throws \MathPHP\Exception\BadDataException
      */
     protected function fallbackSearch(Builder $builder, array $embedding, int $limit): Collection
     {
         $queryVector = new MathVector($embedding);
+
         return $builder->get()
             ->map(function ($item) use ($embedding) {
                 $item->relevance = 1 - Distance::cosine($embedding, $item->embedding->toArray());
+
                 return $item;
             })
             ->sortByDesc('similarity')

@@ -96,13 +96,13 @@ class Image extends Model
      * This method returns an associative array containing various properties of the Image model.
      *
      * @return array An array representation of the Image model with the following keys:
-     *  - id: The unique identifier of the image.
-     *  - extension: The file extension of the image (e.g., 'jpg', 'png', etc.).
-     *  - filename: The original filename of the image.
-     *  - width: The width of the image in pixels.
-     *  - height: The height of the image in pixels.
-     *  - thumbhash: The thumbhash of the image (if available).
-     *  - meta: Additional custom properties associated with the image (if available).
+     *               - id: The unique identifier of the image.
+     *               - extension: The file extension of the image (e.g., 'jpg', 'png', etc.).
+     *               - filename: The original filename of the image.
+     *               - width: The width of the image in pixels.
+     *               - height: The height of the image in pixels.
+     *               - thumbhash: The thumbhash of the image (if available).
+     *               - meta: Additional custom properties associated with the image (if available).
      */
     public function toArray(): array
     {
