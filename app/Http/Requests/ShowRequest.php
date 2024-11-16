@@ -5,10 +5,13 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
 class ShowRequest extends FormRequest
 {
+    protected array $includedFeatures = [];
+
     public function authorize(): bool
     {
         return true;
@@ -17,17 +20,23 @@ class ShowRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'slugs' => 'sometimes|string|max:5000', // Allow a long string for multiple slugs
+            'slugs' => 'sometimes|string|max:5000',
             'fields' => [
                 'sometimes',
                 Rule::when(is_string($this->input('fields')), 'json'),
             ],
+            'includes' => 'sometimes|string'  // Keep as string in validation
         ];
     }
 
     protected function prepareForValidation(): void
     {
         $this->decodeJsonInput('fields');
+
+        // Store includes for later but don't modify the request input
+        if ($this->has('includes')) {
+            $this->includedFeatures = array_filter(explode(',', $this->input('includes')));
+        }
     }
 
     private function decodeJsonInput(string $field): void
@@ -46,6 +55,7 @@ class ShowRequest extends FormRequest
             'fields.json' => 'The fields must be a valid JSON string.',
             'slugs.string' => 'The slugs must be a comma-separated string.',
             'slugs.max' => 'The slugs string may not be greater than 5000 characters.',
+            'includes.string' => 'The includes parameter must be a comma-separated string.',
         ];
     }
 
@@ -57,6 +67,14 @@ class ShowRequest extends FormRequest
     }
 
     /**
+     * Check if a specific feature should be included in the response.
+     */
+    public function includes(string $feature): bool
+    {
+        return in_array($feature, $this->includedFeatures);
+    }
+
+    /**
      * Get the slugs array from the request.
      *
      * @return array<string>
@@ -64,9 +82,7 @@ class ShowRequest extends FormRequest
     public function getSlugs(): array
     {
         $slugs = $this->input('slugs', '');
-        $slugs = array_unique(array_filter(array_map('trim', explode(',', $slugs))));
-
-        return $slugs;
+        return array_unique(array_filter(array_map('trim', explode(',', $slugs))));
     }
 
     /**

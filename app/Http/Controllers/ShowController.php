@@ -10,56 +10,56 @@ use Illuminate\Support\Str;
 
 class ShowController extends Controller
 {
-    /**
-     * Create a new ShowController instance.
-     */
     public function __construct(
         protected EntrySerializer $arrayConverter
     ) {}
 
     /**
      * Show a single content entry.
-     *
-     * @param ShowRequest $request The validated request
-     * @param string $type The content type
-     * @param string $slug The content slug
-     * @return JsonResponse The response
      */
     public function show(ShowRequest $request, string $type, string $slug): JsonResponse
     {
+        // Clean the slug
+        $slug = trim($slug, '/');
+
         // Handle potential index redirects
         if (!Str::endsWith($slug, '/index')) {
-            $indexSlug = trim($slug, '/').'/index';
+            // Check for index file at this level
             $indexEntry = Entry::where('type', $type)
-                ->where('slug', $indexSlug)
+                ->where('slug', $slug.'/index')
                 ->first();
 
             if ($indexEntry) {
                 return response()->json([
                     'redirect' => true,
-                    'location' => "/entry/{$type}/{$indexSlug}",
+                    'location' => "/entry/{$type}/{$slug}/index",
                 ], 307);
+            }
+
+            // Check for index file in parent directory if this path doesn't exist
+            $contentItem = Entry::where('type', $type)
+                ->where('slug', $slug)
+                ->first();
+
+            if (!$contentItem) {
+                $parentSlug = Str::beforeLast($slug, '/');
+                $parentIndexEntry = Entry::where('type', $type)
+                    ->where('slug', $parentSlug.'/index')
+                    ->first();
+
+                if ($parentIndexEntry) {
+                    return response()->json([
+                        'redirect' => true,
+                        'location' => "/entry/{$type}/{$parentSlug}/index",
+                    ], 307);
+                }
             }
         }
 
+        // Get the entry
         $contentItem = Entry::where('type', $type)
             ->where('slug', $slug)
             ->first();
-
-        if (!$contentItem && !Str::endsWith($slug, '/index')) {
-            // Check if there's an index file at this level
-            $indexSlug = trim($slug, '/').'/index';
-            $contentItem = Entry::where('type', $type)
-                ->where('slug', $indexSlug)
-                ->first();
-
-            if ($contentItem) {
-                return response()->json([
-                    'redirect' => true,
-                    'location' => "/entry/{$type}/{$indexSlug}",
-                ], 307);
-            }
-        }
 
         if (!$contentItem) {
             return response()->json(['error' => 'No item found for the specified type and slug'], 404);
@@ -109,10 +109,6 @@ class ShowController extends Controller
 
     /**
      * Show multiple content entries in a single request.
-     *
-     * @param ShowRequest $request The validated request
-     * @param string $type The content type
-     * @return JsonResponse The response
      */
     public function batch(ShowRequest $request, string $type): JsonResponse
     {

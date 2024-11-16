@@ -23,15 +23,15 @@ class EntrySerializer
     public function __construct()
     {
         $this->defaultFields = [
-            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
+            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images', 'is_index',
         ];
 
         $this->defaultSummaryFields = [
-            'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images',
+            'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images', 'is_index',
         ];
 
         $this->defaultDetailFields = [
-            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
+            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images', 'is_index',
         ];
     }
 
@@ -123,12 +123,17 @@ class EntrySerializer
     }
 
     /**
-     * Get the value for a default field.
+     * Get the default field value.
      *
      * @throws InvalidCastException
      */
     protected function getDefaultFieldValue(Entry $item, string $field, mixed $options = null): mixed
     {
+        // Add explicit handling for is_index field
+        if ($field === 'is_index') {
+            return $item->is_index;
+        }
+
         $value = $item->$field;
 
         return $options !== null ? $this->castValue($value, $options) : $value;

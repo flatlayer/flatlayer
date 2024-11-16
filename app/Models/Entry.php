@@ -126,13 +126,13 @@ class Entry extends Model
 
         return match($driver) {
             'pgsql' => "CASE
-                WHEN position('/' in $column) = 0 THEN ''
-                ELSE substring($column from '^(.+)/[^/]*$')
-            END",
+            WHEN position('/' in $column) = 0 THEN ''
+            ELSE substring($column from '^(.+)/[^/]*$')
+        END",
             'sqlite' => "CASE
-                WHEN instr($column, '/') = 0 THEN ''
-                ELSE substr($column, 1, length($column) - length(substr($column, -instr(reverse($column), '/'))))
-            END",
+            WHEN instr($column, '/') = 0 THEN ''
+            ELSE substr($column, 1, length($column) - instr(substr($column, -instr($column, '/')), '/'))
+        END",
             default => throw new \Exception("Unsupported database driver: $driver")
         };
     }
@@ -147,7 +147,7 @@ class Entry extends Model
 
         if (!str_contains($this->slug, '/')) {
             // Root level entries
-            $query->whereRaw("position('/' in slug) = 0");
+            $query->whereRaw('instr(slug, ?) = 0', ['/']);
         } else {
             // Get siblings with same parent path
             $dirnameExpr = $this->getDirnameExpression('slug');
