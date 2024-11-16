@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Entry;
 use CzProject\GitPhp\Git;
+use CzProject\GitPhp\GitException;
+use CzProject\GitPhp\GitRepository;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -46,7 +48,15 @@ class EntrySyncJob implements ShouldQueue
         protected bool $shouldPull = false,
         protected bool $skipIfNoChanges = false,
         protected ?string $webhookUrl = null
-    ) {}
+    ) {
+        // Set the number of retry attempts from config
+        $this->tries = config('flatlayer.git.retry_attempts', 3);
+        $this->backoff = [
+            config('flatlayer.git.retry_delay', 5),
+            config('flatlayer.git.retry_delay', 5) * 2,
+            config('flatlayer.git.retry_delay', 5) * 4,
+        ];
+    }
 
     /**
      * Execute the job.
@@ -57,50 +67,68 @@ class EntrySyncJob implements ShouldQueue
     {
         Log::info("Starting content sync for type: {$this->type}");
 
-        $changesDetected = true;
-        if ($this->shouldPull) {
-            $changesDetected = $this->pullLatestChanges($git);
-            if (! $changesDetected && $this->skipIfNoChanges) {
-                Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
-
-                return;
-            }
-        }
-
-        $fullPattern = $this->path.'/'.$this->pattern;
-
-        Log::info("Scanning directory: {$fullPattern}");
-        $files = File::glob($fullPattern, GLOB_BRACE);
-        Log::info('Found '.count($files).' files to process');
-
-        $existingSlugs = Entry::where('type', $this->type)->pluck('slug')->flip();
-        $processedSlugs = [];
-        $updatedCount = 0;
-        $createdCount = 0;
-
-        foreach ($files as $file) {
-            $slug = $this->getSlugFromFilename($file);
-            $processedSlugs[] = $slug;
-
-            try {
-                $item = Entry::syncFromMarkdown($file, $this->type, true);
-                if ($existingSlugs->has($slug)) {
-                    $updatedCount++;
-                    Log::info("Updated content item: {$slug}");
-                } else {
-                    $createdCount++;
-                    Log::info("Created new content item: {$slug}");
+        try {
+            $changesDetected = true;
+            if ($this->shouldPull) {
+                $changesDetected = $this->pullLatestChanges($git);
+                if (!$changesDetected && $this->skipIfNoChanges) {
+                    Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
+                    return;
                 }
-            } catch (\Exception $e) {
-                Log::error("Error processing file {$file}: ".$e->getMessage());
             }
+
+            $this->processContent();
+        } catch (\Exception $e) {
+            Log::error("Error during content sync: {$e->getMessage()}");
+            Log::error($e->getTraceAsString());
+            throw $e;
         }
+    }
 
-        $deletedCount = $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
+    /**
+     * Configure Git authentication based on settings.
+     *
+     * @param  GitRepository  $repo  The Git repository instance
+     * @throws GitException
+     */
+    protected function configureGitAuth(GitRepository $repo): void
+    {
+        $authMethod = config('flatlayer.git.auth_method', 'token');
 
-        Log::info("Content sync completed for type: {$this->type}");
+        try {
+            // Set commit identity
+            $repo->setIdentity(
+                config('flatlayer.git.commit_name', 'Flatlayer CMS'),
+                config('flatlayer.git.commit_email', 'cms@flatlayer.io')
+            );
 
-        $this->triggerWebhook($updatedCount, $createdCount, $deletedCount, count($files));
+            // Configure authentication
+            switch ($authMethod) {
+                case 'token':
+                    $username = config('flatlayer.git.username');
+                    $token = config('flatlayer.git.token');
+
+                    if ($username && $token) {
+                        $repo->setAuthentication($username, $token);
+                        Log::info("Git authentication configured using token for user: {$username}");
+                    }
+                    break;
+
+                case 'ssh':
+                    $sshKeyPath = config('flatlayer.git.ssh_key_path');
+                    if ($sshKeyPath && File::exists($sshKeyPath)) {
+                        $repo->setSSHKey($sshKeyPath);
+                        Log::info("Git authentication configured using SSH key");
+                    }
+                    break;
+
+                default:
+                    Log::warning("Unsupported Git authentication method: {$authMethod}");
+            }
+        } catch (GitException $e) {
+            Log::error("Failed to configure Git authentication: {$e->getMessage()}");
+            throw $e;
+        }
     }
 
     /**
@@ -115,8 +143,15 @@ class EntrySyncJob implements ShouldQueue
             $repo = $git->open($this->path);
             Log::info("Opened Git repository at: {$this->path}");
 
+            // Configure authentication
+            $this->configureGitAuth($repo);
+
             $beforeHash = $repo->getLastCommitId()->toString();
             Log::info("Current commit hash before pull: {$beforeHash}");
+
+            // Set timeout for Git operations
+            $timeout = config('flatlayer.git.timeout', 60);
+            $repo->setTimeout($timeout);
 
             $repo->pull();
             Log::info('Pull completed successfully');
@@ -128,11 +163,57 @@ class EntrySyncJob implements ShouldQueue
             Log::info($changesDetected ? 'Changes detected during pull' : 'No changes detected during pull');
 
             return $changesDetected;
-        } catch (\Exception $e) {
-            Log::error('Error during Git pull: '.$e->getMessage());
-
-            return false;
+        } catch (GitException $e) {
+            Log::error("Error during Git pull: {$e->getMessage()}");
+            Log::error($e->getTraceAsString());
+            throw $e;
         }
+    }
+
+    /**
+     * Process content files and sync with database.
+     */
+    protected function processContent(): void
+    {
+        $fullPattern = $this->path.'/'.$this->pattern;
+        Log::info("Scanning directory: {$fullPattern}");
+
+        $files = File::glob($fullPattern, GLOB_BRACE);
+        Log::info('Found '.count($files).' files to process');
+
+        $existingSlugs = Entry::where('type', $this->type)->pluck('slug')->flip();
+        $processedSlugs = [];
+        $updatedCount = 0;
+        $createdCount = 0;
+
+        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
+        foreach (array_chunk($files, $batchSize) as $batch) {
+            foreach ($batch as $file) {
+                $slug = $this->getSlugFromFilename($file);
+                $processedSlugs[] = $slug;
+
+                try {
+                    $item = Entry::syncFromMarkdown($file, $this->type, true);
+                    if ($existingSlugs->has($slug)) {
+                        $updatedCount++;
+                        Log::info("Updated content item: {$slug}");
+                    } else {
+                        $createdCount++;
+                        Log::info("Created new content item: {$slug}");
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Error processing file {$file}: ".$e->getMessage());
+                    if (config('flatlayer.sync.log_level') === 'debug') {
+                        Log::debug($e->getTraceAsString());
+                    }
+                }
+            }
+        }
+
+        $deletedCount = $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
+        Log::info("Content sync completed for type: {$this->type}");
+
+        $this->triggerWebhook($updatedCount, $createdCount, $deletedCount, count($files));
     }
 
     /**
@@ -158,7 +239,9 @@ class EntrySyncJob implements ShouldQueue
         Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
 
         $totalDeleted = 0;
-        $slugsToDelete->chunk(self::CHUNK_SIZE)->each(function ($chunk) use (&$totalDeleted) {
+        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
+
+        $slugsToDelete->chunk($batchSize)->each(function ($chunk) use (&$totalDeleted) {
             $deletedCount = Entry::where('type', $this->type)->whereIn('slug', $chunk->keys())->delete();
             $totalDeleted += $deletedCount;
             Log::info("Deleted {$deletedCount} content items");
@@ -203,5 +286,21 @@ class EntrySyncJob implements ShouldQueue
             'skipIfNoChanges' => $this->skipIfNoChanges,
             'webhookUrl' => $this->webhookUrl,
         ];
+    }
+
+    /**
+     * Handle a job failure.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("EntrySyncJob failed for type {$this->type}: {$exception->getMessage()}");
+        Log::error($exception->getTraceAsString());
+
+        if ($this->webhookUrl) {
+            dispatch(new WebhookTriggerJob($this->webhookUrl, $this->type, [
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+            ]));
+        }
     }
 }
