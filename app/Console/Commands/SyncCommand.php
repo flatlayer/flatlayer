@@ -7,9 +7,9 @@ use App\Services\SyncConfigurationService;
 use CzProject\GitPhp\Git;
 use Illuminate\Console\Command;
 
-class EntrySyncCommand extends Command
+class SyncCommand extends Command
 {
-    protected $signature = 'flatlayer:entry-sync
+    protected $signature = 'flatlayer:sync
                             {--type= : Content type (required)}
                             {--path= : Override the path to the content folder}
                             {--pattern= : Override the glob pattern for finding content files}

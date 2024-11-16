@@ -1,80 +1,125 @@
-# FlatLayer CMS Public Development Roadmap (September 2024 - December 2024)
+# FlatLayer CMS Development Roadmap (January - April 2025)
 
-Welcome to the revised FlatLayer CMS public roadmap! This document outlines our plans for the next four months, focusing on enhancing FlatLayer's capabilities as a headless CMS that leverages Git and GitHub for content management. We're allocating 5-10 hours per week for development. This roadmap is subject to change based on community feedback and project needs.
+Welcome to the FlatLayer CMS development roadmap. Our goal is to create a lightweight, Git-based CMS for Laravel projects, focusing primarily on documentation and blog content management. This roadmap outlines our plans with a development commitment of 5-10 hours per week.
 
-## September 2024: Enhanced Git Integration and Content Management
+## January 2025: Core Stability and Documentation
 
-- [ ] Implement branch-based content staging
-    - [ ] Develop a system to manage content across different Git branches
-    - [ ] Create a mechanism to preview content from non-main branches
-- [ ] Enhance CLI tools for content management
-    - [ ] Implement a `flatlayer:validate` command to check Markdown syntax and front matter
-    - [ ] Create a `flatlayer:search` command for searching content via CLI
-    - [ ] Add a `flatlayer:stats` command to provide content repository statistics
-- [ ] Develop a GitHub Action for content validation on pull requests
-    - [ ] Create an action to validate Markdown syntax and front matter
-    - [ ] Implement checks for broken internal links and image references
+- [ ] Documentation System Enhancement
+    - [ ] Write comprehensive setup and configuration guides
+    - [ ] Create "Getting Started" tutorial with real-world example
+    - [ ] Document all available configuration options
+    - [ ] Create best practices guide for content organization
+    - [ ] Add deployment guides for common platforms (Laravel Forge, DigitalOcean)
 
-Community initiatives:
-- [ ] Set up a GitHub Discussions board for user questions and feature requests
-- [ ] Create a video tutorial on setting up FlatLayer CMS with a GitHub repository
+- [ ] Content Validation and CLI Tools
+    - [ ] Implement `flatlayer:validate` command for content verification
+        - Markdown syntax checking
+        - Front matter validation
+        - Image reference verification
+        - Internal link checking
+    - [ ] Add `flatlayer:sync --dry-run` option for testing content updates
+    - [ ] Create simple stats command for repository insights
 
-## October 2024: Search Enhancements and API Improvements
+- [ ] Testing and Stability
+    - [ ] Add missing test coverage for core features
+    - [ ] Improve error handling and reporting
+    - [ ] Add integration tests for common Git hosting providers
 
-- [ ] Enhance search functionality
-    - [ ] Implement faceted search capabilities
-    - [ ] Add support for fuzzy matching in search queries
-    - [ ] Optimize search performance for large content repositories
-- [ ] Improve the existing RESTful API
-    - [ ] Add an endpoint for retrieving related content based on tags or categories
-    - [ ] Implement a bulk content retrieval endpoint for efficient data fetching
-    - [ ] Create an endpoint for retrieving content change history
+## February 2025: Search and Performance
 
-Documentation:
-- [ ] Write comprehensive documentation for the new search features
-- [ ] Create a guide on best practices for organizing and tagging content in FlatLayer CMS
+- [ ] Search Optimization
+    - [ ] Optimize vector search performance
+    - [ ] Add configurable search weights for title/content
+    - [ ] Implement search result caching
+    - [ ] Add simple search analytics
+    - [ ] Create fallback search for non-PostgreSQL databases
 
-## November 2024: Content Preview System and Caching
+- [ ] Performance Improvements
+    - [ ] Implement efficient content caching
+    - [ ] Optimize image transformation pipeline
+    - [ ] Add cache warming command for common queries
+    - [ ] Create performance monitoring tools
 
-- [ ] Develop a simple headless preview system
-    - [ ] Create a mechanism for generating preview links for unpublished content
-    - [ ] Implement a secure, time-limited access system for previews
-- [ ] Implement advanced caching strategies for search
-    - [ ] Add support for caching search results
-    - [ ] Implement intelligent cache invalidation based on content updates
-- [ ] Enhance the content synchronization process
-    - [ ] Optimize the sync process for large repositories
-    - [ ] Implement parallel processing for content updates
+- [ ] API Refinements
+    - [ ] Add endpoints for retrieving related content
+    - [ ] Implement efficient batch content retrieval
+    - [ ] Add simple content statistics endpoints
 
-Documentation and community support:
-- [ ] Update documentation to cover new preview and caching features
-- [ ] Host a webinar demonstrating how to integrate FlatLayer CMS with popular static site generators
+## March 2025: Content Preview and Git Integration
 
-## December 2024: Plugin System and Performance Optimization
+- [ ] Preview System
+    - [ ] Simple preview system for unpublished content
+    - [ ] Time-limited preview URLs
+    - [ ] Draft content management
+    - [ ] Branch-based content previews
 
-- [ ] Develop a plugin system for extending FlatLayer's functionality
-    - [ ] Design a simple, hooks-based plugin architecture
-    - [ ] Implement a plugin loader and lifecycle management
-    - [ ] Create documentation for plugin development
-- [ ] Develop sample plugins to demonstrate extensibility
-    - [ ] Create a "Table of Contents" generator plugin
-    - [ ] Implement a "Related Content" plugin based on content similarity
-- [ ] Performance optimizations
-    - [ ] Conduct a comprehensive performance audit
-    - [ ] Implement identified optimizations for core functionalities
-    - [ ] Create performance benchmarking tools for FlatLayer CMS
+- [ ] Git Integration Improvements
+    - [ ] Better Git LFS support
+    - [ ] Improved webhook handling
+    - [ ] Support for private Git repositories
+    - [ ] Simple Git-based backup system
 
-To support FlatLayer CMS's growth:
-- [ ] Publish performance benchmarks and optimization tips
-- [ ] Create documentation on scaling FlatLayer CMS for high-traffic sites
+- [ ] Content Management
+    - [ ] Improve image handling and optimization
+    - [ ] Add support for file attachments
+    - [ ] Enhance tag management system
+
+## April 2025: Essential Extensions and Polish
+
+- [ ] Core Extensions
+    - [ ] Simple Table of Contents generator
+    - [ ] Basic taxonomies support
+    - [ ] Reading time calculator
+    - [ ] Basic SEO tools
+
+- [ ] Frontend Improvements
+    - [ ] Optimize frontend SDK
+    - [ ] Enhance responsive image component
+    - [ ] Improve Markdown rendering
+    - [ ] Add simple theme system
+
+- [ ] Quality of Life
+    - [ ] Create example templates for common use cases
+    - [ ] Add migration guides from other systems
+    - [ ] Improve error messages and debugging
+    - [ ] Create development environment setup script
+
+## Core Principles
+
+Throughout development, we'll maintain these principles:
+
+1. **Simplicity First**
+    - Focus on docs and blog use cases
+    - Avoid feature bloat
+    - Keep configuration simple
+    - Maintain clear, focused API
+
+2. **Performance**
+    - Optimize for common operations
+    - Keep memory usage low
+    - Efficient image handling
+    - Smart caching strategies
+
+3. **Reliability**
+    - Comprehensive error handling
+    - Robust content synchronization
+    - Safe content updates
+    - Reliable search functionality
+
+4. **Documentation**
+    - Keep docs up-to-date
+    - Provide clear examples
+    - Document common issues
+    - Share best practices
 
 ## Ongoing Commitments
 
-Every month, we're committed to:
+Each month includes:
+- Security updates and dependency maintenance
+- Bug fixes and stability improvements
+- Documentation updates based on user feedback
+- Performance monitoring and optimization
 
-- Keeping FlatLayer CMS secure with regular dependency updates and security audits
-- Engaging with the community to gather feedback and prioritize features
-- Improving our documentation based on user questions and feedback
-- Conducting regular performance tests and optimizations
+This roadmap focuses on making FlatLayer CMS a reliable, performant solution for documentation and blog content management in Laravel applications. While we maintain flexibility for different content types, our primary goal is to excel at these core use cases.
 
-We're excited about FlatLayer CMS's future as a powerful headless CMS solution. Your feedback and contributions are crucial to making FlatLayer CMS the best Git-based, headless CMS package for Laravel projects. Let's create something amazing together!
+Note: This roadmap is subject to adjustment based on community feedback and project needs. We're committed to building a stable, reliable CMS that serves its core purpose exceptionally well.

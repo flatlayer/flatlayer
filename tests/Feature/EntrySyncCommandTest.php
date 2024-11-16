@@ -41,7 +41,7 @@ class EntrySyncCommandTest extends TestCase
 
         $this->syncConfigService->shouldReceive('getConfig')->with('post')->andReturn([]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
 
         $this->assertEquals(0, $exitCode);
         $this->assertDatabaseCount('entries', 2);
@@ -58,7 +58,7 @@ class EntrySyncCommandTest extends TestCase
             'PATTERN' => '*.md',
         ]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--type' => 'post']);
 
         $this->assertEquals(0, $exitCode);
         $this->assertDatabaseCount('entries', 2);
@@ -72,14 +72,14 @@ class EntrySyncCommandTest extends TestCase
 
         $this->syncConfigService->shouldReceive('getConfig')->with('post')->andReturn([]);
 
-        Artisan::call('flatlayer:entry-sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
+        Artisan::call('flatlayer:sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
 
         // Simulate file changes
         Storage::disk('local')->put('posts/post1.md', "---\ntitle: Updated Post 1\n---\nUpdated Content 1");
         Storage::disk('local')->delete('posts/post2.md');
         Storage::disk('local')->put('posts/post3.md', "---\ntitle: Test Post 3\n---\nContent 3");
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--path' => Storage::path('posts'), '--type' => 'post']);
 
         $this->assertEquals(0, $exitCode);
         $this->assertDatabaseCount('entries', 2);
@@ -92,7 +92,7 @@ class EntrySyncCommandTest extends TestCase
     {
         $this->syncConfigService->shouldReceive('getConfig')->with('invalid-type')->andReturn([]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'invalid-type']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--type' => 'invalid-type']);
 
         $this->assertEquals(1, $exitCode);
     }
@@ -101,7 +101,7 @@ class EntrySyncCommandTest extends TestCase
     {
         $this->syncConfigService->shouldReceive('getConfig')->with('post')->andReturn([]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--path' => '/non/existent/path', '--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--path' => '/non/existent/path', '--type' => 'post']);
 
         $this->assertEquals(1, $exitCode);
     }
@@ -115,7 +115,7 @@ class EntrySyncCommandTest extends TestCase
             'PATTERN' => '*.custom',
         ]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'custom']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--type' => 'custom']);
 
         $this->assertEquals(0, $exitCode);
         $this->assertDatabaseCount('entries', 2);
@@ -139,7 +139,7 @@ class EntrySyncCommandTest extends TestCase
 
         $this->git->shouldReceive('open')->andReturn($gitRepo);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'post']);
+        $exitCode = Artisan::call('flatlayer:sync', ['--type' => 'post']);
 
         $this->assertEquals(0, $exitCode);
     }
@@ -154,7 +154,7 @@ class EntrySyncCommandTest extends TestCase
             'WEBHOOK' => 'http://example.com/webhook',
         ]);
 
-        $exitCode = Artisan::call('flatlayer:entry-sync', ['--type' => 'post', '--dispatch' => true]);
+        $exitCode = Artisan::call('flatlayer:sync', ['--type' => 'post', '--dispatch' => true]);
 
         $this->assertEquals(0, $exitCode);
 

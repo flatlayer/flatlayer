@@ -37,7 +37,7 @@ class WebhookHandlerController extends Controller
                 '--dispatch' => true,
             ]);
 
-            Artisan::call('flatlayer:entry-sync', $args);
+            Artisan::call('flatlayer:sync', $args);
 
             return response('Sync initiated', 202);
         } catch (\Exception $e) {

@@ -485,7 +485,7 @@ class SetupCommand extends Command
         if (isset($this->progress['content'])) {
             $steps[] = '1. Set up your content repositories:';
             $steps[] = '   For each content type, run:';
-            $steps[] = '   php artisan flatlayer:entry-sync --type=<type> --pull';
+            $steps[] = '   php artisan flatlayer:sync --type=<type> --pull';
         }
 
         // Web server
