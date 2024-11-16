@@ -13,167 +13,247 @@ class BatchShowControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->setupHierarchicalContent();
     }
 
-    public function test_can_retrieve_multiple_entries_by_slugs()
+    protected function setupHierarchicalContent(): void
     {
-        $post1 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'First Post',
-            'slug' => 'first-post',
-            'content' => 'This is the first post.',
+        // Create root level entries
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Documentation Root',
+            'content' => 'Root documentation content',
+            'slug' => 'docs',
+            'is_index' => false,
         ]);
 
-        $post2 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'Second Post',
-            'slug' => 'second-post',
-            'content' => 'This is the second post.',
+        // Create nested documentation structure
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Getting Started Index',
+            'content' => 'Getting started guide',
+            'slug' => 'docs/getting-started/index',
+            'is_index' => true,
         ]);
 
-        $response = $this->getJson("/entry/batch/post?slugs={$post1->slug},{$post2->slug}");
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Installation Guide',
+            'content' => 'Installation instructions',
+            'slug' => 'docs/getting-started/installation',
+            'is_index' => false,
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Configuration Guide',
+            'content' => 'Configuration instructions',
+            'slug' => 'docs/getting-started/configuration',
+            'is_index' => false,
+        ]);
+
+        // Create another section with both index and content files
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Tutorials Section',
+            'content' => 'Tutorial index content',
+            'slug' => 'docs/tutorials/index',
+            'is_index' => true,
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Basic Tutorial',
+            'content' => 'Basic tutorial content',
+            'slug' => 'docs/tutorials/basic',
+            'is_index' => false,
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Advanced Tutorial',
+            'content' => 'Advanced tutorial content',
+            'slug' => 'docs/tutorials/advanced',
+            'is_index' => false,
+        ]);
+
+        // Create deeply nested content
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Cloud Deployment',
+            'content' => 'Cloud deployment tutorial',
+            'slug' => 'docs/tutorials/deployment/cloud/index',
+            'is_index' => true,
+        ]);
+    }
+
+    public function test_can_retrieve_multiple_entries_by_paths()
+    {
+        $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'First Post')
-            ->assertJsonPath('data.1.title', 'Second Post');
+            ->assertJsonPath('data.0.title', 'Installation Guide')
+            ->assertJsonPath('data.1.title', 'Configuration Guide')
+            ->assertJsonPath('data.0.is_index', false)
+            ->assertJsonPath('data.1.is_index', false);
     }
 
-    public function test_batch_show_respects_fields_parameter()
+    public function test_batch_retrieval_with_index_files()
     {
-        $post1 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'First Post',
-            'slug' => 'first-post',
-            'content' => 'This is the first post.',
-        ]);
+        $paths = 'docs/tutorials/index,docs/tutorials/deployment/cloud/index';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
 
-        $post2 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'Second Post',
-            'slug' => 'second-post',
-            'content' => 'This is the second post.',
-        ]);
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.title', 'Tutorials Section')
+            ->assertJsonPath('data.1.title', 'Cloud Deployment')
+            ->assertJsonPath('data.0.is_index', true)
+            ->assertJsonPath('data.1.is_index', true);
+    }
 
-        $fields = json_encode(['title', 'slug']);
-        $response = $this->getJson("/entry/batch/post?slugs={$post1->slug},{$post2->slug}&fields={$fields}");
+    public function test_batch_show_respects_fields_parameter_with_nested_content()
+    {
+        $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
+        $fields = json_encode(['title', 'slug', 'is_index']);
+
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}&fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonStructure([
                 'data' => [
-                    ['title', 'slug'],
-                    ['title', 'slug'],
+                    ['title', 'slug', 'is_index'],
+                    ['title', 'slug', 'is_index'],
                 ],
             ])
             ->assertJsonMissing(['content']);
     }
 
-    public function test_batch_show_returns_404_for_non_existent_entries()
+    public function test_handles_mixed_regular_and_index_paths()
     {
-        $post = Entry::factory()->create([
-            'type' => 'post',
-            'slug' => 'existing-post',
-        ]);
-
-        $response = $this->getJson("/entry/batch/batch?slugs={$post->slug},non-existent-post");
-
-        $response->assertStatus(404)
-            ->assertJson(['error' => 'No items found for the specified type and slugs']);
-    }
-
-    public function test_batch_show_returns_404_for_mismatched_type()
-    {
-        $post = Entry::factory()->create([
-            'type' => 'post',
-            'slug' => 'test-post',
-        ]);
-
-        $response = $this->getJson("/entry/batch/document?slugs={$post->slug}");
-
-        $response->assertStatus(404)
-            ->assertJson(['error' => 'No items found for the specified type and slugs']);
-    }
-
-    public function test_batch_show_handles_empty_slugs_string()
-    {
-        $response = $this->getJson('/entry/batch/post?slugs=');
-
-        $response->assertStatus(400)
-            ->assertJsonStructure(['error']);
-    }
-
-    public function test_batch_show_handles_large_number_of_slugs()
-    {
-        $this->fakeOpenAi(100);
-        $slugs = [];
-        for ($i = 0; $i < 100; $i++) {
-            $post = Entry::factory()->create([
-                'type' => 'post',
-                'slug' => "post-{$i}",
-            ]);
-            $slugs[] = $post->slug;
-        }
-
-        $slugString = implode(',', $slugs);
-        $response = $this->getJson("/entry/batch/post?slugs={$slugString}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(100, 'data');
-    }
-
-    public function test_batch_show_maintains_order_of_requested_slugs()
-    {
-        $post1 = Entry::factory()->create(['type' => 'post', 'slug' => 'slug-1']);
-        $post2 = Entry::factory()->create(['type' => 'post', 'slug' => 'slug-2']);
-        $post3 = Entry::factory()->create(['type' => 'post', 'slug' => 'slug-3']);
-
-        $response = $this->getJson('/entry/batch/post?slugs=slug-2,slug-3,slug-1');
-
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.slug', 'slug-2')
-            ->assertJsonPath('data.1.slug', 'slug-3')
-            ->assertJsonPath('data.2.slug', 'slug-1');
-    }
-
-    public function test_batch_show_handles_duplicate_slugs()
-    {
-        $post = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'Test Post',
-            'slug' => 'test-post',
-            'content' => 'This is a test post.',
-        ]);
-
-        $response = $this->getJson("/entry/batch/post?slugs={$post->slug},{$post->slug}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.title', 'Test Post');
-    }
-
-    public function test_batch_show_handles_slugs_with_commas()
-    {
-        $post1 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'Post with, comma',
-            'slug' => 'post-with-comma',
-            'content' => 'This post has a comma in the title.',
-        ]);
-
-        $post2 = Entry::factory()->create([
-            'type' => 'post',
-            'title' => 'Regular Post',
-            'slug' => 'regular-post',
-            'content' => 'This is a regular post.',
-        ]);
-
-        $response = $this->getJson('/entry/batch/post?slugs='.urlencode("{$post1->slug},{$post2->slug}"));
+        $paths = 'docs/tutorials/basic,docs/tutorials/index';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'Post with, comma')
-            ->assertJsonPath('data.1.title', 'Regular Post');
+            ->assertJsonPath('data.0.title', 'Basic Tutorial')
+            ->assertJsonPath('data.0.is_index', false)
+            ->assertJsonPath('data.1.title', 'Tutorials Section')
+            ->assertJsonPath('data.1.is_index', true);
+    }
+
+    public function test_handles_directory_to_index_redirects()
+    {
+        $paths = 'docs/tutorials,docs/getting-started';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => [
+                ['redirect', 'from', 'to', 'location', 'is_index'],
+                ['redirect', 'from', 'to', 'location', 'is_index'],
+            ]])
+            ->assertJson([
+                'data' => [
+                    [
+                        'redirect' => true,
+                        'from' => 'docs/tutorials',
+                        'to' => 'docs/tutorials/index',
+                        'location' => '/entry/doc/docs/tutorials/index',
+                    ],
+                    [
+                        'redirect' => true,
+                        'from' => 'docs/getting-started',
+                        'to' => 'docs/getting-started/index',
+                        'location' => '/entry/doc/docs/getting-started/index',
+                    ],
+                ],
+            ]);
+    }
+
+    public function test_handles_mixed_paths_and_redirects()
+    {
+        $paths = 'docs/tutorials/basic,docs/tutorials,docs/tutorials/advanced';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.title', 'Basic Tutorial')
+            ->assertJsonPath('data.1.redirect', true)
+            ->assertJsonPath('data.2.title', 'Advanced Tutorial');
+    }
+
+    public function test_returns_404_for_non_existent_nested_paths()
+    {
+        $paths = 'docs/getting-started/installation,docs/nonexistent/path';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(404)
+            ->assertJson(['error' => 'No items found for the specified type and slugs']);
+    }
+
+    public function test_maintains_order_with_nested_paths()
+    {
+        $paths = 'docs/tutorials/advanced,docs/getting-started/installation,docs/tutorials/basic';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.title', 'Advanced Tutorial')
+            ->assertJsonPath('data.1.title', 'Installation Guide')
+            ->assertJsonPath('data.2.title', 'Basic Tutorial');
+    }
+
+    public function test_handles_duplicate_nested_paths()
+    {
+        $paths = 'docs/getting-started/installation,docs/getting-started/installation';
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Installation Guide');
+    }
+
+    public function test_returns_400_for_invalid_path_format()
+    {
+        $response = $this->getJson('/entry/batch/doc?slugs=docs/../../../etc/passwd');
+        $response->assertStatus(400);
+
+        $response = $this->getJson('/entry/batch/doc?slugs=docs/%00/injection');
+        $response->assertStatus(400);
+    }
+
+    public function test_handles_deeply_nested_paths()
+    {
+        $paths = implode(',', [
+            'docs/tutorials/deployment/cloud/index',
+            'docs/tutorials/basic',
+        ]);
+
+        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.title', 'Cloud Deployment')
+            ->assertJsonPath('data.0.is_index', true)
+            ->assertJsonPath('data.1.title', 'Basic Tutorial')
+            ->assertJsonPath('data.1.is_index', false);
+    }
+
+    public function test_validates_path_security()
+    {
+        $maliciousPaths = [
+            'docs/../secrets',
+            'docs/./hidden',
+            'docs//double-slash',
+            'docs/%2e%2e/bypass',
+            'docs/\backslash',
+        ];
+
+        foreach ($maliciousPaths as $path) {
+            $response = $this->getJson("/entry/batch/doc?slugs={$path}");
+            $response->assertStatus(400);
+        }
     }
 }

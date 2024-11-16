@@ -121,12 +121,15 @@ class ShowController extends Controller
         // Prepare index redirects
         $redirectSlugs = [];
         $processedSlugs = [];
+        $nonRedirectSlugs = [];
 
         foreach ($slugs as $slug) {
             $normalizedSlug = trim($slug, '/');
             if (!Str::endsWith($normalizedSlug, '/index')) {
                 $indexSlug = $normalizedSlug.'/index';
                 $redirectSlugs[$normalizedSlug] = $indexSlug;
+            } else {
+                $nonRedirectSlugs[] = $normalizedSlug;
             }
             $processedSlugs[] = $normalizedSlug;
         }
@@ -138,36 +141,52 @@ class ShowController extends Controller
                     ->orWhereIn('slug', array_values($redirectSlugs));
             });
 
-        if ($query->doesntExist()) {
+        $items = $query->get();
+
+        // Create a map of available slugs (both direct and index)
+        $availableSlugs = $items->pluck('slug')->toArray();
+        $availableRedirects = array_filter($redirectSlugs, function($indexSlug) use ($availableSlugs) {
+            return in_array($indexSlug, $availableSlugs);
+        });
+
+        // Check if all requested slugs are available (either directly or via redirect)
+        $foundCount = 0;
+        foreach ($processedSlugs as $slug) {
+            if (in_array($slug, $availableSlugs) || array_key_exists($slug, $availableRedirects)) {
+                $foundCount++;
+            }
+        }
+
+        // If not all slugs were found, return 404
+        if ($foundCount !== count($processedSlugs)) {
             return response()->json(['error' => 'No items found for the specified type and slugs'], 404);
         }
 
         $fields = $request->getFields();
         $slugOrder = collect($slugs)->flip();
 
-        $items = $query->get()
-            ->map(function (Entry $item) use ($redirectSlugs, $type) {
-                // Check if this is an index file that should trigger a redirect
-                $originalSlug = array_search($item->slug, $redirectSlugs);
-                if ($originalSlug !== false) {
-                    return [
-                        'redirect' => true,
-                        'from' => $originalSlug,
-                        'to' => $item->slug,
-                        'location' => "/entry/{$type}/{$item->slug}",
-                        'is_index' => true,
-                    ];
-                }
+        $result = $items->map(function (Entry $item) use ($redirectSlugs, $type) {
+            // Check if this is an index file that should trigger a redirect
+            $originalSlug = array_search($item->slug, $redirectSlugs);
+            if ($originalSlug !== false) {
+                return [
+                    'redirect' => true,
+                    'from' => $originalSlug,
+                    'to' => $item->slug,
+                    'location' => "/entry/{$type}/{$item->slug}",
+                    'is_index' => true,
+                ];
+            }
 
-                $result = $this->arrayConverter->toDetailArray($item);
-                $result['is_index'] = $item->is_index;
-                return $result;
-            })
+            $result = $this->arrayConverter->toDetailArray($item);
+            $result['is_index'] = $item->is_index;
+            return $result;
+        })
             ->sortBy(fn ($item) =>
                 $slugOrder[$item['redirect'] ?? false ? $item['from'] : $item['slug']] ?? PHP_INT_MAX
             )
             ->values();
 
-        return response()->json(['data' => $items]);
+        return response()->json(['data' => $result]);
     }
 }
