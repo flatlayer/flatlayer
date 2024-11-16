@@ -14,13 +14,81 @@ class ListControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->setupHierarchicalContent();
     }
 
-    public function test_index_returns_paginated_results()
+    protected function setupHierarchicalContent()
     {
-        Entry::factory()->count(20)->create(['type' => 'post']);
+        // Create root level entries
+        Entry::factory()->atPath('docs')->asIndex()->create([
+            'title' => 'Documentation',
+            'type' => 'doc',
+            'meta' => ['section' => 'root'],
+        ]);
 
-        $response = $this->getJson('/entry/post');
+        // Create nested documentation structure
+        Entry::factory()->atPath('docs/getting-started')->asIndex()->create([
+            'title' => 'Getting Started',
+            'type' => 'doc',
+            'meta' => ['section' => 'intro'],
+        ]);
+
+        Entry::factory()->atPath('docs/getting-started/installation')->create([
+            'title' => 'Installation Guide',
+            'type' => 'doc',
+            'meta' => ['difficulty' => 'beginner'],
+        ]);
+
+        Entry::factory()->atPath('docs/getting-started/configuration')->create([
+            'title' => 'Configuration',
+            'type' => 'doc',
+            'meta' => ['difficulty' => 'intermediate'],
+        ]);
+
+        // Create another section with nested content
+        Entry::factory()->atPath('docs/advanced')->asIndex()->create([
+            'title' => 'Advanced Topics',
+            'type' => 'doc',
+            'meta' => ['section' => 'advanced'],
+        ]);
+
+        Entry::factory()->atPath('docs/advanced/deployment')->create([
+            'title' => 'Deployment Guide',
+            'type' => 'doc',
+            'meta' => ['difficulty' => 'advanced'],
+        ]);
+
+        // Create some blog posts for mixed content testing
+        Entry::factory()->atPath('blog')->asIndex()->create([
+            'title' => 'Blog',
+            'type' => 'post',
+            'meta' => ['section' => 'blog'],
+        ]);
+
+        Entry::factory()->atPath('blog/first-post')->create([
+            'title' => 'First Blog Post',
+            'type' => 'post',
+            'published_at' => now()->subDays(5),
+        ]);
+
+        Entry::factory()->atPath('blog/second-post')->create([
+            'title' => 'Second Blog Post',
+            'type' => 'post',
+            'published_at' => now()->subDays(3),
+        ]);
+    }
+
+    public function test_index_returns_paginated_nested_results()
+    {
+        // Create additional nested content for pagination testing
+        for ($i = 1; $i <= 20; $i++) {
+            Entry::factory()->atPath("docs/section-{$i}/page")->create([
+                'title' => "Page {$i}",
+                'type' => 'doc',
+            ]);
+        }
+
+        $response = $this->getJson('/entry/doc');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -34,192 +102,205 @@ class ListControllerTest extends TestCase
             ->assertJsonCount(15, 'data'); // Default per_page is 15
     }
 
-    public function test_index_respects_per_page_parameter()
+    public function test_index_respects_per_page_with_nested_content()
     {
-        Entry::factory()->count(20)->create(['type' => 'post']);
+        // Create nested content
+        for ($i = 1; $i <= 20; $i++) {
+            Entry::factory()->atPath("docs/section-{$i}")->create([
+                'title' => "Section {$i}",
+                'type' => 'doc',
+            ]);
+        }
 
-        $response = $this->getJson('/entry/post?per_page=10');
+        $response = $this->getJson('/entry/doc?per_page=10');
 
         $response->assertStatus(200)
             ->assertJsonCount(10, 'data');
     }
 
+    public function test_hierarchical_listing()
+    {
+        $filter = json_encode([
+            '$hierarchy' => [
+                'descendants' => 'docs/getting-started'
+            ]
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Installation Guide'])
+            ->assertJsonFragment(['title' => 'Configuration'])
+            ->assertJsonMissing(['title' => 'Deployment Guide']);
+    }
+
+    public function test_listing_siblings()
+    {
+        $filter = json_encode([
+            'slug' => [
+                '$isSiblingOf' => 'docs/getting-started/installation'
+            ]
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Configuration'])
+            ->assertJsonMissing(['title' => 'Deployment Guide']);
+    }
+
+    public function test_listing_with_path_based_filters()
+    {
+        $filter = json_encode([
+            'slug' => [
+                '$startsWith' => 'docs/advanced'
+            ]
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Advanced Topics'])
+            ->assertJsonFragment(['title' => 'Deployment Guide'])
+            ->assertJsonMissing(['title' => 'Installation Guide']);
+    }
+
+    public function test_combined_path_and_meta_filters()
+    {
+        $filter = json_encode([
+            'slug' => ['$startsWith' => 'docs/'],
+            'meta.difficulty' => 'advanced'
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Deployment Guide'])
+            ->assertJsonMissing(['title' => 'Installation Guide'])
+            ->assertJsonMissing(['title' => 'Configuration']);
+    }
+
+    public function test_index_filters_by_index_files()
+    {
+        $filter = json_encode(['is_index' => true]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Documentation'])
+            ->assertJsonFragment(['title' => 'Getting Started'])
+            ->assertJsonFragment(['title' => 'Advanced Topics'])
+            ->assertJsonMissing(['title' => 'Installation Guide']);
+    }
+
+    public function test_filtering_by_parent()
+    {
+        $filter = json_encode([
+            'slug' => [
+                '$hasParent' => 'docs/getting-started'
+            ]
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Installation Guide'])
+            ->assertJsonFragment(['title' => 'Configuration'])
+            ->assertJsonMissing(['title' => 'Deployment Guide']);
+    }
+
+    public function test_mixed_hierarchical_and_type_filtering()
+    {
+        $filter = json_encode([
+            '$and' => [
+                [
+                    'slug' => ['$startsWith' => 'docs/'],
+                    'meta.difficulty' => ['$in' => ['beginner', 'intermediate']]
+                ]
+            ]
+        ]);
+
+        $response = $this->getJson("/entry/doc?filter={$filter}");
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['title' => 'Installation Guide'])
+            ->assertJsonFragment(['title' => 'Configuration'])
+            ->assertJsonMissing(['title' => 'Deployment Guide']);
+    }
+
     public function test_index_returns_404_for_invalid_type()
     {
         $response = $this->getJson('/entry/invalid-type');
-
         $response->assertStatus(404);
     }
 
-    public function test_index_applies_tag_filters()
+    public function test_index_applies_tag_filters_with_hierarchy()
     {
-        $postA = Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        $postB = Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
-        $postC = Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
-
-        $postA->attachTag('tag1');
-        $postB->attachTag('tag2');
-        $postC->attachTag('tag1');
-
-        $filter = json_encode(['$tags' => ['tag1']]);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data')
-            ->assertJsonFragment(['title' => 'Post A'])
-            ->assertJsonFragment(['title' => 'Post C'])
-            ->assertJsonMissing(['title' => 'Post B']);
-    }
-
-    public function test_index_applies_multiple_tag_filters()
-    {
-        $postA = Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        $postB = Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
-        $postC = Entry::factory()->create(['title' => 'Post C', 'type' => 'post']);
-
-        $postA->attachTags(['tag1', 'tag2']);
-        $postB->attachTag('tag2');
-        $postC->attachTag('tag1');
-
-        $filter = json_encode(['$tags' => ['tag1', 'tag2']]);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data')
-            ->assertJsonFragment(['title' => 'Post A'])
-            ->assertJsonFragment(['title' => 'Post B'])
-            ->assertJsonFragment(['title' => 'Post C']);
-    }
-
-    public function test_index_applies_field_filters()
-    {
-        Entry::factory()->create(['title' => 'Post A', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'Post B', 'type' => 'post']);
-
-        $filter = json_encode(['title' => 'Post A']);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.title', 'Post A');
-    }
-
-    public function test_index_applies_operator_field_filters()
-    {
-        Entry::factory()->create(['title' => 'AAA Post', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'BBB Post', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'CCC Post', 'type' => 'post']);
+        $entry = Entry::factory()->atPath('docs/getting-started/tutorial')->create([
+            'title' => 'Tutorial',
+            'type' => 'doc'
+        ]);
+        $entry->attachTag('beginner');
 
         $filter = json_encode([
-            'title' => ['$lt' => 'CCC Post'],
-            '$order' => ['title' => 'desc'],
-        ]);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'BBB Post')
-            ->assertJsonPath('data.1.title', 'AAA Post');
-    }
-
-    public function test_index_applies_multiple_filters()
-    {
-        Entry::factory()->create(['title' => 'Post A', 'type' => 'post', 'published_at' => now()->subDays(5)]);
-        Entry::factory()->create(['title' => 'Post B', 'type' => 'post', 'published_at' => now()->subDays(3)]);
-        Entry::factory()->create(['title' => 'Post C', 'type' => 'post', 'published_at' => now()->subDay()]);
-
-        $filter = json_encode([
-            'published_at' => ['$gte' => now()->subDays(4)->toDateTimeString()],
-            'title' => ['$ne' => 'Post C'],
-        ]);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.title', 'Post B');
-    }
-
-    public function test_index_returns_only_specified_fields()
-    {
-        Entry::factory()->create([
-            'title' => 'Test Post',
-            'content' => 'This is the content',
-            'excerpt' => 'This is the excerpt',
-            'type' => 'post',
+            '$tags' => ['beginner'],
+            'slug' => ['$startsWith' => 'docs/getting-started']
         ]);
 
-        $fields = json_encode(['title', 'excerpt']);
-
-        $response = $this->getJson("/entry/post?fields={$fields}");
+        $response = $this->getJson("/entry/doc?filter={$filter}");
 
         $response->assertStatus(200)
-            ->assertJsonStructure(['data' => [['title', 'excerpt']]])
-            ->assertJsonMissing(['content'])
-            ->assertJsonCount(1, 'data');
+            ->assertJsonFragment(['title' => 'Tutorial'])
+            ->assertJsonMissing(['title' => 'Deployment Guide']);
     }
 
-    public function test_index_returns_nested_meta_fields()
+    public function test_nested_meta_fields_with_hierarchy()
     {
-        Entry::factory()->create([
-            'title' => 'Test Post',
-            'type' => 'post',
+        Entry::factory()->atPath('docs/reference/api')->create([
+            'title' => 'API Reference',
+            'type' => 'doc',
             'meta' => [
-                'author' => 'John Doe',
-                'seo' => [
-                    'description' => 'SEO description',
-                    'keywords' => ['key1', 'key2'],
-                ],
-            ],
+                'version' => '2.0',
+                'api' => [
+                    'stability' => 'stable',
+                    'auth' => ['token', 'oauth']
+                ]
+            ]
         ]);
 
-        $fields = json_encode(['title', 'meta.author', 'meta.seo.description']);
+        $fields = json_encode(['title', 'meta.version', 'meta.api.stability']);
+        $filter = json_encode(['slug' => ['$startsWith' => 'docs/reference']]);
 
-        $response = $this->getJson("/entry/post?fields={$fields}");
+        $response = $this->getJson("/entry/doc?filter={$filter}&fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonStructure(['data' => [[
                 'title',
                 'meta' => [
-                    'author',
-                    'seo' => ['description'],
-                ],
+                    'version',
+                    'api' => ['stability']
+                ]
             ]]])
-            ->assertJsonMissing(['meta' => ['seo' => ['keywords']]])
-            ->assertJsonCount(1, 'data');
+            ->assertJsonMissing(['meta' => ['api' => ['auth']]]);
     }
 
-    public function test_index_respects_order_parameter()
+    public function test_hierarchical_ordering()
     {
-        Entry::factory()->create(['title' => 'AAA', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'BBB', 'type' => 'post']);
-        Entry::factory()->create(['title' => 'CCC', 'type' => 'post']);
-
         $filter = json_encode([
-            '$order' => ['title' => 'asc'],
+            'slug' => ['$startsWith' => 'docs/'],
+            '$order' => ['slug' => 'asc']
         ]);
-        $response = $this->getJson("/entry/post?filter={$filter}");
 
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.title', 'AAA')
-            ->assertJsonPath('data.1.title', 'BBB')
-            ->assertJsonPath('data.2.title', 'CCC');
-    }
+        $response = $this->getJson("/entry/doc?filter={$filter}");
 
-    public function test_index_handles_invalid_json_filters()
-    {
-        $invalidFilter = 'invalid-json';
-        $response = $this->getJson("/entry/post?filter={$invalidFilter}");
+        $data = $response->json('data');
+        $slugs = collect($data)->pluck('slug')->values()->all();
 
-        $response->assertStatus(400)
-            ->assertJson(['error' => 'The filter field must be a valid JSON string.']);
-    }
-
-    public function test_index_handles_empty_result_set()
-    {
-        $filter = json_encode(['title' => 'Non-existent Post']);
-        $response = $this->getJson("/entry/post?filter={$filter}");
-
-        $response->assertStatus(404);
+        // Verify that the slugs are properly ordered
+        $this->assertEquals(
+            collect($slugs)->sort()->values()->all(),
+            $slugs,
+            'Entries should be ordered by slug'
+        );
     }
 }

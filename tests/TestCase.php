@@ -52,7 +52,7 @@ abstract class TestCase extends BaseTestCase
         ];
     }
 
-    protected function fakeOpenAi(int $count = 20)
+    protected function fakeOpenAi(int $count = 50)
     {
         // Save the current random seed
         $currentSeed = mt_rand();
@@ -60,7 +60,7 @@ abstract class TestCase extends BaseTestCase
         // Set a fixed seed for reproducibility
         mt_srand(42);
 
-        // Create 20 fake embeddings
+        // Create fake embeddings
         $fakeEmbeddings = [];
         for ($i = 0; $i < $count; $i++) {
             $fakeEmbeddings[] = array_map(
