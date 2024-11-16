@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Entry;
+use App\Services\FileDiscoveryService;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitException;
 use CzProject\GitPhp\GitRepository;
@@ -13,7 +14,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Class EntrySyncJob
@@ -36,7 +36,6 @@ class EntrySyncJob implements ShouldQueue
      *
      * @param  string  $path  The path to the content directory
      * @param  string  $type  The type of content being synced
-     * @param  string  $pattern  The file pattern to match (default: '*.md')
      * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
      * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
@@ -44,7 +43,6 @@ class EntrySyncJob implements ShouldQueue
     public function __construct(
         protected string $path,
         protected string $type,
-        protected string $pattern = '*.md',
         protected bool $shouldPull = false,
         protected bool $skipIfNoChanges = false,
         protected ?string $webhookUrl = null
@@ -62,8 +60,9 @@ class EntrySyncJob implements ShouldQueue
      * Execute the job.
      *
      * @param  Git  $git  The Git instance for repository operations
+     * @param  FileDiscoveryService  $fileDiscovery  The file discovery service
      */
-    public function handle(Git $git): void
+    public function handle(Git $git, FileDiscoveryService $fileDiscovery): void
     {
         Log::info("Starting content sync for type: {$this->type}");
 
@@ -77,7 +76,7 @@ class EntrySyncJob implements ShouldQueue
                 }
             }
 
-            $this->processContent();
+            $this->processContent($fileDiscovery);
         } catch (\Exception $e) {
             Log::error("Error during content sync: {$e->getMessage()}");
             Log::error($e->getTraceAsString());
@@ -173,27 +172,44 @@ class EntrySyncJob implements ShouldQueue
     /**
      * Process content files and sync with database.
      */
-    protected function processContent(): void
+    protected function processContent(FileDiscoveryService $fileDiscovery): void
     {
-        $fullPattern = $this->path.'/'.$this->pattern;
-        Log::info("Scanning directory: {$fullPattern}");
+        Log::info("Scanning directory: {$this->path}");
 
-        $files = File::glob($fullPattern, GLOB_BRACE);
-        Log::info('Found '.count($files).' files to process');
+        // Find all markdown files, sorted by directory depth
+        $files = $fileDiscovery->findFiles($this->path);
+        Log::info('Found '.$files->count().' files to process');
 
         $existingSlugs = Entry::where('type', $this->type)->pluck('slug')->flip();
         $processedSlugs = [];
         $updatedCount = 0;
         $createdCount = 0;
 
-        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
-        foreach (array_chunk($files, $batchSize) as $batch) {
-            foreach ($batch as $file) {
-                $slug = $this->getSlugFromFilename($file);
-                $processedSlugs[] = $slug;
+        // Create callback for slug existence checking
+        $checkSlugExists = function (string $slug) use ($existingSlugs, $processedSlugs) {
+            return $existingSlugs->has($slug) || in_array($slug, $processedSlugs);
+        };
 
+        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
+        foreach ($files->chunk($batchSize) as $batch) {
+            foreach ($batch as $relativePath => $file) {
                 try {
-                    $item = Entry::syncFromMarkdown($file, $this->type, true);
+                    // Generate the appropriate slug for this file
+                    $desiredSlug = $fileDiscovery->generateSlug($relativePath, $checkSlugExists);
+
+                    // If there's a conflict, resolve it
+                    $slug = $fileDiscovery->resolveSlugConflict($desiredSlug, $checkSlugExists);
+                    $processedSlugs[] = $slug;
+
+                    // Process the file
+                    $item = Entry::syncFromMarkdown($file->getPathname(), $this->type, true);
+
+                    // Ensure the correct slug is set
+                    if ($item->slug !== $slug) {
+                        $item->slug = $slug;
+                        $item->save();
+                    }
+
                     if ($existingSlugs->has($slug)) {
                         $updatedCount++;
                         Log::info("Updated content item: {$slug}");
@@ -202,7 +218,7 @@ class EntrySyncJob implements ShouldQueue
                         Log::info("Created new content item: {$slug}");
                     }
                 } catch (\Exception $e) {
-                    Log::error("Error processing file {$file}: ".$e->getMessage());
+                    Log::error("Error processing file {$file->getPathname()}: ".$e->getMessage());
                     if (config('flatlayer.sync.log_level') === 'debug') {
                         Log::debug($e->getTraceAsString());
                     }
@@ -213,18 +229,7 @@ class EntrySyncJob implements ShouldQueue
         $deletedCount = $this->deleteRemovedEntries($existingSlugs, $processedSlugs);
         Log::info("Content sync completed for type: {$this->type}");
 
-        $this->triggerWebhook($updatedCount, $createdCount, $deletedCount, count($files));
-    }
-
-    /**
-     * Get a slug from a filename.
-     *
-     * @param  string  $filename  The filename to process
-     * @return string The generated slug
-     */
-    private function getSlugFromFilename(string $filename): string
-    {
-        return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
+        $this->triggerWebhook($updatedCount, $createdCount, $deletedCount, $files->count());
     }
 
     /**
@@ -281,7 +286,6 @@ class EntrySyncJob implements ShouldQueue
         return [
             'type' => $this->type,
             'path' => $this->path,
-            'pattern' => $this->pattern,
             'shouldPull' => $this->shouldPull,
             'skipIfNoChanges' => $this->skipIfNoChanges,
             'webhookUrl' => $this->webhookUrl,

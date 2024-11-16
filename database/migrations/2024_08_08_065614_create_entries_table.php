@@ -13,27 +13,32 @@ return new class extends Migration
             $table->id();
             $table->string('type');
             $table->string('title')->nullable();
-            $table->string('slug');
+            // Increased slug length to handle paths
+            $table->string('slug', 1024);
             $table->text('content')->nullable();
             $table->string('excerpt')->nullable();
             $table->json('meta')->nullable();
-            $table->string('filename');
+            $table->string('filename', 1024);
+            // Flag for index files (e.g., index.md)
+            $table->boolean('is_index')->default(false);
 
-            // Create a composite unique index on type and slug
+            // Create indexes for efficient queries
             $table->unique(['type', 'slug']);
 
             // Add a vector column for search functionality
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $table->vector('embedding', 1536)->nullable();
+                // Add a GiST index for path-based queries
+                DB::statement('CREATE INDEX entries_slug_path_gist ON entries USING gist (type, slug gist_trgm_ops)');
             } else {
-                $table->text('embedding');
+                $table->text('embedding')->nullable();
             }
 
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
         });
 
-        // Add a functional index for the meta JSON field
+        // Add a functional index for the meta JSON field in PostgreSQL
         if (DB::connection()->getDriverName() === 'pgsql') {
             DB::statement('CREATE INDEX entries_meta_gin_index ON entries USING GIN ((meta::jsonb))');
         }
@@ -41,6 +46,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('content_items');
+        Schema::dropIfExists('entries');
     }
 };

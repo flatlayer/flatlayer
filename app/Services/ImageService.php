@@ -12,6 +12,7 @@ use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
 use Thumbhash\Thumbhash;
+use Illuminate\Support\Str;
 
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
@@ -66,7 +67,10 @@ class ImageService
      */
     public function syncImagesForEntry(Entry $entry, Arrayable|array $imagePaths, string $collectionName): void
     {
-        $imagePaths = collect($imagePaths);
+        $imagePaths = collect($imagePaths)->map(function ($path) use ($entry) {
+            return $this->resolveMediaPath($path, $entry->filename);
+        });
+
         $existingImages = $entry->getImages($collectionName);
         $existingPaths = $existingImages->pluck('path');
 
@@ -93,7 +97,7 @@ class ImageService
             }
 
             $fullPath = $this->resolveMediaPath($src, $basePath);
-            if (! File::exists($fullPath)) {
+            if (!File::exists($fullPath)) {
                 return $matches[0];
             }
 
@@ -119,7 +123,6 @@ class ImageService
 
         if ($image) {
             $this->updateImageIfNeeded($image, $fileInfo);
-
             return $image;
         }
 
@@ -189,8 +192,6 @@ class ImageService
 
     /**
      * Generate thumbhash for an image file.
-     *
-     * @param  string  $path  The path to the image file
      */
     public function generateThumbhash(string $path): string
     {
@@ -228,13 +229,49 @@ class ImageService
     }
 
     /**
-     * Resolve the full path of a media item.
+     * Resolve the full path of a media item relative to the content file.
      */
-    public function resolveMediaPath(string $mediaItem, string $basePath): string
+    public function resolveMediaPath(string $mediaItem, string $contentPath): string
     {
-        $fullPath = dirname($basePath).'/'.$mediaItem;
+        // Get the directory containing the content file
+        $contentDir = dirname($contentPath);
 
-        return File::exists($fullPath) ? $fullPath : $mediaItem;
+        // Handle absolute paths within the content directory
+        if (Str::startsWith($mediaItem, '/')) {
+            $contentRoot = $this->findContentRoot($contentDir);
+            return $contentRoot . $mediaItem;
+        }
+
+        // Handle relative paths (including parent directory references)
+        $path = $contentDir;
+        $parts = explode('/', $mediaItem);
+
+        foreach ($parts as $part) {
+            if ($part === '..') {
+                $path = dirname($path);
+            } elseif ($part !== '.') {
+                $path .= '/' . $part;
+            }
+        }
+
+        return $path;
+    }
+
+    /**
+     * Find the root directory of the content repository.
+     */
+    protected function findContentRoot(string $startDir): string
+    {
+        $currentDir = $startDir;
+        while ($currentDir !== '/') {
+            if (File::exists($currentDir . '/.git')) {
+                return $currentDir;
+            }
+            $currentDir = dirname($currentDir);
+        }
+
+        // If no git directory found, return the start directory
+        return $startDir;
     }
 
     /**

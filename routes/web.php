@@ -15,7 +15,10 @@ Route::get('/', function () {
 // Entry routes
 Route::get('/entry/{type}', [ListController::class, 'index'])->name('entry.list');
 Route::get('/entry/batch/{type}', [ShowController::class, 'batch'])->name('entry.batch');
-Route::get('/entry/{type}/{slug}', [ShowController::class, 'show'])->name('entry.show');
+// Update the show route to handle multi-level slugs
+Route::get('/entry/{type}/{slug}', [ShowController::class, 'show'])
+    ->where('slug', '.*') // Allow any character in the slug including forward slashes
+    ->name('entry.show');
 
 // Image transform route
 Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('image.transform');

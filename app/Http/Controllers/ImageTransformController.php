@@ -31,4 +31,18 @@ class ImageTransformController extends Controller
             return new JsonResponse(['error' => 'An error occurred while processing the image'], 500);
         }
     }
+
+    public function metadata(int $id): JsonResponse
+    {
+        $image = Image::findOrFail($id);
+
+        return new JsonResponse([
+            'width' => $image->dimensions['width'],
+            'height' => $image->dimensions['height'],
+            'mime_type' => $image->mime_type,
+            'size' => $image->size,
+            'filename' => $image->filename,
+            'thumbhash' => $image->thumbhash,
+        ]);
+    }
 }

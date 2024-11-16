@@ -24,7 +24,11 @@ class EntryFilter
     protected JsonQueryBuilder $jsonQueryBuilder;
 
     /**
-     * @throws \Exception
+     * Create a new instance of the EntryFilter.
+     *
+     * @param Builder $builder The query builder instance
+     * @param array $filters The filters to apply
+     * @throws \Exception If the database driver is not supported
      */
     public function __construct(Builder $builder, protected array $filters)
     {
@@ -35,6 +39,11 @@ class EntryFilter
         $this->jsonQueryBuilder = $this->createJsonQueryBuilder();
     }
 
+    /**
+     * Create a new JSON query builder instance.
+     *
+     * @throws \Exception
+     */
     protected function createJsonQueryBuilder(): JsonQueryBuilder
     {
         $driver = DB::connection()->getDriverName();
@@ -86,12 +95,16 @@ class EntryFilter
                     '$or' => $this->applyOrConditions($value),
                     '$and' => $this->applyAndConditions($value),
                     '$tags' => $this->applyTagFilters($value),
+                    '$hierarchy' => $this->applyHierarchyFilter($value),
                     default => $this->applyFieldFilter($subQuery, $field, $value)
                 };
             }
         });
     }
 
+    /**
+     * Apply OR conditions to the query.
+     */
     protected function applyOrConditions(array $conditions): void
     {
         $this->builder->where(function ($query) use ($conditions) {
@@ -110,6 +123,9 @@ class EntryFilter
         });
     }
 
+    /**
+     * Apply AND conditions to the query.
+     */
     protected function applyAndConditions(array $conditions, ?Builder $query = null): void
     {
         $query = $query ?? $this->builder;
@@ -178,6 +194,30 @@ class EntryFilter
             '$notIn' => $this->applyNotInOperator($query, $field, $value),
             '$between' => $this->applyBetweenOperator($query, $field, $value),
             '$notBetween' => $this->applyNotBetweenOperator($query, $field, $value),
+            '$startsWith' => $query->where($field, 'like', $value.'%'),
+            '$endsWith' => $query->where($field, 'like', '%'.$value),
+            '$contains' => $query->where($field, 'like', '%'.$value.'%'),
+            '$isChildOf' => $query->where($field, 'like', $value.'/%')
+                ->whereRaw("replace($field, ?, '') not like '%/%'", [$value.'/']),
+            '$isDescendantOf' => $query->where($field, 'like', $value.'/%'),
+            '$isSiblingOf' => $query->where(function ($q) use ($field, $value) {
+                if (!str_contains($value, '/')) {
+                    $q->whereRaw("$field not like '%/%'");
+                } else {
+                    $parent = substr($value, 0, strrpos($value, '/'));
+                    $q->where($field, 'like', $parent.'/%')
+                        ->whereRaw("replace($field, ?, '') not like '%/%'", [$parent.'/'])
+                        ->where($field, '!=', $value);
+                }
+            }),
+            '$hasParent' => $query->where(function ($q) use ($field, $value) {
+                if ($value === '') {
+                    $q->whereRaw("$field not like '%/%'");
+                } else {
+                    $q->where($field, 'like', $value.'/%')
+                        ->whereRaw("replace($field, ?, '') not like '%/%'", [$value.'/']);
+                }
+            }),
             '$null' => $query->whereNull($field),
             '$notNull' => $query->whereNotNull($field),
             '' => $query->where($field, $value),
@@ -188,9 +228,9 @@ class EntryFilter
     /**
      * Apply the $exists operator to the query.
      *
-     * @param  Builder  $query  The query builder instance
-     * @param  string  $field  The field to apply the operator to
-     * @param  mixed  $value  The value to check for existence
+     * @param Builder $query The query builder instance
+     * @param string $field The field to apply the operator to
+     * @param mixed $value The value to check for existence
      *
      * @throws InvalidFilterException If the value is invalid
      */
@@ -208,9 +248,9 @@ class EntryFilter
     /**
      * Apply the $in operator to the query.
      *
-     * @param  Builder  $query  The query builder instance
-     * @param  string  $field  The field to apply the operator to
-     * @param  mixed  $value  The values to check for inclusion
+     * @param Builder $query The query builder instance
+     * @param string $field The field to apply the operator to
+     * @param mixed $value The values to check for inclusion
      *
      * @throws InvalidFilterException If the value is not an array
      */
@@ -225,9 +265,9 @@ class EntryFilter
     /**
      * Apply the $notIn operator to the query.
      *
-     * @param  Builder  $query  The query builder instance
-     * @param  string  $field  The field to apply the operator to
-     * @param  mixed  $value  The values to check for exclusion
+     * @param Builder $query The query builder instance
+     * @param string $field The field to apply the operator to
+     * @param mixed $value The values to check for exclusion
      *
      * @throws InvalidFilterException If the value is not an array
      */
@@ -242,9 +282,9 @@ class EntryFilter
     /**
      * Apply the $between operator to the query.
      *
-     * @param  Builder  $query  The query builder instance
-     * @param  string  $field  The field to apply the operator to
-     * @param  mixed  $value  The range values
+     * @param Builder $query The query builder instance
+     * @param string $field The field to apply the operator to
+     * @param mixed $value The range values
      *
      * @throws InvalidFilterException If the value is not an array with exactly two elements
      */
@@ -259,9 +299,9 @@ class EntryFilter
     /**
      * Apply the $notBetween operator to the query.
      *
-     * @param  Builder  $query  The query builder instance
-     * @param  string  $field  The field to apply the operator to
-     * @param  mixed  $value  The range values to exclude
+     * @param Builder $query The query builder instance
+     * @param string $field The field to apply the operator to
+     * @param mixed $value The range values to exclude
      *
      * @throws InvalidFilterException If the value is not an array with exactly two elements
      */
@@ -274,9 +314,46 @@ class EntryFilter
     }
 
     /**
+     * Apply hierarchy filter to the query.
+     *
+     * @param array $conditions The hierarchy conditions to apply
+     * @throws InvalidFilterException If an invalid hierarchy relationship is specified
+     */
+    protected function applyHierarchyFilter(array $conditions): void
+    {
+        foreach ($conditions as $relationship => $value) {
+            match ($relationship) {
+                'descendants' => $this->builder->where('slug', 'like', $value.'/%'),
+                'ancestors' => $this->builder->where(function ($q) use ($value) {
+                    $parts = explode('/', $value);
+                    array_pop($parts);
+                    $currentPath = '';
+                    foreach ($parts as $part) {
+                        $currentPath = $currentPath ? "$currentPath/$part" : $part;
+                        $q->orWhere('slug', $currentPath);
+                    }
+                }),
+                'siblings' => $this->builder->where(function ($q) use ($value) {
+                    if (!str_contains($value, '/')) {
+                        $q->whereRaw("slug not like '%/%'")
+                            ->where('slug', '!=', $value);
+                    } else {
+                        $parent = substr($value, 0, strrpos($value, '/'));
+                        $q->where('slug', 'like', $parent.'/%')
+                            ->whereRaw("replace(slug, ?, '') not like '%/%'", [$parent.'/'])
+                            ->where('slug', '!=', $value);
+                    }
+                }),
+                default => throw new InvalidFilterException("Invalid hierarchy relationship: $relationship")
+            };
+        }
+    }
+
+    /**
      * Apply tag filters to the query.
      *
-     * @param  array  $tags  The tags to filter by.
+     * @param array $tags The tags to filter by
+     * @param Builder|null $query Optional query builder instance
      */
     protected function applyTagFilters(array $tags, ?Builder $query = null): void
     {
@@ -288,6 +365,8 @@ class EntryFilter
 
     /**
      * Apply search to the query if the model is searchable.
+     *
+     * @return Collection The search results
      */
     protected function applySearch(): Collection
     {
@@ -313,6 +392,8 @@ class EntryFilter
 
     /**
      * Check if the model is searchable.
+     *
+     * @return bool True if the model uses the Searchable trait
      */
     protected function isSearchable(): bool
     {
@@ -323,6 +404,8 @@ class EntryFilter
 
     /**
      * Check if the query is in search mode.
+     *
+     * @return bool True if a search query is present
      */
     public function isSearch(): bool
     {
