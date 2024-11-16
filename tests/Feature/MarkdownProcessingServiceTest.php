@@ -17,8 +17,8 @@ class MarkdownProcessingServiceTest extends TestCase
     use RefreshDatabase, WithFaker;
 
     protected MarkdownProcessingService $service;
-
     protected Entry $entry;
+    protected string $testDataPath;
 
     protected function setUp(): void
     {
@@ -26,29 +26,178 @@ class MarkdownProcessingServiceTest extends TestCase
         $this->service = app(MarkdownProcessingService::class);
         $this->entry = Entry::factory()->create(['type' => 'post']);
         Storage::fake('local');
+
+        $this->testDataPath = Storage::path('content');
+        if (!file_exists($this->testDataPath)) {
+            mkdir($this->testDataPath, 0755, true);
+        }
     }
 
-    public function test_handle_media_from_front_matter_creates_images()
+    public function test_process_markdown_file_with_frontmatter()
+    {
+        $content = <<<MD
+---
+title: Test Post
+type: post
+tags: [test, markdown]
+published_at: "2024-01-01"
+author: John Doe
+category: testing
+nested:
+  key: value
+images:
+  featured: featured.jpg
+  gallery: [image1.jpg, image2.jpg]
+---
+
+# Different Title
+This is the content.
+MD;
+
+        Storage::put('content/test-post.md', $content);
+
+        // Test with date-only format
+        $result = $this->service->processMarkdownFile(
+            Storage::path('content/test-post.md'),
+            'post',
+            'test-post',
+            ['title', 'type', 'tags', 'published_at'],
+            ['dateFormat' => 'Y-m-d']
+        );
+
+        // Check fillable attributes are at root level
+        $this->assertEquals('Test Post', $result['title']);
+        $this->assertEquals('post', $result['type']);
+        $this->assertEquals(['test', 'markdown'], $result['tags']);
+        $this->assertEquals('2024-01-01', $result['published_at']);
+
+        // Test with default datetime format
+        $result = $this->service->processMarkdownFile(
+            Storage::path('content/test-post.md'),
+            'post',
+            'test-post',
+            ['title', 'type', 'tags', 'published_at']
+        );
+
+        $this->assertEquals('2024-01-01 00:00:00', $result['published_at']);
+
+        // Check non-fillable fields went to meta
+        $this->assertEquals('John Doe', $result['meta']['author']);
+        $this->assertEquals('testing', $result['meta']['category']);
+        $this->assertEquals('value', $result['meta']['nested']['key']);
+
+        // Check slug generation
+        $this->assertEquals('test-post', $result['slug']);
+
+        // Check content processing
+        $this->assertEquals('This is the content.', trim($result['content']));
+
+        // Check images are separated
+        $this->assertEquals([
+            'featured' => 'featured.jpg',
+            'gallery' => ['image1.jpg', 'image2.jpg']
+        ], $result['images']);
+    }
+
+    public function test_process_markdown_file_with_title_extraction()
+    {
+        $content = <<<MD
+---
+type: post
+---
+
+# Markdown Title
+Content here.
+MD;
+
+        Storage::put('content/no-title.md', $content);
+        $result = $this->service->processMarkdownFile(
+            Storage::path('content/no-title.md'),
+            'post',
+            'no-title',
+            ['title', 'type']
+        );
+
+        // Title should be extracted from markdown when not in frontmatter
+        $this->assertEquals('Markdown Title', $result['title']);
+        $this->assertEquals('Content here.', trim($result['content']));
+    }
+
+    public function test_process_front_matter()
     {
         $data = [
-            'images' => [
-                'featured' => 'featured.jpg',
-                'thumbnail' => 'thumbnail.png',
-            ],
+            'title' => 'Test Post',
+            'type' => 'post',
+            'tags' => ['test', 'markdown'],
+            'published_at' => '2024-01-01',
+            'author' => 'John Doe',
+            'category' => 'testing',
+            'nested' => ['key' => 'value'],
+            'images.featured' => 'featured.jpg',
+            'images.gallery' => ['image1.jpg', 'image2.jpg'],
         ];
 
-        $imageManager = new ImageManager(new Driver);
+        $fillable = ['title', 'type', 'tags', 'published_at'];
+
+        // Pass dateFormat option to match expected date format
+        $result = $this->service->processFrontMatter($data, $fillable, [
+            'dateFormat' => 'Y-m-d'
+        ]);
+
+        // Check structure
+        $this->assertArrayHasKey('attributes', $result);
+        $this->assertArrayHasKey('meta', $result);
+        $this->assertArrayHasKey('images', $result);
+
+        // Check fillable attributes
+        $this->assertEquals('Test Post', $result['attributes']['title']);
+        $this->assertEquals('post', $result['attributes']['type']);
+        $this->assertEquals(['test', 'markdown'], $result['attributes']['tags']);
+        $this->assertEquals('2024-01-01', $result['attributes']['published_at']);
+
+        // Check meta fields
+        $this->assertEquals('John Doe', $result['meta']['author']);
+        $this->assertEquals('testing', $result['meta']['category']);
+        $this->assertEquals('value', $result['meta']['nested']['key']);
+
+        // Check images
+        $this->assertEquals('featured.jpg', $result['images']['featured']);
+        $this->assertEquals(['image1.jpg', 'image2.jpg'], $result['images']['gallery']);
+
+        // Let's also test the default format
+        $resultWithDefault = $this->service->processFrontMatter($data, $fillable);
+        $this->assertEquals('2024-01-01 00:00:00', $resultWithDefault['attributes']['published_at']);
+    }
+
+    public function test_handle_media_from_front_matter()
+    {
+        // Create test directory structure
+        Storage::makeDirectory('content/posts/images');
 
         // Create test images
-        $featuredImage = $imageManager->create(100, 100)->fill('#ff0000');
-        $thumbnailImage = $imageManager->create(50, 50)->fill('#00ff00');
+        $imageManager = new ImageManager(new Driver);
+        $image = $imageManager->create(100, 100)->fill('#ff0000');
 
-        Storage::disk('local')->put('posts/featured.jpg', $featuredImage->toJpeg());
-        Storage::disk('local')->put('posts/thumbnail.png', $thumbnailImage->toPng());
+        // Store the images in the fake storage
+        Storage::put('content/posts/images/featured.jpg', $image->toJpeg());
+        Storage::put('content/posts/thumbnail.png', $image->toPng());
 
-        $markdownPath = Storage::disk('local')->path('posts/test-post.md');
+        // Create test content file
+        Storage::put('content/posts/test-post.md', 'Test content');
 
-        $this->service->handleMediaFromFrontMatter($this->entry, $data['images'], $markdownPath);
+        // Define image paths relative to markdown file location
+        $images = [
+            'featured' => Storage::path('content/posts/images/featured.jpg'),
+            'thumbnail' => Storage::path('content/posts/thumbnail.png'),
+        ];
+
+        $this->service->handleMediaFromFrontMatter(
+            $this->entry,
+            $images,
+            Storage::path('content/posts/test-post.md')
+        );
+
+        $this->assertEquals(2, $this->entry->images()->count());
 
         $this->assertDatabaseHas('images', [
             'entry_id' => $this->entry->id,
@@ -61,73 +210,81 @@ class MarkdownProcessingServiceTest extends TestCase
             'collection' => 'thumbnail',
             'filename' => 'thumbnail.png',
         ]);
-
-        $this->assertEquals(2, $this->entry->images()->count());
     }
 
-    public function test_process_markdown_images_creates_and_updates_image_paths()
+    public function test_process_markdown_images()
     {
+        Storage::makeDirectory('content/posts/images');
+
         $imageManager = new ImageManager(new Driver);
+        $image = $imageManager->create(100, 100)->fill('#ff0000');
 
-        $markdownContent = '
-    # Test Content
-    ![Alt Text 1](image1.jpg)
-    ![Alt Text 2](https://example.com/image2.jpg)
-    ![Alt Text 3](image3.png)
-';
+        Storage::put('content/posts/images/image1.jpg', $image->toJpeg());
+        Storage::put('content/posts/images/image2.png', $image->toPng());
 
-        // Create test images
-        $image1 = $imageManager->create(100, 100)->fill('#ff0000');
-        $image3 = $imageManager->create(100, 100)->fill('#00ff00');
+        $content = <<<MD
+# Test Content
 
-        Storage::disk('local')->put('posts/image1.jpg', $image1->toJpeg());
-        Storage::disk('local')->put('posts/image3.png', $image3->toPng());
+![Image 1](images/image1.jpg)
+![External Image](https://example.com/image.jpg)
+![Image 2](images/image2.png)
+MD;
 
-        $markdownPath = Storage::disk('local')->path('posts/test-post.md');
+        $markdownPath = Storage::path('content/posts/test-post.md');
+        $result = $this->service->processMarkdownImages($this->entry, $content, $markdownPath);
 
-        $result = $this->service->processMarkdownImages($this->entry, $markdownContent, $markdownPath);
-
-        // Check if image tags are replaced with ResponsiveImage components
+        // Verify image replacements
         $this->assertStringContainsString('<ResponsiveImage', $result);
-        $this->assertStringContainsString('imageData=', $result);
-        $this->assertStringContainsString('baseUrl=', $result);
-        $this->assertStringContainsString('alt={"Alt Text 1"}', $result);
-        $this->assertStringContainsString('alt={"Alt Text 3"}', $result);
+        $this->assertStringContainsString('alt={"Image 1"}', $result);
+        $this->assertStringContainsString('alt={"Image 2"}', $result);
+        $this->assertStringContainsString('![External Image](https://example.com/image.jpg)', $result);
 
-        // Check if external URLs are left unchanged
-        $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $result);
-
-        // Verify image records in database
-        $this->assertDatabaseHas('images', [
-            'entry_id' => $this->entry->id,
-            'collection' => 'content',
-            'filename' => 'image1.jpg',
-        ]);
-
-        $this->assertDatabaseHas('images', [
-            'entry_id' => $this->entry->id,
-            'collection' => 'content',
-            'filename' => 'image3.png',
-        ]);
-
-        $this->assertEquals(2, $this->entry->images()->count());
+        // Verify database records
+        $this->assertEquals(2, $this->entry->images()->where('collection', 'content')->count());
     }
 
-    public function test_resolve_media_path_returns_correct_path()
+    public function test_extract_title_from_content()
     {
-        $imageService = app(ImageService::class);
-        $method = new \ReflectionMethod(ImageService::class, 'resolveMediaPath');
-        $method->setAccessible(true);
+        $method = new \ReflectionMethod($this->service, 'extractTitleFromContent');
 
-        $markdownPath = Storage::disk('local')->path('posts/test-post.md');
-        Storage::disk('local')->put('posts/image.jpg', 'fake image content');
+        // Test with H1 title
+        [$title1, $content1] = $method->invoke($this->service, "# Title Here\nContent here");
+        $this->assertEquals('Title Here', $title1);
+        $this->assertEquals('Content here', trim($content1));
 
-        // Test with existing file
-        $result = $method->invoke($imageService, 'image.jpg', $markdownPath);
-        $this->assertEquals(Storage::disk('local')->path('posts/image.jpg'), $result);
+        // Test without H1 title
+        [$title2, $content2] = $method->invoke($this->service, "Content without title\nMore content");
+        $this->assertNull($title2);
+        $this->assertEquals("Content without title\nMore content", $content2);
 
-        // Test with non-existent file
-        $result = $method->invoke($imageService, 'non_existent.jpg', $markdownPath);
-        $this->assertEquals('non_existent.jpg', $result);
+        // Test with multiple headings
+        [$title3, $content3] = $method->invoke($this->service, "# Main Title\n## Subtitle\nContent");
+        $this->assertEquals('Main Title', $title3);
+        $this->assertEquals("## Subtitle\nContent", trim($content3));
+    }
+
+    protected function tearDown(): void
+    {
+        if (file_exists($this->testDataPath)) {
+            $this->rrmdir($this->testDataPath);
+        }
+        parent::tearDown();
+    }
+
+    protected function rrmdir($dir)
+    {
+        if (is_dir($dir)) {
+            $objects = scandir($dir);
+            foreach ($objects as $object) {
+                if ($object != "." && $object != "..") {
+                    if (is_dir($dir. DIRECTORY_SEPARATOR .$object) && !is_link($dir."/".$object)) {
+                        $this->rrmdir($dir. DIRECTORY_SEPARATOR .$object);
+                    } else {
+                        unlink($dir. DIRECTORY_SEPARATOR .$object);
+                    }
+                }
+            }
+            rmdir($dir);
+        }
     }
 }

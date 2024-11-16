@@ -233,28 +233,27 @@ class ImageService
      */
     public function resolveMediaPath(string $mediaItem, string $contentPath): string
     {
+        // If the media item is already an absolute path, just verify it exists
+        if (file_exists($mediaItem)) {
+            return $mediaItem;
+        }
+
         // Get the directory containing the content file
         $contentDir = dirname($contentPath);
 
-        // Handle absolute paths within the content directory
-        if (Str::startsWith($mediaItem, '/')) {
-            $contentRoot = $this->findContentRoot($contentDir);
-            return $contentRoot . $mediaItem;
+        // Build absolute path
+        $absolutePath = $contentDir . DIRECTORY_SEPARATOR . $mediaItem;
+
+        if (!file_exists($absolutePath)) {
+            throw new RuntimeException(sprintf(
+                "Media file not found: %s (resolved from %s relative to %s)",
+                $mediaItem,
+                $absolutePath,
+                $contentPath
+            ));
         }
 
-        // Handle relative paths (including parent directory references)
-        $path = $contentDir;
-        $parts = explode('/', $mediaItem);
-
-        foreach ($parts as $part) {
-            if ($part === '..') {
-                $path = dirname($path);
-            } elseif ($part !== '.') {
-                $path .= '/' . $part;
-            }
-        }
-
-        return $path;
+        return $absolutePath;
     }
 
     /**
