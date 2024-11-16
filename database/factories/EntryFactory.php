@@ -15,14 +15,16 @@ class EntryFactory extends Factory
     public function definition(): array
     {
         $title = $this->faker->sentence;
+        $path = $this->faker->word;
 
         return [
             'type' => $this->faker->randomElement(['post', 'document']),
             'title' => $title,
-            'slug' => Str::slug($title),
+            'slug' => $path,
             'content' => $this->generateMarkdownLikeContent(),
             'excerpt' => $this->faker->paragraph,
-            'filename' => $this->faker->word.'.md',
+            'filename' => $path.'.md',
+            'is_index' => false,
             'meta' => [
                 'author' => $this->faker->name,
                 'reading_time' => $this->faker->numberBetween(1, 20),
@@ -37,6 +39,117 @@ class EntryFactory extends Factory
             ],
             'published_at' => $this->faker->dateTimeBetween('-1 year', 'now'),
         ];
+    }
+
+    /**
+     * Create an index file.
+     */
+    public function asIndex(): self
+    {
+        return $this->state(function (array $attributes) {
+            $slug = trim($attributes['slug'], '/');
+            return [
+                'filename' => $slug.'/index.md',
+                'is_index' => true,
+            ];
+        });
+    }
+
+    /**
+     * Create an entry at a specific path.
+     */
+    public function atPath(string $path): self
+    {
+        return $this->state(function (array $attributes) use ($path) {
+            $slug = trim($path, '/');
+            return [
+                'slug' => $slug,
+                'filename' => $slug.'.md',
+            ];
+        });
+    }
+
+    /**
+     * Create a nested structure of entries.
+     */
+    public function withNesting(array $structure): self
+    {
+        return $this->afterCreating(function (Entry $entry) use ($structure) {
+            $this->createNestedStructure($entry->type, '', $structure);
+        });
+    }
+
+    /**
+     * Recursively create a nested structure.
+     */
+    protected function createNestedStructure(string $type, string $basePath, array $structure): void
+    {
+        foreach ($structure as $key => $value) {
+            $path = $basePath ? $basePath.'/'.$key : $key;
+
+            if (is_array($value)) {
+                // Create index file for directory
+                self::new()->atPath($path)->asIndex()->create([
+                    'type' => $type,
+                    'title' => Str::title(str_replace('-', ' ', $key)),
+                ]);
+
+                // Recursively create children
+                $this->createNestedStructure($type, $path, $value);
+            } else {
+                self::new()->atPath($path)->create([
+                    'type' => $type,
+                    'title' => is_string($value) ? $value : Str::title(str_replace('-', ' ', $key)),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Create siblings for an entry.
+     */
+    public function withSiblings(int $count = 2): self
+    {
+        return $this->afterCreating(function (Entry $entry) use ($count) {
+            $parentPath = dirname($entry->slug);
+            $parentPath = $parentPath === '.' ? '' : $parentPath;
+
+            for ($i = 1; $i <= $count; $i++) {
+                $siblingPath = $parentPath ? $parentPath.'/'.$this->faker->word : $this->faker->word;
+                self::new()->atPath($siblingPath)->create([
+                    'type' => $entry->type,
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Create an entry with a complete ancestry path.
+     */
+    public function withAncestry(int $levels = 2): self
+    {
+        return $this->state(function (array $attributes) use ($levels) {
+            $parts = [];
+            for ($i = 0; $i < $levels; $i++) {
+                $parts[] = $this->faker->word;
+            }
+            $path = implode('/', $parts);
+
+            // Create all ancestor index files
+            $currentPath = '';
+            foreach ($parts as $part) {
+                $currentPath = $currentPath ? $currentPath.'/'.$part : $part;
+                self::new()->atPath($currentPath)->asIndex()->create([
+                    'type' => $attributes['type'],
+                    'title' => Str::title(str_replace('-', ' ', $part)),
+                ]);
+            }
+
+            return [
+                'slug' => $path,
+                'filename' => $path.'.md',
+            ];
+        });
     }
 
     protected function generateMarkdownLikeContent(): string
@@ -105,13 +218,16 @@ class EntryFactory extends Factory
 
             $markdownContent = $frontMatter."\n\n".$content;
 
-            $filename = $entry->slug.'.md';
-            $path = Storage::disk('local')->path($filename);
+            // Create directory structure if needed
+            $directory = dirname($entry->filename);
+            if ($directory !== '.') {
+                Storage::disk('local')->makeDirectory($directory);
+            }
 
+            $path = Storage::disk('local')->path($entry->filename);
             file_put_contents($path, $markdownContent);
 
             $entry->update([
-                'filename' => $filename,
                 'content' => $content,
             ]);
 
@@ -144,7 +260,6 @@ class EntryFactory extends Factory
     {
         $frontMatter = "---\n";
         $frontMatter .= 'title: '.$entry->title."\n";
-        $frontMatter .= 'slug: '.$entry->slug."\n";
         $frontMatter .= 'type: '.$entry->type."\n";
         $frontMatter .= 'published_at: '.($entry->published_at ? $entry->published_at->format('Y-m-d H:i:s') : 'null')."\n";
 

@@ -108,12 +108,13 @@ class EntryFilter
     protected function applyOrConditions(array $conditions): void
     {
         $this->builder->where(function ($query) use ($conditions) {
-            foreach ($conditions as $index => $condition) {
-                $method = $index === 0 ? 'where' : 'orWhere';
-                $query->$method(function ($subQuery) use ($condition) {
+            foreach ($conditions as $condition) {
+                $query->orWhere(function ($subQuery) use ($condition) {
                     foreach ($condition as $field => $value) {
                         if ($field === '$and') {
                             $this->applyAndConditions($value, $subQuery);
+                        } elseif ($field === '$or') {
+                            $this->applyOrConditions($value);
                         } else {
                             $this->applyFieldFilter($subQuery, $field, $value);
                         }
@@ -129,10 +130,15 @@ class EntryFilter
     protected function applyAndConditions(array $conditions, ?Builder $query = null): void
     {
         $query = $query ?? $this->builder;
+
         $query->where(function ($subQuery) use ($conditions) {
             foreach ($conditions as $condition) {
                 foreach ($condition as $field => $value) {
-                    $this->applyFieldFilter($subQuery, $field, $value);
+                    if ($field === '$or') {
+                        $this->applyOrConditions($value);
+                    } else {
+                        $this->applyFieldFilter($subQuery, $field, $value);
+                    }
                 }
             }
         });
@@ -147,11 +153,28 @@ class EntryFilter
     {
         if ($field === '$tags') {
             $this->applyTagFilters($value, $query);
+        } elseif ($field === '$hierarchy') {
+            $this->applyHierarchyFilter($value);
         } elseif (Str::contains($field, '.')) {
             $this->applyJsonFieldFilter($query, $field, $value);
         } elseif (is_array($value)) {
             foreach ($value as $operator => $operand) {
-                $this->applyOperator($query, $field, $operator, $operand);
+                switch ($operator) {
+                    case '$startsWith':
+                        $query->where($field, 'like', $operand.'%');
+                        break;
+                    case '$endsWith':
+                        $query->where($field, 'like', '%'.$operand);
+                        break;
+                    case '$notStartsWith':
+                        $query->where($field, 'not like', $operand.'%');
+                        break;
+                    case '$notEndsWith':
+                        $query->where($field, 'not like', '%'.$operand);
+                        break;
+                    default:
+                        $this->applyOperator($query, $field, $operator, $operand);
+                }
             }
         } else {
             $query->where($field, $value);
@@ -197,6 +220,8 @@ class EntryFilter
             '$startsWith' => $query->where($field, 'like', $value.'%'),
             '$endsWith' => $query->where($field, 'like', '%'.$value),
             '$contains' => $query->where($field, 'like', '%'.$value.'%'),
+            '$notStartsWith' => $query->where($field, 'not like', $value.'%'),
+            '$notEndsWith' => $query->where($field, 'not like', '%'.$value),
             '$isChildOf' => $query->where($field, 'like', $value.'/%')
                 ->whereRaw("replace($field, ?, '') not like '%/%'", [$value.'/']),
             '$isDescendantOf' => $query->where($field, 'like', $value.'/%'),
