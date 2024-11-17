@@ -5,33 +5,65 @@ namespace App\Traits;
 use App\Services\MarkdownProcessingService;
 use Carbon\Carbon;
 
-/**
- * Trait HasMarkdown
- *
- * This trait provides functionality for working with Markdown content in models.
- * It allows creating and syncing models from Markdown files, and parsing Markdown content.
- */
 trait HasMarkdown
 {
     protected MarkdownProcessingService $markdownContentService;
+    protected ?array $pendingTags = null;
+    protected ?array $pendingMedia = null;
 
     /**
      * Initialize the Markdown model.
      */
-    public function initializeMarkdownModel(): void
+    protected function initializeMarkdownModel(): void
     {
         $this->markdownContentService = app(MarkdownProcessingService::class);
     }
 
     /**
-     * Create a new model instance from a Markdown file.
+     * Create a new model instance from a Markdown file and save it.
      */
     public static function createFromMarkdown(string $filename, string $type = 'post'): self
     {
         $model = new static(['type' => $type]);
         $model->initializeMarkdownModel();
+        $model->slug = static::generateSlugFromFilename($filename);
 
-        return $model->fillFromMarkdown($filename, $type);
+        // Process the markdown content
+        $processedData = $model->markdownContentService->processMarkdownFile(
+            $filename,
+            $type,
+            $model->slug
+        );
+
+        // Fill basic attributes first
+        foreach ($processedData as $key => $value) {
+            match ($key) {
+                'tags' => $model->pendingTags = $value,
+                'images' => $model->pendingMedia = $value,
+                'published_at' => $model->handlePublishedAt($value),
+                default => $model->fillAttributeIfFillable($key, $value)
+            };
+        }
+
+        // Save the model first to get an ID
+        $model->save();
+
+        // Now handle tags and media
+        if ($model->pendingTags !== null) {
+            $model->syncTags($model->pendingTags);
+            $model->pendingTags = null;
+        }
+
+        if ($model->pendingMedia !== null) {
+            $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $filename);
+            $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $filename);
+            $model->pendingMedia = null;
+
+            // Save again if content was modified by image processing
+            $model->save();
+        }
+
+        return $model->fresh();
     }
 
     /**
@@ -39,40 +71,62 @@ trait HasMarkdown
      */
     public static function syncFromMarkdown(string $filename, string $type = 'post', bool $autoSave = false): self
     {
+        $slug = static::generateSlugFromFilename($filename);
+
+        // Find existing or create new
         $model = static::firstOrNew(
-            ['type' => $type, 'slug' => static::generateSlugFromFilename($filename)],
+            ['type' => $type, 'slug' => $slug],
             ['type' => $type]
         );
 
-        $model->initializeMarkdownModel();
-        $model = $model->fillFromMarkdown($filename, $type);
-
-        if ($autoSave) {
-            $model->save();
+        if (!$model->exists) {
+            return static::createFromMarkdown($filename, $type);
         }
 
-        return $model;
-    }
+        // For existing models, update their content
+        $model->initializeMarkdownModel();
 
-    /**
-     * Fill the model attributes from a Markdown file.
-     */
-    protected function fillFromMarkdown(string $filename, string $type): self
-    {
-        $processedData = $this->markdownContentService->processMarkdownFile($filename, $type, $this->fillable);
+        // Process the markdown content
+        $processedData = $model->markdownContentService->processMarkdownFile(
+            $filename,
+            $type,
+            $model->slug
+        );
 
+        // Fill basic attributes first
         foreach ($processedData as $key => $value) {
             match ($key) {
-                'tags' => null,
-                'published_at' => $this->handlePublishedAt($value),
-                default => $this->fillAttributeIfFillable($key, $value),
+                'tags' => $model->pendingTags = $value,
+                'images' => $model->pendingMedia = $value,
+                'published_at' => $model->handlePublishedAt($value),
+                default => $model->fillAttributeIfFillable($key, $value)
             };
         }
 
-        $this->save();
-        $this->handleMediaAndTags($processedData, $filename);
+        if ($autoSave) {
+            // Save base model changes
+            $model->save();
 
-        return $this;
+            // Handle tags
+            if ($model->pendingTags !== null) {
+                $model->syncTags($model->pendingTags);
+                $model->pendingTags = null;
+            }
+
+            // Handle media
+            if ($model->pendingMedia !== null) {
+                $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $filename);
+                $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $filename);
+                $model->pendingMedia = null;
+
+                // Save again if content was modified by image processing
+                $model->save();
+            }
+
+            return $model->fresh();
+        }
+
+        return $model;
     }
 
     /**
@@ -98,21 +152,6 @@ trait HasMarkdown
     {
         if ($this->isFillable($key)) {
             $this->$key = $value;
-        }
-    }
-
-    /**
-     * Handle media and tags processing.
-     */
-    protected function handleMediaAndTags(array $processedData, string $filename): void
-    {
-        if (method_exists($this, 'addImage') && isset($processedData['images'])) {
-            $this->markdownContentService->handleMediaFromFrontMatter($this, $processedData['images'], $filename);
-            $this->content = $this->markdownContentService->processMarkdownImages($this, $this->content, $filename);
-        }
-
-        if (in_array(HasTags::class, class_uses_recursive($this)) && isset($processedData['tags'])) {
-            $this->syncTags($processedData['tags']);
         }
     }
 

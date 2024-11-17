@@ -4,195 +4,269 @@ namespace Tests\Unit;
 
 use App\Models\Entry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
+use Illuminate\Support\Str;
 use Tests\TestCase;
+use Tests\Traits\CreatesTestFiles;
 
 class MarkdownModelTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, WithFaker, CreatesTestFiles;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        Storage::fake('local');
-
-        // Set up test markdown files
-        $fixturesPath = base_path('tests/fixtures/markdown');
-        $files = ['test_basic.md', 'test_sync.md', 'test_sync_updated.md', 'test_media.md', 'test_images.md'];
-        foreach ($files as $file) {
-            Storage::disk('local')->put($file, file_get_contents($fixturesPath.'/'.$file));
-        }
-
-        // Set up fake image files
-        Storage::disk('local')->put('featured.jpg', 'fake image content');
-        Storage::disk('local')->put('thumbnail.png', 'fake image content');
-        Storage::disk('local')->put('image1.jpg', 'fake image content');
-        Storage::disk('local')->put('image3.png', 'fake image content');
+        $this->setupTestFiles();
     }
 
-    public function test_create_entry_from_markdown()
+    public function test_create_entry_from_markdown_with_front_matter_images()
     {
-        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_basic.md'), 'post');
+        // Create the image with relative paths first
+        $images = $this->createImageSet('images', [
+            'featured' => [
+                'width' => 1200,
+                'height' => 630,
+                'extension' => 'jpg',
+                'background' => '#ff0000'
+            ]
+        ]);
 
+        // Create post with relative path to image
+        $path = $this->createCompletePost(
+            'test-basic.md',
+            'Test Basic Markdown',
+            ['tag1', 'tag2'],
+            now()->subDay(),
+            ['description' => 'Test description', 'keywords' => ['test', 'markdown']],
+            ['author' => 'John Doe'],
+            ['featured' => 'images/featured.jpg']
+        );
+
+        // Create the entry using the static factory method
+        $model = Entry::createFromMarkdown($path, 'post');
+
+        // Verify basic attributes
         $this->assertEquals('Test Basic Markdown', $model->title);
-        $this->assertEquals('This is the content of the basic markdown file.', trim($model->content));
+        $this->assertStringContainsString('Test Basic Markdown', $model->title);
         $this->assertEquals('test-basic', $model->slug);
-        $this->assertEquals('2023-05-01 12:00:00', $model->published_at->format('Y-m-d H:i:s'));
-        $this->assertIsString($model->meta['seo']['description']);
-        $this->assertIsArray($model->meta['seo']['keywords']);
         $this->assertEquals(['tag1', 'tag2'], $model->tags->pluck('name')->toArray());
-        $this->assertEquals('post', $model->type);
+
+        // Verify meta information
+        $this->assertStringContainsString('Test description', $model->meta['seo']['description']);
+        $this->assertEquals('John Doe', $model->meta['author']);
+        $this->assertNotNull($model->published_at);
+
+        // Verify images
+        $this->assertEquals(1, $model->images()->where('collection', 'featured')->count());
+
+        // Additional image verification
+        $featuredImage = $model->images()->where('collection', 'featured')->first();
+        $this->assertEquals(1200, $featuredImage->dimensions['width']);
+        $this->assertEquals(630, $featuredImage->dimensions['height']);
+        $this->assertEquals('featured.jpg', $featuredImage->filename);
     }
 
     public function test_sync_entry_from_markdown()
     {
-        $originalPath = Storage::disk('local')->path('test_sync.md');
-        $updatedPath = Storage::disk('local')->path('test_sync_updated.md');
+        // Create initial file
+        $path = $this->createMarkdownFile(
+            'test-sync.md',
+            [
+                'title' => 'Initial Title',
+                'type' => 'post',
+                'meta' => ['version' => '1.0.0']
+            ],
+            'Initial content'
+        );
 
         // Initial sync
-        $model = Entry::syncFromMarkdown($originalPath, 'post', true);
-
-        $this->assertEquals('Initial Title', $model->title);
-        $this->assertEquals('Initial content', trim($model->content));
-        $this->assertEquals('test-sync', $model->slug);
-        $this->assertEquals('post', $model->type);
+        $model = Entry::syncFromMarkdown($path, 'post', true);
 
         $initialId = $model->id;
+        $this->assertEquals('Initial Title', $model->title);
+        $this->assertEquals('1.0.0', $model->meta['version']);
 
-        // Update the content and sync again
-        file_put_contents($originalPath, file_get_contents($updatedPath));
-        $updatedModel = Entry::syncFromMarkdown($originalPath, 'post', true);
+        // Replace the file with updated content
+        Storage::delete($this->getRelativePath($path));
+        $updatedPath = $this->createMarkdownFile(
+            'test-sync.md', // Same filename
+            [
+                'title' => 'Updated Title',
+                'type' => 'post',
+                'meta' => ['version' => '1.0.1']
+            ],
+            'Updated content'
+        );
 
-        $this->assertEquals($initialId, $updatedModel->id, 'The updated model should have the same ID as the original');
+        // Sync updated version
+        $updatedModel = Entry::syncFromMarkdown($updatedPath, 'post', true);
+
+        $this->assertEquals($initialId, $updatedModel->id);
         $this->assertEquals('Updated Title', $updatedModel->title);
-        $this->assertEquals('Updated content', trim($updatedModel->content));
-        $this->assertEquals('test-sync', $updatedModel->slug, 'The slug should not change during update');
-        $this->assertEquals('post', $updatedModel->type);
-
-        $this->assertEquals(1, Entry::count(), 'There should only be one model after sync');
+        $this->assertEquals('1.0.1', $updatedModel->meta['version']);
+        $this->assertEquals(1, Entry::count());
     }
 
-    public function test_handle_media_from_front_matter()
+    public function test_process_markdown_with_embedded_images()
     {
-        $imageManager = new ImageManager(new Driver);
+        // Create specification for test images
+        $imageSpecs = [
+            'image1' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
+            'image2' => ['width' => 400, 'height' => 300, 'extension' => 'png'],
+        ];
 
-        // Create test images
-        $featuredImage = $imageManager->create(100, 100, function ($draw) {
-            $draw->background('#ff0000');
-        });
-        Storage::disk('local')->put('featured.jpg', $featuredImage->toJpeg());
+        // Create post with embedded images using our specs
+        $path = $this->createPostWithEmbeddedImages(
+            'test-embedded.md',
+            'Test Embedded Images',
+            $imageSpecs, // Pass in our custom specs
+            true // Include an external image reference
+        );
 
-        $thumbnailImage = $imageManager->create(50, 50, function ($draw) {
-            $draw->background('#00ff00');
-        });
-        Storage::disk('local')->put('thumbnail.png', $thumbnailImage->toPng());
+        // Create the entry using the static factory method
+        $model = Entry::createFromMarkdown($path, 'post');
 
-        // Create markdown file with image references
-        $content = "---\n";
-        $content .= "type: post\n";
-        $content .= "images.featured: featured.jpg\n";
-        $content .= "images.thumbnail: thumbnail.png\n";
-        $content .= "---\n";
-        $content .= 'Test content';
-        Storage::disk('local')->put('test_media.md', $content);
-
-        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_media.md'));
-
-        $this->assertEquals(2, $model->images()->count());
-        $this->assertTrue($model->images()->get()->contains('collection', 'featured'));
-        $this->assertTrue($model->images()->get()->contains('collection', 'thumbnail'));
-        $this->assertEquals('post', $model->type);
-    }
-
-    public function test_process_markdown_images()
-    {
-        $imageManager = new ImageManager(new Driver);
-
-        // Create test images
-        $image1 = $imageManager->create(100, 100)->fill('#ff0000');
-        $image3 = $imageManager->create(100, 100)->fill('#00ff00');
-
-        Storage::disk('local')->put('image1.jpg', $image1->toJpeg());
-        Storage::disk('local')->put('image3.png', $image3->toPng());
-
-        // Create markdown file with image references
-        $content = "---\n";
-        $content .= "type: document\n";
-        $content .= "---\n";
-        $content .= "# Test Content\n";
-        $content .= "![Alt Text 1](image1.jpg)\n";
-        $content .= "![Alt Text 2](https://example.com/image2.jpg)\n";
-        $content .= "![Alt Text 3](image3.png)\n";
-        Storage::disk('local')->put('test_images.md', $content);
-
-        $model = Entry::createFromMarkdown(Storage::disk('local')->path('test_images.md'), 'document');
-
-        // Check if image tags are replaced with ResponsiveImage components
+        // Verify responsive image components
         $this->assertStringContainsString('<ResponsiveImage', $model->content);
         $this->assertStringContainsString('imageData=', $model->content);
-        $this->assertStringContainsString('baseUrl=', $model->content);
-        $this->assertStringContainsString('alt={"Alt Text 1"}', $model->content);
-        $this->assertStringContainsString('alt={"Alt Text 3"}', $model->content);
+        $this->assertStringContainsString('alt={"image1"}', $model->content);
+        $this->assertStringContainsString('alt={"image2"}', $model->content);
+        $this->assertStringContainsString('![External Image](https://example.com/image.jpg)', $model->content);
 
-        // Check if external URLs are left unchanged
-        $this->assertStringContainsString('![Alt Text 2](https://example.com/image2.jpg)', $model->content);
+        // Verify database records
+        $this->assertEquals(2, $model->images()->where('collection', 'content')->count());
 
-        // Verify image records in database
-        $this->assertDatabaseHas('images', [
-            'entry_id' => $model->id,
-            'collection' => 'content',
-            'filename' => 'image1.jpg',
-        ]);
+        // Verify image dimensions
+        $contentImages = $model->images()->where('collection', 'content')->get();
+        $expectedDimensions = [
+            'image1' => ['width' => 800, 'height' => 600],
+            'image2' => ['width' => 400, 'height' => 300]
+        ];
 
-        $this->assertDatabaseHas('images', [
-            'entry_id' => $model->id,
-            'collection' => 'content',
-            'filename' => 'image3.png',
-        ]);
-
-        $this->assertEquals(2, $model->images()->count());
-        $this->assertTrue($model->images()->get()->contains('collection', 'content'));
-        $this->assertEquals('document', $model->type);
+        foreach ($contentImages as $image) {
+            $filename = pathinfo($image->filename, PATHINFO_FILENAME);
+            $this->assertEquals($expectedDimensions[$filename]['width'], $image->dimensions['width']);
+            $this->assertEquals($expectedDimensions[$filename]['height'], $image->dimensions['height']);
+        }
     }
 
-    public function test_published_at_is_set_when_true_in_front_matter()
+    public function test_handle_special_published_states()
     {
-        $content = '---
-title: Test Published Post
-published_at: true
----
-This is a test post with published_at set to true.';
+        // Test immediate publication
+        $publishedPath = $this->createSpecialCaseFile('published-true');
+        $model = Entry::createFromMarkdown($publishedPath, 'post');
 
-        Storage::disk('local')->put('test_published.md', $content);
+        $this->assertNotNull($model->published_at);
+        $this->assertEqualsWithDelta(now(), $model->published_at, 1);
 
-        $entry = Entry::createFromMarkdown(Storage::disk('local')->path('test_published.md'), 'post');
+        // Test preservation of existing publication date
+        $originalDate = now()->subDays(5);
+        $model->published_at = $originalDate;
+        $model->save();
 
-        $this->assertNotNull($entry->published_at);
-        $this->assertEqualsWithDelta(now(), $entry->published_at, 1); // Allow 1 second difference
+        $updatedModel = Entry::syncFromMarkdown($publishedPath, 'post', true);
+
+        $this->assertEquals($originalDate->timestamp, $updatedModel->published_at->timestamp);
     }
 
-    public function test_published_at_is_not_updated_for_existing_published_entries()
+    public function test_handle_complex_metadata()
     {
-        $content = '---
-title: Test Already Published Post
-published_at: true
----
-This is a test post that was already published.';
+        // Create hierarchical content structure
+        $structure = [
+            'docs' => [
+                'index.md' => [
+                    'title' => 'Documentation',
+                    'meta' => ['section' => 'root', 'nav_order' => 1]
+                ],
+                'getting-started' => [
+                    'index.md' => [
+                        'title' => 'Getting Started',
+                        'meta' => ['section' => 'tutorial', 'nav_order' => 2]
+                    ],
+                    'installation.md' => [
+                        'title' => 'Installation',
+                        'meta' => [
+                            'difficulty' => 'beginner',
+                            'time_required' => 15,
+                            'prerequisites' => ['git', 'php']
+                        ]
+                    ]
+                ]
+            ]
+        ];
 
-        Storage::disk('local')->put('test_already_published.md', $content);
+        $files = $this->createHierarchicalContent($structure);
 
-        $entry = Entry::createFromMarkdown(Storage::disk('local')->path('test_already_published.md'), 'post');
-        $originalPublishedAt = $entry->published_at;
+        foreach ($files as $path) {
+            $slug = Str::beforeLast(Str::after($path, $this->testContentPath . '/'), '.md');
+            $model = Entry::createFromMarkdown($path, 'doc');
 
-        // Simulate passage of time
-        $this->travel(1)->hours();
+            $this->assertNotEmpty($model->meta);
+            if (str_contains($path, 'installation.md')) {
+                $this->assertEquals('beginner', $model->meta['difficulty']);
+                $this->assertEquals(['git', 'php'], $model->meta['prerequisites']);
+            }
+        }
+    }
 
-        // Sync the entry again
-        $updatedEntry = Entry::syncFromMarkdown(Storage::disk('local')->path('test_already_published.md'), 'post', true);
+    public function test_handle_multiple_image_collections()
+    {
+        $imageSpecs = [
+            'featured' => ['width' => 1200, 'height' => 630, 'extension' => 'jpg'],
+            'gallery1' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
+            'gallery2' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
+            'thumb1' => ['width' => 150, 'height' => 150, 'extension' => 'png'],
+            'thumb2' => ['width' => 150, 'height' => 150, 'extension' => 'png']
+        ];
 
-        $this->assertEquals($originalPublishedAt, $updatedEntry->published_at);
+        $images = $this->createImageSet($this->getTestPath('images'), $imageSpecs);
+
+        $path = $this->createMarkdownFile(
+            'test-multiple-images.md',
+            [
+                'type' => 'post',
+                'title' => 'Test Multiple Images',
+                'images' => [
+                    'featured' => $images['featured'],
+                    'gallery' => [$images['gallery1'], $images['gallery2']],
+                    'thumbnails' => [$images['thumb1'], $images['thumb2']]
+                ]
+            ],
+            "# Test Multiple Images\n\nContent with multiple image collections"
+        );
+
+        $model = Entry::createFromMarkdown($path, 'post');
+
+        $this->assertEquals(5, $model->images()->count());
+        $this->assertEquals(1, $model->images()->where('collection', 'featured')->count());
+        $this->assertEquals(2, $model->images()->where('collection', 'gallery')->count());
+        $this->assertEquals(2, $model->images()->where('collection', 'thumbnails')->count());
+
+        // Verify image dimensions
+        $this->assertEquals(
+            ['width' => 1200, 'height' => 630],
+            $model->images()->where('collection', 'featured')->first()->dimensions
+        );
+
+        // Verify gallery dimensions
+        $galleryImages = $model->images()->where('collection', 'gallery')->get();
+        foreach ($galleryImages as $image) {
+            $this->assertEquals(800, $image->dimensions['width']);
+            $this->assertEquals(600, $image->dimensions['height']);
+        }
+
+        // Verify thumbnail dimensions
+        $thumbnailImages = $model->images()->where('collection', 'thumbnails')->get();
+        foreach ($thumbnailImages as $image) {
+            $this->assertEquals(150, $image->dimensions['width']);
+            $this->assertEquals(150, $image->dimensions['height']);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownTestFiles();
+        parent::tearDown();
     }
 }

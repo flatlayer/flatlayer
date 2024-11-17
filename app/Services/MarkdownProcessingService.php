@@ -257,6 +257,11 @@ class MarkdownProcessingService
      */
     protected function normalizeMetaData(array $meta): array
     {
+        // If we have a nested 'meta' key, use its contents directly
+        if (isset($meta['meta']) && is_array($meta['meta'])) {
+            $meta = $meta['meta'];
+        }
+
         // Remove any null or empty values
         $meta = array_filter($meta, function ($value) {
             return $value !== null && $value !== '';

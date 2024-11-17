@@ -6,13 +6,12 @@ use App\Models\Entry;
 use App\Models\Image;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
 use Thumbhash\Thumbhash;
-use Illuminate\Support\Str;
 
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
@@ -43,6 +42,9 @@ class ImageService
         ]);
     }
 
+    /**
+     * Sync an image for a model.
+     */
     public function syncImage(Entry $model, string $path, string $collectionName = 'default'): Image
     {
         $filename = basename($path);
@@ -97,7 +99,7 @@ class ImageService
             }
 
             $fullPath = $this->resolveMediaPath($src, $basePath);
-            if (!File::exists($fullPath)) {
+            if (!Storage::exists($this->getRelativePath($fullPath))) {
                 return $matches[0];
             }
 
@@ -158,16 +160,18 @@ class ImageService
      */
     public function getFileInfo(string $path): array
     {
-        if (! is_readable($path)) {
+        $relativePath = $this->getRelativePath($path);
+
+        if (!Storage::exists($relativePath)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
         try {
             return [
-                'size' => File::size($path),
-                'mime_type' => File::mimeType($path),
-                'dimensions' => $this->getImageDimensions($path),
-                'thumbhash' => $this->generateThumbhash($path),
+                'size' => Storage::size($relativePath),
+                'mime_type' => Storage::mimeType($relativePath),
+                'dimensions' => $this->getImageDimensions(Storage::path($relativePath)),
+                'thumbhash' => $this->generateThumbhash(Storage::path($relativePath)),
             ];
         } catch (\Exception $e) {
             throw new RuntimeException("Error processing file $path: {$e->getMessage()}", previous: $e);
@@ -233,27 +237,31 @@ class ImageService
      */
     public function resolveMediaPath(string $mediaItem, string $contentPath): string
     {
-        // If the media item is already an absolute path, just verify it exists
-        if (file_exists($mediaItem)) {
-            return $mediaItem;
+        // Convert paths to relative format
+        $mediaItem = $this->getRelativePath($mediaItem);
+        $contentPath = $this->getRelativePath($contentPath);
+
+        // If the media item exists directly, return its full path
+        if (Storage::exists($mediaItem)) {
+            return Storage::path($mediaItem);
         }
 
         // Get the directory containing the content file
         $contentDir = dirname($contentPath);
 
-        // Build absolute path
-        $absolutePath = $contentDir . DIRECTORY_SEPARATOR . $mediaItem;
+        // Build relative path
+        $relativePath = trim($contentDir . '/' . $mediaItem, '/');
 
-        if (!file_exists($absolutePath)) {
+        if (!Storage::exists($relativePath)) {
             throw new RuntimeException(sprintf(
                 "Media file not found: %s (resolved from %s relative to %s)",
                 $mediaItem,
-                $absolutePath,
+                $relativePath,
                 $contentPath
             ));
         }
 
-        return $absolutePath;
+        return Storage::path($relativePath);
     }
 
     /**
@@ -261,16 +269,18 @@ class ImageService
      */
     protected function findContentRoot(string $startDir): string
     {
-        $currentDir = $startDir;
-        while ($currentDir !== '/') {
-            if (File::exists($currentDir . '/.git')) {
-                return $currentDir;
+        $currentDir = $this->getRelativePath($startDir);
+        while ($currentDir !== '') {
+            if (Storage::exists($currentDir . '/.git')) {
+                return Storage::path($currentDir);
             }
             $currentDir = dirname($currentDir);
+            if ($currentDir === '.') {
+                $currentDir = '';
+            }
         }
 
-        // If no git directory found, return the start directory
-        return $startDir;
+        return Storage::path($startDir);
     }
 
     /**
@@ -295,5 +305,20 @@ class ImageService
         ));
 
         return "<ResponsiveImage {$encodedProps} />";
+    }
+
+    /**
+     * Convert a path to a relative path for storage operations.
+     */
+    protected function getRelativePath(string $path): string
+    {
+        // Remove storage path prefix if present
+        $storagePath = Storage::path('');
+        if (str_starts_with($path, $storagePath)) {
+            return substr($path, strlen($storagePath));
+        }
+
+        // Normalize path
+        return trim($path, '/');
     }
 }
