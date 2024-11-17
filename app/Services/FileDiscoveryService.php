@@ -68,13 +68,12 @@ class FileDiscoveryService
     }
 
     /**
-     * Generate a slug from a file path, handling index.md files and conflicts.
+     * Generate a slug from a file path.
      *
      * @param string $relativePath Relative path to the markdown file
-     * @param callable $checkSlugExists Callback to check if a slug exists
      * @return string The generated slug
      */
-    public function generateSlug(string $relativePath, callable $checkSlugExists): string
+    public function generateSlug(string $relativePath): string
     {
         // Remove .md extension
         $slug = preg_replace('/\.md$/', '', $relativePath);
@@ -82,26 +81,8 @@ class FileDiscoveryService
         // Convert Windows path separators to Unix style
         $slug = str_replace('\\', '/', $slug);
 
-        // Handle index.md files
-        if (basename($slug) === 'index') {
-            // Get parent directory as slug
-            $parentSlug = dirname($slug);
-
-            // If at root level, use empty string
-            if ($parentSlug === '.') {
-                return '';
-            }
-
-            // If there's already a file at this level (e.g., foo.md and foo/index.md)
-            // keep the index in the slug to avoid conflicts
-            if ($checkSlugExists($parentSlug)) {
-                return $slug;
-            }
-
-            return $parentSlug;
-        }
-
-        return $slug;
+        // Remove leading/trailing slashes
+        return trim($slug, '/');
     }
 
     /**
@@ -117,33 +98,14 @@ class FileDiscoveryService
      */
     public function getParentSlug(string $relativePath): ?string
     {
-        $slug = $this->generateSlug($relativePath, fn() => false);
+        $slug = $this->generateSlug($relativePath);
 
-        if (empty($slug)) {
+        if ($slug === 'index') {
             return null;
         }
 
         $parentSlug = dirname($slug);
         return $parentSlug === '.' ? null : $parentSlug;
-    }
-
-    /**
-     * Resolve any slug conflicts by appending a numeric suffix.
-     *
-     * @param string $desiredSlug The desired slug
-     * @param callable $checkSlugExists Callback to check if a slug exists
-     * @return string The resolved slug
-     */
-    public function resolveSlugConflict(string $desiredSlug, callable $checkSlugExists): string
-    {
-        $slug = $desiredSlug;
-        $counter = 1;
-
-        while ($checkSlugExists($slug)) {
-            $slug = $desiredSlug . '-' . $counter++;
-        }
-
-        return $slug;
     }
 
     /**

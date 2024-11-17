@@ -195,10 +195,7 @@ class EntrySyncJob implements ShouldQueue
             foreach ($batch as $relativePath => $file) {
                 try {
                     // Generate the appropriate slug for this file
-                    $desiredSlug = $fileDiscovery->generateSlug($relativePath, $checkSlugExists);
-
-                    // If there's a conflict, resolve it
-                    $slug = $fileDiscovery->resolveSlugConflict($desiredSlug, $checkSlugExists);
+                    $slug = $fileDiscovery->generateSlug($relativePath);
                     $processedSlugs[] = $slug;
 
                     // Process the file
