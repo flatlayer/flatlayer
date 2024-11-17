@@ -61,10 +61,9 @@ class EntryFactory extends Factory
     public function atPath(string $path): self
     {
         return $this->state(function (array $attributes) use ($path) {
-            $slug = trim($path, '/');
             return [
-                'slug' => $slug,
-                'filename' => $slug.'.md',
+                'slug' => $path,
+                'filename' => $path . '.md',
             ];
         });
     }

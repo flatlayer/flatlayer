@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Query\EntrySerializer;
+use App\Rules\ValidPath;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
 use App\Traits\HasTags;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Pgvector\Laravel\Vector;
 
@@ -305,12 +307,44 @@ class Entry extends Model
     }
 
     /**
-     * Set the slug attribute with proper handling for index files.
+     * Set the slug attribute with proper path normalization.
+     */
+    /**
+     * Set the slug attribute with validation and normalization.
      */
     public function setSlugAttribute(string $value): void
     {
-        $this->attributes['slug'] = $value;
-        $this->is_index = basename($value) === 'index';
+        // First normalize the path
+        $normalized = $this->normalizePath($value);
+
+        // Then validate the normalized path
+        $validator = Validator::make(
+            ['slug' => $normalized],
+            ['slug' => ['required', new ValidPath]]
+        );
+
+        if ($validator->fails()) {
+            throw new \InvalidArgumentException($validator->errors()->first('slug'));
+        }
+
+        // Set the normalized and validated path
+        $this->attributes['slug'] = $normalized;
+        $this->attributes['is_index'] = basename($normalized) === 'index';
+    }
+
+    /**
+     * Normalize a path for use as a slug.
+     */
+    protected function normalizePath(string $path): string
+    {
+        // Convert backslashes to forward slashes
+        $path = str_replace('\\', '/', $path);
+
+        // Remove multiple consecutive slashes
+        $path = preg_replace('#/+#', '/', $path);
+
+        // Remove leading and trailing slashes
+        return trim($path, '/');
     }
 
     /**
