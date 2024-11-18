@@ -19,8 +19,6 @@ return new class extends Migration
             $table->string('excerpt')->nullable();
             $table->json('meta')->nullable();
             $table->string('filename', 1024);
-            // Flag for index files (e.g., index.md)
-            $table->boolean('is_index')->default(false);
 
             // Create indexes for efficient queries
             $table->unique(['type', 'slug']);

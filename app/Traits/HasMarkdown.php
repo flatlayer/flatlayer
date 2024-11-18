@@ -2,37 +2,57 @@
 
 namespace App\Traits;
 
+use App\Services\ImageService;
 use App\Services\MarkdownProcessingService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 trait HasMarkdown
 {
+    use GeneratesContentSlugs;
+
     protected MarkdownProcessingService $markdownContentService;
     protected ?array $pendingTags = null;
     protected ?array $pendingMedia = null;
 
     /**
-     * Initialize the Markdown model.
+     * Initialize the Markdown model with a specific disk.
      */
-    protected function initializeMarkdownModel(): void
+    protected function initializeMarkdownModel(Filesystem $disk): void
     {
-        $this->markdownContentService = app(MarkdownProcessingService::class);
+        $imageService = new ImageService(
+            disk: $disk,
+            imageManager: new ImageManager(new Driver())
+        );
+
+        $this->markdownContentService = new MarkdownProcessingService(
+            imageService: $imageService,
+            disk: $disk
+        );
     }
 
     /**
      * Create a new model instance from a Markdown file and save it.
      */
-    public static function createFromMarkdown(string $filename, string $type = 'post'): self
+    public static function createFromMarkdown(Filesystem $disk, string $relativePath, string $type = 'post'): static
     {
+        if (!$disk->exists($relativePath)) {
+            throw new \InvalidArgumentException("File not found: {$relativePath}");
+        }
+
         $model = new static(['type' => $type]);
-        $model->initializeMarkdownModel();
-        $model->slug = static::generateSlugFromFilename($filename);
+        $model->initializeMarkdownModel($disk);
+
+        // Generate slug from the relative path
+        $model->slug = static::generateSlug($relativePath);
 
         // Process the markdown content
         $processedData = $model->markdownContentService->processMarkdownFile(
-            $filename,
-            $type,
-            $model->slug
+            relativePath: $relativePath,
+            type: $type,
+            slug: $model->slug,
         );
 
         // Fill basic attributes first
@@ -55,8 +75,8 @@ trait HasMarkdown
         }
 
         if ($model->pendingMedia !== null) {
-            $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $filename);
-            $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $filename);
+            $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $relativePath);
+            $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $relativePath);
             $model->pendingMedia = null;
 
             // Save again if content was modified by image processing
@@ -69,9 +89,13 @@ trait HasMarkdown
     /**
      * Sync an existing model or create a new one from a Markdown file.
      */
-    public static function syncFromMarkdown(string $filename, string $type = 'post', bool $autoSave = false): self
-    {
-        $slug = static::generateSlugFromFilename($filename);
+    public static function syncFromMarkdown(
+        Filesystem $disk,
+        string $relativePath,
+        string $type = 'post',
+        bool $autoSave = false
+    ): self {
+        $slug = static::generateSlugFromFilename($relativePath);
 
         // Find existing or create new
         $model = static::firstOrNew(
@@ -80,17 +104,17 @@ trait HasMarkdown
         );
 
         if (!$model->exists) {
-            return static::createFromMarkdown($filename, $type);
+            return static::createFromMarkdown($disk, $relativePath, $type);
         }
 
         // For existing models, update their content
-        $model->initializeMarkdownModel();
+        $model->initializeMarkdownModel($disk);
 
         // Process the markdown content
         $processedData = $model->markdownContentService->processMarkdownFile(
-            $filename,
-            $type,
-            $model->slug
+            relativePath: $relativePath,
+            type: $type,
+            slug: $model->slug
         );
 
         // Fill basic attributes first
@@ -115,8 +139,8 @@ trait HasMarkdown
 
             // Handle media
             if ($model->pendingMedia !== null) {
-                $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $filename);
-                $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $filename);
+                $model->markdownContentService->handleMediaFromFrontMatter($model, $model->pendingMedia, $relativePath);
+                $model->content = $model->markdownContentService->processMarkdownImages($model, $model->content, $relativePath);
                 $model->pendingMedia = null;
 
                 // Save again if content was modified by image processing
@@ -153,13 +177,5 @@ trait HasMarkdown
         if ($this->isFillable($key)) {
             $this->$key = $value;
         }
-    }
-
-    /**
-     * Generate a slug from a filename.
-     */
-    protected static function generateSlugFromFilename(string $filename): string
-    {
-        return app(MarkdownProcessingService::class)->generateSlugFromFilename($filename);
     }
 }

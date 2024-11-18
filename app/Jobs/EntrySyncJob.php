@@ -4,23 +4,25 @@ namespace App\Jobs;
 
 use App\Models\Entry;
 use App\Services\FileDiscoveryService;
+use App\Services\RepositoryDiskManager;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitException;
 use CzProject\GitPhp\GitRepository;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Class EntrySyncJob
  *
  * This job synchronizes Markdown files with database entries.
- * It can pull latest changes from a Git repository, process files,
- * and optionally trigger a webhook after completion.
+ * It supports both local Git repositories and Laravel disk-based storage,
+ * with optional Git pulling and webhook triggers.
  */
 class EntrySyncJob implements ShouldQueue
 {
@@ -32,17 +34,36 @@ class EntrySyncJob implements ShouldQueue
     private const CHUNK_SIZE = 100;
 
     /**
+     * The filesystem disk instance.
+     */
+    protected ?Filesystem $disk = null;
+
+    /**
+     * The number of times the job may be attempted.
+     *
+     * @var int
+     */
+    protected int $tries;
+
+    /**
+     * The number of seconds to wait before retrying the job.
+     *
+     * @var array<int>
+     */
+    protected array $backoff;
+
+    /**
      * Create a new job instance.
      *
-     * @param  string  $path  The path to the content directory
-     * @param  string  $type  The type of content being synced
-     * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
-     * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
-     * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
+     * @param string $type The type of content being synced
+     * @param string|null $diskName The name of the Laravel disk to use (optional)
+     * @param bool $shouldPull Whether to pull latest changes from Git (default: false)
+     * @param bool $skipIfNoChanges Whether to skip processing if no changes detected (default: false)
+     * @param string|null $webhookUrl The URL to trigger after sync completion (default: null)
      */
     public function __construct(
-        protected string $path,
         protected string $type,
+        protected ?string $diskName = null,
         protected bool $shouldPull = false,
         protected bool $skipIfNoChanges = false,
         protected ?string $webhookUrl = null
@@ -59,17 +80,22 @@ class EntrySyncJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @param  Git  $git  The Git instance for repository operations
-     * @param  FileDiscoveryService  $fileDiscovery  The file discovery service
+     * @param Git $git The Git instance for repository operations
+     * @param FileDiscoveryService $fileDiscovery The file discovery service
+     * @param RepositoryDiskManager $diskManager The repository disk manager
+     * @throws GitException
      */
-    public function handle(Git $git, FileDiscoveryService $fileDiscovery): void
+    public function handle(Git $git, FileDiscoveryService $fileDiscovery, RepositoryDiskManager $diskManager): void
     {
         Log::info("Starting content sync for type: {$this->type}");
 
         try {
+            // Get or create the appropriate disk
+            $this->disk = $this->getDisk($diskManager);
+
             $changesDetected = true;
             if ($this->shouldPull) {
-                $changesDetected = $this->pullLatestChanges($git);
+                $changesDetected = $this->handleGitPull($git, $diskManager);
                 if (!$changesDetected && $this->skipIfNoChanges) {
                     Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
                     return;
@@ -85,62 +111,40 @@ class EntrySyncJob implements ShouldQueue
     }
 
     /**
-     * Configure Git authentication based on settings.
-     *
-     * @param  GitRepository  $repo  The Git repository instance
-     * @throws GitException
+     * Get or create the appropriate disk.
      */
-    protected function configureGitAuth(GitRepository $repo): void
+    protected function getDisk(RepositoryDiskManager $diskManager): Filesystem
     {
-        $authMethod = config('flatlayer.git.auth_method', 'token');
-
-        try {
-            // Set commit identity
-            $repo->setIdentity(
-                config('flatlayer.git.commit_name', 'Flatlayer CMS'),
-                config('flatlayer.git.commit_email', 'cms@flatlayer.io')
-            );
-
-            // Configure authentication
-            switch ($authMethod) {
-                case 'token':
-                    $username = config('flatlayer.git.username');
-                    $token = config('flatlayer.git.token');
-
-                    if ($username && $token) {
-                        $repo->setAuthentication($username, $token);
-                        Log::info("Git authentication configured using token for user: {$username}");
-                    }
-                    break;
-
-                case 'ssh':
-                    $sshKeyPath = config('flatlayer.git.ssh_key_path');
-                    if ($sshKeyPath && File::exists($sshKeyPath)) {
-                        $repo->setSSHKey($sshKeyPath);
-                        Log::info("Git authentication configured using SSH key");
-                    }
-                    break;
-
-                default:
-                    Log::warning("Unsupported Git authentication method: {$authMethod}");
-            }
-        } catch (GitException $e) {
-            Log::error("Failed to configure Git authentication: {$e->getMessage()}");
-            throw $e;
+        if ($this->diskName) {
+            return Storage::disk($this->diskName);
         }
+
+        if (!$diskManager->hasRepository($this->type)) {
+            throw new \RuntimeException("No repository configured for type: {$this->type}");
+        }
+
+        return $diskManager->getDisk($this->type);
     }
 
     /**
-     * Pull latest changes from the Git repository.
+     * Handle Git pull operations if the disk is local.
      *
-     * @param  Git  $git  The Git instance
      * @return bool True if changes were detected, false otherwise
      */
-    protected function pullLatestChanges(Git $git): bool
+    protected function handleGitPull(Git $git, RepositoryDiskManager $diskManager): bool
     {
+        $diskConfig = $diskManager->getConfig($this->type);
+        $diskRoot = $diskConfig['path'];
+
+        // Verify this is a local repository
+        if (!file_exists($diskRoot) || !is_dir($diskRoot)) {
+            Log::warning("Cannot pull from Git: {$diskRoot} is not a local directory");
+            return false;
+        }
+
         try {
-            $repo = $git->open($this->path);
-            Log::info("Opened Git repository at: {$this->path}");
+            $repo = $git->open($diskRoot);
+            Log::info("Opened Git repository at: {$diskRoot}");
 
             // Configure authentication
             $this->configureGitAuth($repo);
@@ -170,14 +174,59 @@ class EntrySyncJob implements ShouldQueue
     }
 
     /**
+     * Configure Git authentication based on settings.
+     *
+     * @throws GitException
+     */
+    protected function configureGitAuth(GitRepository $repo): void
+    {
+        $authMethod = config('flatlayer.git.auth_method', 'token');
+
+        try {
+            // Set commit identity
+            $repo->setIdentity(
+                config('flatlayer.git.commit_name', 'Flatlayer CMS'),
+                config('flatlayer.git.commit_email', 'cms@flatlayer.io')
+            );
+
+            // Configure authentication
+            switch ($authMethod) {
+                case 'token':
+                    $username = config('flatlayer.git.username');
+                    $token = config('flatlayer.git.token');
+
+                    if ($username && $token) {
+                        $repo->setAuthentication($username, $token);
+                        Log::info("Git authentication configured using token for user: {$username}");
+                    }
+                    break;
+
+                case 'ssh':
+                    $sshKeyPath = config('flatlayer.git.ssh_key_path');
+                    if ($sshKeyPath && file_exists($sshKeyPath)) {
+                        $repo->setSSHKey($sshKeyPath);
+                        Log::info("Git authentication configured using SSH key");
+                    }
+                    break;
+
+                default:
+                    Log::warning("Unsupported Git authentication method: {$authMethod}");
+            }
+        } catch (GitException $e) {
+            Log::error("Failed to configure Git authentication: {$e->getMessage()}");
+            throw $e;
+        }
+    }
+
+    /**
      * Process content files and sync with database.
      */
     protected function processContent(FileDiscoveryService $fileDiscovery): void
     {
-        Log::info("Scanning directory: {$this->path}");
+        Log::info('Starting content file processing');
 
-        // Find all markdown files, sorted by directory depth
-        $files = $fileDiscovery->findFiles($this->path);
+        // Find all markdown files using the disk
+        $files = $fileDiscovery->findFiles($this->disk);
         Log::info('Found '.$files->count().' files to process');
 
         $existingSlugs = Entry::where('type', $this->type)->pluck('slug')->flip();
@@ -185,21 +234,15 @@ class EntrySyncJob implements ShouldQueue
         $updatedCount = 0;
         $createdCount = 0;
 
-        // Create callback for slug existence checking
-        $checkSlugExists = function (string $slug) use ($existingSlugs, $processedSlugs) {
-            return $existingSlugs->has($slug) || in_array($slug, $processedSlugs);
-        };
-
         $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
         foreach ($files->chunk($batchSize) as $batch) {
             foreach ($batch as $relativePath => $file) {
                 try {
-                    // Generate the appropriate slug for this file
                     $slug = $fileDiscovery->generateSlug($relativePath);
                     $processedSlugs[] = $slug;
 
-                    // Process the file
-                    $item = Entry::syncFromMarkdown($file->getPathname(), $this->type, true);
+                    // Process the file using the disk
+                    $item = Entry::syncFromMarkdown($this->disk, $relativePath, $this->type, true);
 
                     // Ensure the correct slug is set
                     if ($item->slug !== $slug) {
@@ -215,7 +258,7 @@ class EntrySyncJob implements ShouldQueue
                         Log::info("Created new content item: {$slug}");
                     }
                 } catch (\Exception $e) {
-                    Log::error("Error processing file {$file->getPathname()}: ".$e->getMessage());
+                    Log::error("Error processing file {$relativePath}: ".$e->getMessage());
                     if (config('flatlayer.sync.log_level') === 'debug') {
                         Log::debug($e->getTraceAsString());
                     }
@@ -254,11 +297,6 @@ class EntrySyncJob implements ShouldQueue
 
     /**
      * Trigger the webhook job if a webhook URL is set.
-     *
-     * @param  int  $updatedCount  Number of updated entries
-     * @param  int  $createdCount  Number of created entries
-     * @param  int  $deletedCount  Number of deleted entries
-     * @param  int  $totalFiles  Total number of files processed
      */
     private function triggerWebhook(int $updatedCount, int $createdCount, int $deletedCount, int $totalFiles): void
     {
@@ -282,7 +320,7 @@ class EntrySyncJob implements ShouldQueue
     {
         return [
             'type' => $this->type,
-            'path' => $this->path,
+            'diskName' => $this->diskName,
             'shouldPull' => $this->shouldPull,
             'skipIfNoChanges' => $this->skipIfNoChanges,
             'webhookUrl' => $this->webhookUrl,

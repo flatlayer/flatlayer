@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\Entry;
 use App\Models\Image;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
@@ -19,7 +21,8 @@ use function Thumbhash\extract_size_and_pixels_with_imagick;
 class ImageService
 {
     public function __construct(
-        private readonly ImageManager $imageManager = new ImageManager(new Driver)
+        private readonly Filesystem $disk,
+        private readonly ImageManager $imageManager = new ImageManager(new Driver()),
     ) {}
 
     /**
@@ -67,9 +70,9 @@ class ImageService
     /**
      * Synchronize images for an entry.
      */
-    public function syncImagesForEntry(Entry $entry, Arrayable|array $imagePaths, string $collectionName): void
+    public function syncImagesForEntry(Entry $entry, Arrayable|array $paths, string $collectionName): void
     {
-        $imagePaths = collect($imagePaths)->map(function ($path) use ($entry) {
+        $imagePaths = collect($paths)->map(function ($path) use ($entry) {
             return $this->resolveMediaPath($path, $entry->filename);
         });
 
@@ -84,39 +87,47 @@ class ImageService
     }
 
     /**
-     * Synchronize content images for an entry.
+     * Sync content images for an entry.
      */
-    public function syncContentImages(Entry $entry, string $content, string $basePath): string
-    {
+    public function syncContentImages(
+        Entry $entry,
+        string $content,
+        string $relativePath
+    ): string {
         $pattern = '/!\[(.*?)\]\((.*?)(?:\s+"(.*?)")?\)/';
         $usedImages = [];
 
-        return preg_replace_callback($pattern, function ($matches) use ($entry, $basePath, &$usedImages) {
+        return preg_replace_callback($pattern, function ($matches) use ($entry, $relativePath, &$usedImages) {
             [, $alt, $src, $title] = array_pad($matches, 4, null);
 
             if (filter_var($src, FILTER_VALIDATE_URL)) {
                 return $matches[0];
             }
 
-            $fullPath = $this->resolveMediaPath($src, $basePath);
-            if (!Storage::exists($this->getRelativePath($fullPath))) {
-                return $matches[0];
+            try {
+                $imagePath = $this->resolveMediaPath($src, $relativePath);
+
+                if (!$this->disk->exists($imagePath)) {
+                    return $matches[0];
+                }
+
+                $image = $this->syncImage($entry, $imagePath, 'content');
+                $usedImages[] = $image->id;
+
+                return $this->generateResponsiveImageTag($image, $alt, $title);
+            } catch (RuntimeException $e) {
+                return $matches[0]; // Keep original if image not found
             }
-
-            $image = $this->syncImage($entry, $fullPath, 'content');
-            $usedImages[] = $image->id;
-
-            return $this->generateResponsiveImageTag($image, $alt, $title);
         }, $content);
     }
 
     /**
      * Update or create an image for a model.
      */
-    public function updateOrCreateImage(Model $model, string $fullPath, string $collectionName = 'default'): Image
+    public function updateOrCreateImage(Model $model, string $path, string $collectionName = 'default'): Image
     {
-        $fileInfo = $this->getFileInfo($fullPath);
-        $filename = basename($fullPath);
+        $fileInfo = $this->getFileInfo($path);
+        $filename = basename($path);
 
         $image = $model->images()
             ->where('collection', $collectionName)
@@ -128,7 +139,7 @@ class ImageService
             return $image;
         }
 
-        return $this->addImageToModel($model, $fullPath, $collectionName, $fileInfo);
+        return $this->addImageToModel($model, $path, $collectionName, $fileInfo);
     }
 
     /**
@@ -162,16 +173,22 @@ class ImageService
     {
         $relativePath = $this->getRelativePath($path);
 
-        if (!Storage::exists($relativePath)) {
+        if (!$this->disk->exists($relativePath)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
         try {
+            $imageContents = $this->disk->get($relativePath);
+            $image = $this->imageManager->read($imageContents);
+
             return [
-                'size' => Storage::size($relativePath),
-                'mime_type' => Storage::mimeType($relativePath),
-                'dimensions' => $this->getImageDimensions(Storage::path($relativePath)),
-                'thumbhash' => $this->generateThumbhash(Storage::path($relativePath)),
+                'size' => $this->disk->size($relativePath),
+                'mime_type' => $this->disk->mimeType($relativePath),
+                'dimensions' => [
+                    'width' => $image->width(),
+                    'height' => $image->height(),
+                ],
+                'thumbhash' => $this->generateThumbhash($imageContents),
             ];
         } catch (\Exception $e) {
             throw new RuntimeException("Error processing file $path: {$e->getMessage()}", previous: $e);
@@ -179,38 +196,23 @@ class ImageService
     }
 
     /**
-     * Get image dimensions of an image file.
-     *
-     * @param  string  $path  The path to the image file
-     * @return array{width: int|null, height: int|null}
+     * Generate thumbhash for image contents.
      */
-    protected function getImageDimensions(string $path): array
-    {
-        $imageSize = getimagesize($path);
-
-        return [
-            'width' => $imageSize[0] ?? null,
-            'height' => $imageSize[1] ?? null,
-        ];
-    }
-
-    /**
-     * Generate thumbhash for an image file.
-     */
-    public function generateThumbhash(string $path): string
+    public function generateThumbhash(string $imageContents): string
     {
         return extension_loaded('imagick')
-            ? $this->generateThumbhashWithImagick($path)
-            : $this->generateThumbhashWithGd($path);
+            ? $this->generateThumbhashWithImagick($imageContents)
+            : $this->generateThumbhashWithGd($imageContents);
     }
 
     /**
      * Generate thumbhash using Imagick.
      */
-    protected function generateThumbhashWithImagick(string $path): string
+    protected function generateThumbhashWithImagick(string $imageContents): string
     {
-        $imagick = new \Imagick($path);
-        $imagick->resizeImage(100, 0, \Imagick::FILTER_LANCZOS, 1);
+        $imagick = new \Imagick();
+        $imagick->readImageBlob($imageContents);
+        $imagick->resizeImage(100, 100, \Imagick::FILTER_LANCZOS, 1, true);
         $imagick->setImageFormat('png');
 
         [$width, $height, $pixels] = extract_size_and_pixels_with_imagick($imagick->getImageBlob());
@@ -221,9 +223,9 @@ class ImageService
     /**
      * Generate thumbhash using GD.
      */
-    protected function generateThumbhashWithGd(string $path): string
+    protected function generateThumbhashWithGd(string $imageContents): string
     {
-        $image = $this->imageManager->read($path);
+        $image = $this->imageManager->read($imageContents);
         $image->scale(width: 100);
         $resizedImage = $image->toJpeg(quality: 85);
 
@@ -233,54 +235,29 @@ class ImageService
     }
 
     /**
-     * Resolve the full path of a media item relative to the content file.
+     * Resolve the media path relative to content file.
      */
     public function resolveMediaPath(string $mediaItem, string $contentPath): string
     {
-        // Convert paths to relative format
-        $mediaItem = $this->getRelativePath($mediaItem);
-        $contentPath = $this->getRelativePath($contentPath);
+        // Start by trimming slashes from both paths
+        $mediaItem = trim($mediaItem, '/');
+        $contentPath = trim($contentPath, '/');
 
-        // If the media item exists directly, return its full path
-        if (Storage::exists($mediaItem)) {
-            return Storage::path($mediaItem);
+        // If dealing with a relative path, resolve it against the content directory
+        if (str_starts_with($mediaItem, './') || str_starts_with($mediaItem, '../')) {
+            $contentDir = dirname($contentPath);
+            $mediaItem = $contentDir . '/' . $mediaItem;
         }
 
-        // Get the directory containing the content file
-        $contentDir = dirname($contentPath);
-
-        // Build relative path
-        $relativePath = trim($contentDir . '/' . $mediaItem, '/');
-
-        if (!Storage::exists($relativePath)) {
+        if (!$this->disk->exists($mediaItem)) {
             throw new RuntimeException(sprintf(
-                "Media file not found: %s (resolved from %s relative to %s)",
+                "Media file not found: %s (relative to %s)",
                 $mediaItem,
-                $relativePath,
                 $contentPath
             ));
         }
 
-        return Storage::path($relativePath);
-    }
-
-    /**
-     * Find the root directory of the content repository.
-     */
-    protected function findContentRoot(string $startDir): string
-    {
-        $currentDir = $this->getRelativePath($startDir);
-        while ($currentDir !== '') {
-            if (Storage::exists($currentDir . '/.git')) {
-                return Storage::path($currentDir);
-            }
-            $currentDir = dirname($currentDir);
-            if ($currentDir === '.') {
-                $currentDir = '';
-            }
-        }
-
-        return Storage::path($startDir);
+        return $mediaItem;
     }
 
     /**
@@ -313,7 +290,7 @@ class ImageService
     protected function getRelativePath(string $path): string
     {
         // Remove storage path prefix if present
-        $storagePath = Storage::path('');
+        $storagePath = $this->disk->path('');
         if (str_starts_with($path, $storagePath)) {
             return substr($path, strlen($storagePath));
         }

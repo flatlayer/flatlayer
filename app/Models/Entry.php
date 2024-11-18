@@ -205,7 +205,6 @@ class Entry extends Model
         }
 
         $this->attributes['slug'] = $normalized;
-        $this->attributes['is_index'] = $this->isIndexPath($value);
     }
 
     /**

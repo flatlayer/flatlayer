@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\ImageDimensionException;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Config;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -11,15 +12,25 @@ use Intervention\Image\ImageManager;
 class ImageTransformationService
 {
     public function __construct(
+        private readonly Filesystem $disk,
         private readonly ImageManager $manager = new ImageManager(new Driver)
     ) {}
 
     /**
      * Transform an image based on the given parameters.
+     *
+     * @param string $path Relative path within the disk
+     * @param array $params Transformation parameters
+     * @throws ImageDimensionException
      */
-    public function transformImage(string $imagePath, array $params): string
+    public function transformImage(string $path, array $params): string
     {
-        $image = $this->manager->read($imagePath);
+        if (!$this->disk->exists($path)) {
+            throw new \RuntimeException("Image not found: {$path}");
+        }
+
+        // Read the image content from the disk
+        $image = $this->manager->read($this->disk->get($path));
 
         $this->applyTransformations($image, $params);
 
@@ -112,9 +123,19 @@ class ImageTransformationService
         return ['width' => (int) $width, 'height' => (int) $height];
     }
 
-    public function getImageMetadata(string $imagePath): array
+    /**
+     * Get image metadata.
+     *
+     * @param string $path Relative path within the disk
+     * @throws \RuntimeException If the image cannot be read
+     */
+    public function getImageMetadata(string $path): array
     {
-        $image = $this->manager->read($imagePath);
+        if (!$this->disk->exists($path)) {
+            throw new \RuntimeException("Image not found: {$path}");
+        }
+
+        $image = $this->manager->read($this->disk->get($path));
 
         return [
             'width' => $image->width(),
@@ -137,6 +158,9 @@ class ImageTransformationService
         ]);
     }
 
+    /**
+     * Get the content type for a given file extension.
+     */
     private function getContentType(string $extension): string
     {
         return match ($extension) {
@@ -146,5 +170,29 @@ class ImageTransformationService
             'gif' => 'image/gif',
             default => 'application/octet-stream',
         };
+    }
+
+    /**
+     * Check if a path exists in the disk.
+     */
+    public function exists(string $path): bool
+    {
+        return $this->disk->exists($path);
+    }
+
+    /**
+     * Get the size of an image file.
+     */
+    public function getSize(string $path): ?int
+    {
+        return $this->disk->exists($path) ? $this->disk->size($path) : null;
+    }
+
+    /**
+     * Get the mime type of an image file.
+     */
+    public function getMimeType(string $path): ?string
+    {
+        return $this->disk->exists($path) ? $this->disk->mimeType($path) : null;
     }
 }

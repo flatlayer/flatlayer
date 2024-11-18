@@ -3,6 +3,7 @@
 namespace Tests\Traits;
 
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -11,7 +12,7 @@ use Intervention\Image\ImageManager;
 
 trait CreatesTestFiles
 {
-    protected string $testContentPath = 'test-content';
+    protected Filesystem $disk;
     protected ImageManager $imageManager;
     protected Collection $createdFiles;
     protected Collection $createdDirectories;
@@ -19,247 +20,583 @@ trait CreatesTestFiles
     /**
      * Set up test files environment.
      */
-    protected function setupTestFiles(?string $customPath = null): void
+    protected function setupTestFiles(string $diskName = 'content'): void
     {
-        Storage::fake('local');
-        $this->testContentPath = $customPath ?? $this->testContentPath;
-        Storage::makeDirectory($this->testContentPath);
+        Storage::fake($diskName);
+        $this->disk = Storage::disk($diskName);
         $this->imageManager = new ImageManager(new Driver());
         $this->createdFiles = collect();
         $this->createdDirectories = collect();
     }
 
     /**
+     * Generate markdown content with front matter.
+     */
+    protected function generateMarkdownContent(array $frontMatter = [], string $content = '', ?string $title = null): string
+    {
+        $frontMatterContent = '';
+        if (!empty($frontMatter) || $title) {
+            $frontMatterContent = "---\n";
+            if ($title) {
+                $frontMatterContent .= "title: {$title}\n";
+            }
+            foreach ($frontMatter as $key => $value) {
+                $frontMatterContent .= "{$key}: " . $this->formatYamlValue($value) . "\n";
+            }
+            $frontMatterContent .= "---\n\n";
+        }
+
+        if ($title && !str_contains($content, '# ')) {
+            $content = "# {$title}\n\n" . $content;
+        }
+
+        return $frontMatterContent . $content;
+    }
+
+    /**
+     * Format a value for YAML front matter.
+     */
+    protected function formatYamlValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            if (array_is_list($value)) {
+                return '[' . implode(', ', array_map([$this, 'formatYamlValue'], $value)) . ']';
+            }
+            $formatted = "{\n";
+            foreach ($value as $k => $v) {
+                $formatted .= "  {$k}: " . $this->formatYamlValue($v) . ",\n";
+            }
+            return rtrim($formatted, ",\n") . "\n}";
+        }
+
+        if (is_string($value) && str_contains($value, ' ')) {
+            return '"' . $value . '"';
+        }
+
+        return (string) $value;
+    }
+
+    /**
      * Create a markdown file with content and front matter.
-     *
-     * @param string $filename The name of the file to create
-     * @param array $frontMatter Front matter data
-     * @param string $content Main content of the file
-     * @param string|null $title Optional title to override front matter
-     * @param array $imagePaths Images to create for this file
-     * @param bool $createImages Whether to create the referenced images
-     * @throws \InvalidArgumentException If the filename is invalid
-     * @return string Full path to created file
      */
     protected function createMarkdownFile(
-        string $filename,
+        string $relativePath,
         array $frontMatter = [],
         string $content = '',
         ?string $title = null,
         array $imagePaths = [],
         bool $createImages = true
-    ): string {
-        // Validate filename
-        if (!str_ends_with($filename, '.md')) {
+    ): void {
+        if (!str_ends_with($relativePath, '.md')) {
             throw new \InvalidArgumentException('Filename must end with .md');
         }
 
-        if (str_contains($filename, '../') || str_contains($filename, './')) {
-            throw new \InvalidArgumentException('Path traversal not allowed in filename');
+        if (str_contains($relativePath, '../') || str_contains($relativePath, './')) {
+            throw new \InvalidArgumentException('Path traversal not allowed');
         }
 
-        $path = $this->testContentPath . '/' . ltrim($filename, '/');
-        $directory = dirname($path);
-
-        // Create directory if it doesn't exist
-        if (!Storage::exists($directory)) {
-            Storage::makeDirectory($directory);
+        $directory = dirname($relativePath);
+        if ($directory !== '.') {
+            $this->disk->makeDirectory($directory);
             $this->createdDirectories->push($directory);
         }
 
         $markdownContent = $this->generateMarkdownContent($frontMatter, $content, $title);
 
-        if ($createImages) {
-            // Create any images referenced in the front matter or content
-            foreach ($imagePaths as $collection => $images) {
-                $images = is_array($images) ? $images : [$images];
-                foreach ($images as $image) {
-                    $this->createImage($directory . '/' . $image);
-                }
-            }
-
-            // Extract and create images from markdown content
-            preg_match_all('/!\[([^\]]*)\]\(([^)]+)\)/', $content, $matches);
-            foreach ($matches[2] as $imagePath) {
-                if (!Str::startsWith($imagePath, ['http://', 'https://']) && !Storage::exists($directory . '/' . $imagePath)) {
-                    $this->createImage($directory . '/' . $imagePath);
-                }
-            }
+        if ($createImages && !empty($imagePaths)) {
+            $this->createImagesForMarkdown($directory, $imagePaths, $content);
         }
 
-        Storage::put($path, $markdownContent);
-        $this->createdFiles->push($path);
-
-        return Storage::path($path);
+        $this->disk->put($relativePath, $markdownContent);
+        $this->createdFiles->push($relativePath);
     }
 
     /**
-     * Get relative path from storage root
+     * Create test files for markdown model tests - maintains compatibility with existing tests.
      */
-    protected function getRelativePath(string $path): string
+    protected function createMarkdownModelTestFiles(): void
     {
-        $storagePath = Storage::path('');
-        if (str_starts_with($path, $storagePath)) {
-            return substr($path, strlen($storagePath));
-        }
-        return trim($path, '/');
+        // Create base post with front matter and images
+        $this->createBasicPostWithImage();
+
+        // Create files for sync testing
+        $this->createSyncTestFiles();
+
+        // Create special cases
+        $this->createSpecialCaseFiles();
+
+        // Create hierarchical documentation
+        $this->createDocumentationStructure();
+
+        // Create files with multiple image collections
+        $this->createMultiImageCollectionPost();
+
+        // Create index files
+        $this->createIndexFiles();
+
+        // Create image handling cases
+        $this->createImageHandlingCases();
+
+        // Create additional test cases
+        $this->createAdditionalTestCases();
     }
 
     /**
-     * Create a post with complete front matter and optional embedded images
+     * Create a basic post with front matter and image.
      */
-    protected function createCompletePost(
-        string $filename,
-        string $title,
-        array $tags = [],
-        ?CarbonInterface $publishedAt = null,
-        array $seo = [],
-        array $additionalMeta = [],
-        array $frontMatterImages = [],
-        ?string $content = null
-    ): string {
-        $frontMatter = [
-            'title' => $title,
-            'type' => 'post',
-            'tags' => $tags,
-            'published_at' => $publishedAt?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-            'meta' => array_merge([
-                'author' => $this->faker->name,
-                'seo' => array_merge([
-                    'description' => $this->faker->sentence,
-                    'keywords' => $this->faker->words(5),
-                ], $seo),
-            ], $additionalMeta),
+    protected function createBasicPostWithImage(): void
+    {
+        $this->disk->makeDirectory('images');
+
+        // Create the featured image
+        $this->createImage('images/featured.jpg', 1200, 630);
+
+        $content = <<<MD
+---
+title: Test Basic Markdown
+type: post
+tags: [tag1, tag2]
+published_at: 2024-01-01
+description: Test description
+keywords: [test, markdown]
+author: John Doe
+images:
+  featured: images/featured.jpg
+---
+
+# Test Basic Markdown
+
+Test content here
+MD;
+
+        $this->disk->put('test-basic.md', $content);
+    }
+
+    /**
+     * Create image handling test cases.
+     */
+    protected function createImageHandlingCases(): void
+    {
+        $this->disk->makeDirectory('images');
+
+        // Create test images
+        $imageSpecs = [
+            'square.jpg' => [800, 800],
+            'portrait.jpg' => [600, 800],
+            'landscape.jpg' => [800, 600],
+            'nested/external.jpg' => [400, 300]
         ];
 
-        if (!empty($frontMatterImages)) {
-            $frontMatter['images'] = $frontMatterImages;
+        foreach ($imageSpecs as $name => [$width, $height]) {
+            $this->createImage("images/{$name}", $width, $height);
         }
 
-        // If no content provided, generate fake content with the title as an H1
-        if ($content === null) {
-            $content = "# {$title}\n\n" . $this->faker->paragraphs(3, true);
-        }
+        // Pure markdown images
+        $this->createMarkdownFile(
+            'images/inline-images.md',
+            ['type' => 'post'],
+            <<<MD
+# Images in markdown
 
-        return $this->createMarkdownFile(
-            $filename,
-            $frontMatter,
-            $content
+![First Image](images/square.jpg)
+
+![Second Image](images/portrait.jpg)
+
+![Third Image](images/landscape.jpg)
+MD
+        );
+
+        // Mixed frontmatter and inline images
+        $this->createMarkdownFile(
+            'images/mixed-references.md',
+            [
+                'type' => 'post',
+                'images' => [
+                    'featured' => 'images/square.jpg',
+                    'gallery' => ['images/portrait.jpg', 'images/landscape.jpg']
+                ]
+            ],
+            <<<MD
+# Mixed Image References
+
+Featured image: ![Featured](images/square.jpg)
+Gallery image: ![Gallery](images/portrait.jpg)
+External image: ![External](https://example.com/image.jpg)
+MD
+        );
+
+        // Relative paths
+        $this->disk->makeDirectory('images/nested');
+        $this->createMarkdownFile(
+            'images/nested/relative-paths.md',
+            ['type' => 'post'],
+            <<<MD
+# Images with relative paths
+
+Up one level: ![Up](../square.jpg)
+Same level: ![Same](./external.jpg)
+Absolute path: ![Root](/images/landscape.jpg)
+MD
         );
     }
 
     /**
-     * Create a document with comprehensive front matter.
+     * Create files for sync testing.
      */
-    protected function createDocument(
-        string $filename,
-        string $title,
-        string $difficulty = 'beginner',
-        array $additionalMeta = [],
-        array $images = [],
-        ?CarbonInterface $publishedAt = null
-    ): string {
-        return $this->createMarkdownFile($filename, [
-            'title' => $title,
-            'type' => 'doc',
-            'meta' => array_merge([
-                'difficulty' => $difficulty,
-                'category' => 'documentation',
-                'version' => $this->faker->semver,
-                'target_audience' => ['developers', 'users'],
-                'reading_time' => $this->faker->numberBetween(5, 30),
-            ], $additionalMeta),
-            'published_at' => $publishedAt?->format('Y-m-d H:i:s'),
-            'images' => $images,
-        ]);
+    protected function createSyncTestFiles(): void
+    {
+        // Initial version
+        $initial = <<<MD
+---
+title: Initial Title
+type: post
+meta:
+  version: 1.0.0
+---
+Initial content
+MD;
+
+        $this->disk->put('test-sync.md', $initial);
+
+        // Store updated content for later use in tests
+        $updated = <<<MD
+---
+title: Updated Title
+type: post
+meta:
+  version: 1.0.1
+---
+Updated content
+MD;
+
+        $this->disk->put('test-sync-updated.md', $updated);
     }
 
     /**
-     * Create a post with embedded images in the content
-     *
-     * @param string $filename The filename to create
-     * @param string $title The post title
-     * @param array|int $imageSpecs Either a count of images to create with defaults, or an array of image specifications
-     * @param bool $includeExternalImages Whether to include external image references
+     * Create files for special cases.
      */
-    protected function createPostWithEmbeddedImages(
-        string $filename,
-        string $title,
-        array|int $imageSpecs = 2,
-        bool $includeExternalImages = false
-    ): string {
-        $content = "# {$title}\n\n";
+    protected function createSpecialCaseFiles(): void
+    {
+        $this->disk->makeDirectory('special');
 
-        // If imageSpecs is a number, create default specs
-        if (is_int($imageSpecs)) {
-            $specs = [];
-            for ($i = 1; $i <= $imageSpecs; $i++) {
-                $specs["image{$i}"] = [
-                    'width' => 640,
-                    'height' => 480,
-                    'extension' => 'jpg',
-                    'background' => '#' . substr(md5($i), 0, 6)
-                ];
+        // Published true case
+        $publishedTrue = <<<MD
+---
+type: post
+published_at: true
+---
+Test content
+MD;
+        $this->disk->put('special/published-true.md', $publishedTrue);
+
+        // No title in front matter
+        $noTitle = <<<MD
+---
+type: post
+---
+# Markdown Title
+Content here.
+MD;
+        $this->disk->put('special/no-title.md', $noTitle);
+
+        // Multiple headings
+        $multipleHeadings = <<<MD
+---
+type: post
+---
+# Main Title
+## Subtitle
+Content
+MD;
+        $this->disk->put('special/multiple-headings.md', $multipleHeadings);
+    }
+
+    /**
+     * Create hierarchical documentation structure.
+     */
+    protected function createDocumentationStructure(): void
+    {
+        $this->disk->makeDirectory('docs/getting-started');
+
+        // Root index
+        $this->disk->put('docs/index.md', <<<MD
+---
+title: Documentation
+type: doc
+meta:
+  section: root
+  nav_order: 1
+---
+Documentation content
+MD);
+
+        // Getting started section
+        $this->disk->put('docs/getting-started/index.md', <<<MD
+---
+title: Getting Started
+type: doc
+meta:
+  section: tutorial
+  nav_order: 2
+---
+Getting started content
+MD);
+
+        // Installation guide
+        $this->disk->put('docs/getting-started/installation.md', <<<MD
+---
+title: Installation
+type: doc
+meta:
+  difficulty: beginner
+  time_required: 15
+  prerequisites: [git, php]
+---
+Installation content
+MD);
+    }
+
+    /**
+     * Create a post with multiple image collections.
+     */
+    protected function createMultiImageCollectionPost(): void
+    {
+        $this->disk->makeDirectory('images');
+
+        // Create various images
+        $imageSpecs = [
+            'featured' => ['width' => 1200, 'height' => 630, 'extension' => 'jpg'],
+            'gallery1' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
+            'gallery2' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
+            'thumb1' => ['width' => 150, 'height' => 150, 'extension' => 'png'],
+            'thumb2' => ['width' => 150, 'height' => 150, 'extension' => 'png']
+        ];
+
+        foreach ($imageSpecs as $name => $spec) {
+            $this->createImage(
+                "images/{$name}.{$spec['extension']}",
+                $spec['width'],
+                $spec['height']
+            );
+        }
+
+        $content = <<<MD
+---
+type: post
+title: Test Multiple Images
+images:
+  featured: images/featured.jpg
+  gallery:
+    - images/gallery1.jpg
+    - images/gallery2.jpg
+  thumbnails:
+    - images/thumb1.png
+    - images/thumb2.png
+---
+
+# Test Multiple Images
+
+Content with multiple image collections
+MD;
+
+        $this->disk->put('test-multiple-images.md', $content);
+    }
+
+    /**
+     * Create index files.
+     */
+    protected function createIndexFiles(): void
+    {
+        $this->disk->makeDirectory('section');
+
+        // Section index
+        $this->disk->put('section/index.md', <<<MD
+---
+type: doc
+title: Section Index
+---
+# Section Index Content
+MD);
+
+        // Root index
+        $this->disk->put('index.md', <<<MD
+---
+type: doc
+title: Root Index
+---
+# Root Index Content
+MD);
+    }
+
+    /**
+     * Create additional test cases for enhanced testing.
+     */
+    protected function createAdditionalTestCases(): void
+    {
+        // Date handling cases
+        $this->createDateHandlingCases();
+
+        // Complex meta cases
+        $this->createComplexMetaCases();
+
+        // Invalid cases
+        $this->createInvalidCases();
+    }
+
+    /**
+     * Create date handling test cases.
+     */
+    protected function createDateHandlingCases(): void
+    {
+        $this->disk->makeDirectory('dates');
+
+        // Various date formats
+        $this->createMarkdownFile(
+            'dates/iso-format.md',
+            [
+                'type' => 'post',
+                'published_at' => '2024-01-01T10:00:00Z'
+            ],
+            'ISO date format test'
+        );
+
+        $this->createMarkdownFile(
+            'dates/date-only.md',
+            [
+                'type' => 'post',
+                'published_at' => '2024-01-01'
+            ],
+            'Date only format test'
+        );
+
+        $this->createMarkdownFile(
+            'dates/published-true.md',
+            [
+                'type' => 'post',
+                'published_at' => true
+            ],
+            'Published true test'
+        );
+    }
+
+    /**
+     * Create complex meta test cases.
+     */
+    protected function createComplexMetaCases(): void
+    {
+        $this->disk->makeDirectory('meta');
+
+        // Special characters in meta
+        $this->createMarkdownFile(
+            'meta/special-chars.md',
+            [
+                'type' => 'post',
+                'meta' => [
+                    'quotes' => 'String with "quotes"',
+                    'multiline' => "Line 1\nLine 2",
+                    'symbols' => '$@#%'
+                ]
+            ],
+            'Content with special characters'
+        );
+
+        // Complex nested meta
+        $this->createMarkdownFile(
+            'meta/complex-meta.md',
+            [
+                'type' => 'post',
+                'meta' => [
+                    'level1' => [
+                        'level2' => [
+                            'level3' => 'deep value'
+                        ],
+                        'array' => [1, 2, 3]
+                    ]
+                ]
+            ],
+            'Testing complex metadata'
+        );
+    }
+
+    /**
+     * Create invalid cases for error testing.
+     */
+    protected function createInvalidCases(): void
+    {
+        $this->disk->makeDirectory('invalid');
+
+        // Invalid YAML
+        $this->disk->put('invalid/bad-yaml.md', <<<MD
+---
+title: "Unclosed quote
+type: post
+---
+Content
+MD);
+
+        // Invalid date
+        $this->disk->put('invalid/bad-date.md', <<<MD
+---
+type: post
+published_at: not-a-date
+---
+Content
+MD);
+
+        // Missing required fields
+        $this->disk->put('invalid/missing-type.md', <<<MD
+---
+title: No Type
+---
+Content
+MD);
+    }
+
+    /**
+     * Create images referenced in markdown content.
+     */
+    protected function createImagesForMarkdown(string $directory, array $imagePaths, string $content): void
+    {
+        // Create directory-based images
+        foreach ($imagePaths as $collection => $images) {
+            $images = is_array($images) ? $images : [$images];
+            foreach ($images as $image) {
+                $imagePath = trim($directory . '/' . $image, '/');
+                if (!$this->disk->exists($imagePath)) {
+                    $this->createImage($imagePath);
+                }
             }
-        } else {
-            $specs = $imageSpecs;
         }
 
-        // Create the images
-        $images = $this->createImageSet('images', $specs);
-
-        // Add image references to content
-        foreach ($images as $name => $path) {
-            $content .= "![{$name}]({$path})\n\n";
-            $content .= $this->faker->paragraph . "\n\n";
+        // Create images referenced in markdown content
+        preg_match_all('/!\[([^\]]*)\]\(([^)]+)\)/', $content, $matches);
+        foreach ($matches[2] as $imagePath) {
+            if (!Str::startsWith($imagePath, ['http://', 'https://'])) {
+                $fullPath = trim($directory . '/' . $imagePath, '/');
+                if (!$this->disk->exists($fullPath)) {
+                    $this->createImage($fullPath);
+                }
+            }
         }
-
-        // Optionally add an external image reference
-        if ($includeExternalImages) {
-            $content .= "![External Image](https://example.com/image.jpg)\n\n";
-            $content .= $this->faker->paragraph . "\n\n";
-        }
-
-        return $this->createCompletePost(
-            $filename,
-            $title,
-            ['test', 'images'],
-            now(),
-            [],
-            [],
-            [], // No front matter images
-            $content // Pass our custom content with embedded images
-        );
     }
 
     /**
-     * Create an image with specific dimensions and content.
-     *
-     * @param string $path Path where the image should be created
-     * @param int $width Image width
-     * @param int $height Image height
-     * @param string $background Background color in hex format
-     * @param string|null $text Optional text to add to the image
-     * @param bool $createDirectories Whether to create intermediate directories
-     * @throws \InvalidArgumentException If the path is invalid
-     * @return string Full path to created image
+     * Create an image with specific dimensions.
      */
     protected function createImage(
-        string $path,
+        string $relativePath,
         int $width = 640,
         int $height = 480,
         string $background = '#ff0000',
-        ?string $text = null,
-        bool $createDirectories = true
-    ): string {
-        // Validate image path
-        if (str_contains($path, '../') || str_contains($path, './')) {
-            throw new \InvalidArgumentException('Path traversal not allowed in image path');
+        ?string $text = null
+    ): void {
+        if (str_contains($relativePath, '../') || str_contains($relativePath, './')) {
+            throw new \InvalidArgumentException('Path traversal not allowed');
         }
 
-        $directory = dirname($path);
-        if ($createDirectories && !Storage::exists($directory)) {
-            Storage::makeDirectory($directory);
+        $directory = dirname($relativePath);
+        if ($directory !== '.') {
+            $this->disk->makeDirectory($directory);
             $this->createdDirectories->push($directory);
         }
 
@@ -275,211 +612,15 @@ trait CreatesTestFiles
             });
         }
 
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $extension = pathinfo($relativePath, PATHINFO_EXTENSION);
         $imageData = match ($extension) {
             'png' => $image->toPng(),
             'webp' => $image->toWebp(),
             default => $image->toJpeg()
         };
 
-        Storage::put($path, $imageData);
-        $this->createdFiles->push($path);
-
-        return Storage::path($path);
-    }
-
-    /**
-     * Create multiple related images.
-     */
-    protected function createImageSet(
-        string $directory,
-        array $specifications
-    ): array {
-        // Always work with relative paths within test content directory
-        $relativePath = trim($this->testContentPath . '/' . trim($directory, '/'), '/');
-
-        // Ensure the directory exists
-        if (!Storage::exists($relativePath)) {
-            Storage::makeDirectory($relativePath);
-            $this->createdDirectories->push($relativePath);
-        }
-
-        $createdImages = [];
-        foreach ($specifications as $name => $spec) {
-            $width = $spec['width'] ?? 640;
-            $height = $spec['height'] ?? 480;
-            $background = $spec['background'] ?? '#' . substr(md5(mt_rand()), 0, 6);
-            $text = $spec['text'] ?? null;
-            $extension = $spec['extension'] ?? 'jpg';
-
-            $imagePath = $relativePath . "/{$name}.{$extension}";
-
-            $this->createImage(
-                $imagePath,
-                $width,
-                $height,
-                $background,
-                $text
-            );
-
-            // Store relative path from test content root
-            $createdImages[$name] = trim(Str::after($imagePath, $this->testContentPath . '/'), '/');
-        }
-
-        return $createdImages;
-    }
-
-    /**
-     * Create a hierarchical content structure.
-     */
-    protected function createHierarchicalContent(
-        array $structure,
-        string $baseType = 'doc',
-        bool $createImages = true
-    ): array {
-        $createdFiles = [];
-        $this->createStructureRecursively($structure, '', $baseType, $createdFiles, $createImages);
-        return $createdFiles;
-    }
-
-    /**
-     * Create a markdown file that will trigger specific behavior.
-     *
-     * @throws \InvalidArgumentException If the special case type is unknown
-     */
-    protected function createSpecialCaseFile(string $type, array $customizations = []): string
-    {
-        $content = match($type) {
-            'published-true' => $this->createMarkdownFile(
-                'special/published-true.md',
-                ['title' => 'Test Published Post', 'published_at' => true],
-                'This is a test post with published_at set to true.'
-            ),
-            'no-title-frontmatter' => $this->createMarkdownFile(
-                'special/no-title.md',
-                ['type' => 'post'],
-                "# Markdown Title\nContent here."
-            ),
-            'multiple-headings' => $this->createMarkdownFile(
-                'special/multiple-headings.md',
-                ['type' => 'post'],
-                "# Main Title\n## Subtitle\nContent"
-            ),
-            default => throw new \InvalidArgumentException("Unknown special case type: {$type}")
-        };
-
-        return $content;
-    }
-
-    /**
-     * Generate markdown content from front matter and content.
-     */
-    private function generateMarkdownContent(array $frontMatter, string $content, ?string $title): string
-    {
-        $markdown = '';
-
-        // Add front matter if present
-        if (!empty($frontMatter)) {
-            $markdown .= "---\n";
-            $markdown .= $this->arrayToYaml($frontMatter);
-            $markdown .= "---\n\n";
-        }
-
-        // Add title if provided
-        if ($title) {
-            $markdown .= "# {$title}\n\n";
-        }
-
-        // Add content
-        $markdown .= $content;
-
-        return $markdown;
-    }
-
-    /**
-     * Convert an array to YAML format.
-     */
-    private function arrayToYaml(array $data, int $indent = 0): string
-    {
-        $yaml = '';
-        $indentation = str_repeat(' ', $indent);
-
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $yaml .= "{$indentation}{$key}:\n";
-                if (array_is_list($value)) {
-                    foreach ($value as $item) {
-                        $yaml .= "{$indentation}- " . (is_array($item) ? "\n" . $this->arrayToYaml($item, $indent + 4) : $item) . "\n";
-                    }
-                } else {
-                    $yaml .= $this->arrayToYaml($value, $indent + 2);
-                }
-            } else {
-                if (is_bool($value)) {
-                    $formattedValue = $value ? 'true' : 'false';
-                } else {
-                    $formattedValue = is_string($value) ? "\"{$value}\"" : $value;
-                }
-                $yaml .= "{$indentation}{$key}: {$formattedValue}\n";
-            }
-        }
-
-        return $yaml;
-    }
-
-    /**
-     * Create nested content structure recursively.
-     */
-    private function createStructureRecursively(
-        array $structure,
-        string $basePath,
-        string $type,
-        array &$createdFiles,
-        bool $createImages = true
-    ): void {
-        foreach ($structure as $name => $content) {
-            $path = $basePath ? $basePath . '/' . $name : $name;
-
-            if (is_array($content)) {
-                // Handle index.md files specially
-                if (str_ends_with($name, '.md')) {
-                    // This is a file with content
-                    $createdFiles[] = $this->createMarkdownFile(
-                        $path,
-                        array_merge($content, ['type' => $type]),
-                        createImages: $createImages
-                    );
-                } else {
-                    // This is a directory that might contain files
-                    foreach ($content as $subName => $subContent) {
-                        if (str_ends_with($subName, '.md')) {
-                            // Create the file in this directory
-                            $filePath = $path . '/' . $subName;
-                            $createdFiles[] = $this->createMarkdownFile(
-                                $filePath,
-                                array_merge($subContent, ['type' => $type]),
-                                createImages: $createImages
-                            );
-
-                            // Remove the processed file so we don't process it again
-                            unset($content[$subName]);
-                        }
-                    }
-
-                    // Process remaining subdirectories
-                    if (!empty($content)) {
-                        $this->createStructureRecursively($content, $path, $type, $createdFiles, $createImages);
-                    }
-                }
-            } else {
-                // Handle simple string content (treated as title)
-                $createdFiles[] = $this->createMarkdownFile(
-                    $path . '.md',
-                    ['title' => $content, 'type' => $type],
-                    createImages: $createImages
-                );
-            }
-        }
+        $this->disk->put($relativePath, $imageData);
+        $this->createdFiles->push($relativePath);
     }
 
     /**
@@ -487,51 +628,16 @@ trait CreatesTestFiles
      */
     protected function tearDownTestFiles(): void
     {
-        // Clean up files in reverse order (deeper files first)
-        foreach ($this->createdFiles->reverse() as $file) {
-            if (Storage::exists($file)) {
-                Storage::delete($file);
+        if (isset($this->disk)) {
+            // Delete files in reverse order (deepest first)
+            foreach ($this->createdFiles->reverse() as $file) {
+                $this->disk->delete($file);
+            }
+
+            // Delete directories in reverse order (deepest first)
+            foreach ($this->createdDirectories->reverse() as $directory) {
+                $this->disk->deleteDirectory($directory);
             }
         }
-
-        // Clean up directories in reverse order (deeper directories first)
-        foreach ($this->createdDirectories->reverse() as $directory) {
-            if (Storage::exists($directory)) {
-                Storage::deleteDirectory($directory);
-            }
-        }
-
-        // Clean up the main test content directory
-        if (Storage::exists($this->testContentPath)) {
-            Storage::deleteDirectory($this->testContentPath);
-        }
-
-        // Reset collections
-        $this->createdFiles = collect();
-        $this->createdDirectories = collect();
-    }
-
-    /**
-     * Get the list of created files for inspection.
-     */
-    protected function getCreatedFiles(): array
-    {
-        return $this->createdFiles->toArray();
-    }
-
-    /**
-     * Get the list of created directories for inspection.
-     */
-    protected function getCreatedDirectories(): array
-    {
-        return $this->createdDirectories->toArray();
-    }
-
-    /**
-     * Get full path for a file in the test content directory.
-     */
-    protected function getTestPath(string $path): string
-    {
-        return Storage::path($this->testContentPath . '/' . ltrim($path, '/'));
     }
 }

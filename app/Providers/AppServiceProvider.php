@@ -13,9 +13,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(MarkdownProcessingService::class, function ($app) {
-            return new MarkdownProcessingService($app->make(ImageService::class));
-        });
+//        $this->app->singleton(MarkdownProcessingService::class, function ($app) {
+//            return new MarkdownProcessingService($app->make(ImageService::class));
+//        });
     }
 
     /**

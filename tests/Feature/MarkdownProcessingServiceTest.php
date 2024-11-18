@@ -6,285 +6,241 @@ use App\Models\Entry;
 use App\Services\ImageService;
 use App\Services\MarkdownProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use InvalidArgumentException;
 use Tests\TestCase;
+use Tests\Traits\CreatesTestFiles;
 
 class MarkdownProcessingServiceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use RefreshDatabase, CreatesTestFiles;
 
     protected MarkdownProcessingService $service;
+    protected ImageService $imageService;
     protected Entry $entry;
-    protected string $testDataPath;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = app(MarkdownProcessingService::class);
-        $this->entry = Entry::factory()->create(['type' => 'post']);
-        Storage::fake('local');
+        $this->setupTestFiles();
 
-        $this->testDataPath = Storage::path('content');
-        if (!file_exists($this->testDataPath)) {
-            mkdir($this->testDataPath, 0755, true);
-        }
+        $this->imageService = new ImageService(
+            disk: $this->disk,
+            imageManager: new ImageManager(new Driver())
+        );
+
+        $this->service = new MarkdownProcessingService(
+            imageService: $this->imageService,
+            disk: $this->disk
+        );
+
+        $this->entry = Entry::factory()->create(['type' => 'post']);
+
+        // Create all test files using the trait
+        $this->createMarkdownModelTestFiles();
     }
 
     public function test_process_markdown_file_with_frontmatter()
     {
-        $content = <<<MD
----
-title: Test Post
-type: post
-tags: [test, markdown]
-published_at: "2024-01-01"
-author: John Doe
-category: testing
-nested:
-  key: value
-images:
-  featured: featured.jpg
-  gallery: [image1.jpg, image2.jpg]
----
-
-# Different Title
-This is the content.
-MD;
-
-        Storage::put('content/test-post.md', $content);
-
-        // Test with date-only format
         $result = $this->service->processMarkdownFile(
-            Storage::path('content/test-post.md'),
+            'test-basic.md',
             'post',
-            'test-post',
+            'test-basic',
             ['title', 'type', 'tags', 'published_at'],
             ['dateFormat' => 'Y-m-d']
         );
 
-        // Check fillable attributes are at root level
-        $this->assertEquals('Test Post', $result['title']);
+        $this->assertEquals('Test Basic Markdown', $result['title']);
         $this->assertEquals('post', $result['type']);
-        $this->assertEquals(['test', 'markdown'], $result['tags']);
+        $this->assertEquals(['tag1', 'tag2'], $result['tags']);
         $this->assertEquals('2024-01-01', $result['published_at']);
-
-        // Test with default datetime format
-        $result = $this->service->processMarkdownFile(
-            Storage::path('content/test-post.md'),
-            'post',
-            'test-post',
-            ['title', 'type', 'tags', 'published_at']
-        );
-
-        $this->assertEquals('2024-01-01 00:00:00', $result['published_at']);
-
-        // Check non-fillable fields went to meta
+        $this->assertEquals('Test description', $result['meta']['description']);
         $this->assertEquals('John Doe', $result['meta']['author']);
-        $this->assertEquals('testing', $result['meta']['category']);
-        $this->assertEquals('value', $result['meta']['nested']['key']);
-
-        // Check slug generation
-        $this->assertEquals('test-post', $result['slug']);
-
-        // Check content processing
-        $this->assertEquals('This is the content.', trim($result['content']));
-
-        // Check images are separated
-        $this->assertEquals([
-            'featured' => 'featured.jpg',
-            'gallery' => ['image1.jpg', 'image2.jpg']
-        ], $result['images']);
-    }
-
-    public function test_process_markdown_file_with_title_extraction()
-    {
-        $content = <<<MD
----
-type: post
----
-
-# Markdown Title
-Content here.
-MD;
-
-        Storage::put('content/no-title.md', $content);
-        $result = $this->service->processMarkdownFile(
-            Storage::path('content/no-title.md'),
-            'post',
-            'no-title',
-            ['title', 'type']
-        );
-
-        // Title should be extracted from markdown when not in frontmatter
-        $this->assertEquals('Markdown Title', $result['title']);
-        $this->assertEquals('Content here.', trim($result['content']));
-    }
-
-    public function test_process_front_matter()
-    {
-        $data = [
-            'title' => 'Test Post',
-            'type' => 'post',
-            'tags' => ['test', 'markdown'],
-            'published_at' => '2024-01-01',
-            'author' => 'John Doe',
-            'category' => 'testing',
-            'nested' => ['key' => 'value'],
-            'images.featured' => 'featured.jpg',
-            'images.gallery' => ['image1.jpg', 'image2.jpg'],
-        ];
-
-        $fillable = ['title', 'type', 'tags', 'published_at'];
-
-        // Pass dateFormat option to match expected date format
-        $result = $this->service->processFrontMatter($data, $fillable, [
-            'dateFormat' => 'Y-m-d'
-        ]);
-
-        // Check structure
-        $this->assertArrayHasKey('attributes', $result);
-        $this->assertArrayHasKey('meta', $result);
-        $this->assertArrayHasKey('images', $result);
-
-        // Check fillable attributes
-        $this->assertEquals('Test Post', $result['attributes']['title']);
-        $this->assertEquals('post', $result['attributes']['type']);
-        $this->assertEquals(['test', 'markdown'], $result['attributes']['tags']);
-        $this->assertEquals('2024-01-01', $result['attributes']['published_at']);
-
-        // Check meta fields
-        $this->assertEquals('John Doe', $result['meta']['author']);
-        $this->assertEquals('testing', $result['meta']['category']);
-        $this->assertEquals('value', $result['meta']['nested']['key']);
-
-        // Check images
-        $this->assertEquals('featured.jpg', $result['images']['featured']);
-        $this->assertEquals(['image1.jpg', 'image2.jpg'], $result['images']['gallery']);
-
-        // Let's also test the default format
-        $resultWithDefault = $this->service->processFrontMatter($data, $fillable);
-        $this->assertEquals('2024-01-01 00:00:00', $resultWithDefault['attributes']['published_at']);
     }
 
     public function test_handle_media_from_front_matter()
     {
-        // Create test directory structure
-        Storage::makeDirectory('content/posts/images');
-
-        // Create test images
-        $imageManager = new ImageManager(new Driver);
-        $image = $imageManager->create(100, 100)->fill('#ff0000');
-
-        // Store the images in the fake storage
-        Storage::put('content/posts/images/featured.jpg', $image->toJpeg());
-        Storage::put('content/posts/thumbnail.png', $image->toPng());
-
-        // Create test content file
-        Storage::put('content/posts/test-post.md', 'Test content');
-
-        // Define image paths relative to markdown file location
-        $images = [
-            'featured' => Storage::path('content/posts/images/featured.jpg'),
-            'thumbnail' => Storage::path('content/posts/thumbnail.png'),
-        ];
-
         $this->service->handleMediaFromFrontMatter(
             $this->entry,
-            $images,
-            Storage::path('content/posts/test-post.md')
+            ['featured' => 'images/featured.jpg'],
+            'test-basic.md'
         );
 
-        $this->assertEquals(2, $this->entry->images()->count());
+        $this->assertEquals(1, $this->entry->images()->count());
 
         $this->assertDatabaseHas('images', [
             'entry_id' => $this->entry->id,
             'collection' => 'featured',
             'filename' => 'featured.jpg',
         ]);
-
-        $this->assertDatabaseHas('images', [
-            'entry_id' => $this->entry->id,
-            'collection' => 'thumbnail',
-            'filename' => 'thumbnail.png',
-        ]);
     }
 
     public function test_process_markdown_images()
     {
-        Storage::makeDirectory('content/posts/images');
+        $content = $this->disk->get('images/inline-images.md');
+        $result = $this->service->processMarkdownImages($this->entry, $content, 'images/inline-images.md');
 
-        $imageManager = new ImageManager(new Driver);
-        $image = $imageManager->create(100, 100)->fill('#ff0000');
-
-        Storage::put('content/posts/images/image1.jpg', $image->toJpeg());
-        Storage::put('content/posts/images/image2.png', $image->toPng());
-
-        $content = <<<MD
-# Test Content
-
-![Image 1](images/image1.jpg)
-![External Image](https://example.com/image.jpg)
-![Image 2](images/image2.png)
-MD;
-
-        $markdownPath = Storage::path('content/posts/test-post.md');
-        $result = $this->service->processMarkdownImages($this->entry, $content, $markdownPath);
-
-        // Verify image replacements
         $this->assertStringContainsString('<ResponsiveImage', $result);
-        $this->assertStringContainsString('alt={"Image 1"}', $result);
-        $this->assertStringContainsString('alt={"Image 2"}', $result);
-        $this->assertStringContainsString('![External Image](https://example.com/image.jpg)', $result);
-
-        // Verify database records
-        $this->assertEquals(2, $this->entry->images()->where('collection', 'content')->count());
+        $this->assertStringContainsString('alt={"First Image"}', $result);
+        $this->assertStringContainsString('alt={"Second Image"}', $result);
+        $this->assertEquals(3, $this->entry->images()->where('collection', 'content')->count());
     }
 
-    public function test_extract_title_from_content()
+    public function test_handles_relative_image_paths()
     {
-        $method = new \ReflectionMethod($this->service, 'extractTitleFromContent');
+        $this->createMarkdownFile('nested/page.md', [
+            'type' => 'post',
+            'images' => [
+                'featured' => '../images/featured.jpg'
+            ]
+        ], "![Image](../images/featured.jpg)");
 
-        // Test with H1 title
-        [$title1, $content1] = $method->invoke($this->service, "# Title Here\nContent here");
-        $this->assertEquals('Title Here', $title1);
-        $this->assertEquals('Content here', trim($content1));
+        $result = $this->service->processMarkdownFile(
+            'nested/page.md',
+            'post',
+            'nested/page',
+            ['type']
+        );
 
-        // Test without H1 title
-        [$title2, $content2] = $method->invoke($this->service, "Content without title\nMore content");
-        $this->assertNull($title2);
-        $this->assertEquals("Content without title\nMore content", $content2);
+        $this->assertArrayHasKey('images', $result);
+        $this->assertEquals('../images/featured.jpg', $result['images']['featured']);
+    }
 
-        // Test with multiple headings
-        [$title3, $content3] = $method->invoke($this->service, "# Main Title\n## Subtitle\nContent");
-        $this->assertEquals('Main Title', $title3);
-        $this->assertEquals("## Subtitle\nContent", trim($content3));
+    public function test_handles_html_in_markdown()
+    {
+        $this->createMarkdownFile('mixed.md', [
+            'type' => 'post'
+        ], "# Title\n<div class=\"custom\">HTML content</div>\n\nMarkdown content");
+
+        $result = $this->service->processMarkdownFile(
+            'mixed.md',
+            'post',
+            'mixed',
+            ['title', 'content']
+        );
+
+        $this->assertStringContainsString('<div class="custom">HTML content</div>', $result['content']);
+    }
+
+    public function test_handles_special_characters_in_filenames()
+    {
+        $this->createMarkdownFile('special-@#$-chars.md', ['type' => 'post'], 'Content');
+
+        $result = $this->service->processMarkdownFile(
+            'special-@#$-chars.md',
+            'post',
+            'special-chars',
+            ['type']
+        );
+
+        $this->assertEquals('special-chars', $result['slug']);
+    }
+
+    public function test_handles_duplicate_image_references()
+    {
+        $content = "![Image](images/featured.jpg)\n![Same Image](images/featured.jpg)";
+        $this->createMarkdownFile('duplicate-images.md', ['type' => 'post'], $content);
+
+        $result = $this->service->processMarkdownImages($this->entry, $content, 'duplicate-images.md');
+
+        $this->assertEquals(1, $this->entry->images()->where('collection', 'content')->count());
+    }
+
+    public function test_processes_hierarchical_content()
+    {
+        $rootMeta = [
+            'type' => 'doc',
+            'meta' => ['shared' => 'root-value']
+        ];
+
+        $childMeta = [
+            'type' => 'doc',
+            'meta' => ['local' => 'child-value']
+        ];
+
+        $this->createMarkdownFile('section/index.md', $rootMeta, 'Root content');
+        $this->createMarkdownFile('section/child.md', $childMeta, 'Child content');
+
+        $root = $this->service->processMarkdownFile('section/index.md', 'doc', 'section');
+        $child = $this->service->processMarkdownFile('section/child.md', 'doc', 'section/child');
+
+        $this->assertEquals('root-value', $root['meta']['shared']);
+        $this->assertEquals('child-value', $child['meta']['local']);
+    }
+
+    public function test_handles_malformed_markdown()
+    {
+        $content = "# Unclosed [link\nText with *unclosed emphasis\n";
+        $this->createMarkdownFile('malformed.md', ['type' => 'post'], $content);
+
+        $result = $this->service->processMarkdownFile(
+            'malformed.md',
+            'post',
+            'malformed',
+            ['title', 'content']
+        );
+
+        $this->assertNotEmpty($result['content']);
+    }
+
+    public function test_handles_missing_files()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->service->processMarkdownFile('missing.md', 'post', 'missing');
+    }
+
+    public function test_handles_invalid_front_matter()
+    {
+        $this->expectException(\Exception::class);
+        $this->service->processMarkdownFile('invalid/bad-yaml.md', 'post', 'invalid');
+    }
+
+    public function test_date_handling()
+    {
+        $result = $this->service->processMarkdownFile(
+            'special/published-true.md',
+            'post',
+            'published-true',
+            ['published_at']
+        );
+        $this->assertNotNull($result['published_at']);
+    }
+
+    public function test_normalize_tag_values()
+    {
+        $method = new \ReflectionMethod($this->service, 'normalizeTagValue');
+
+        $this->assertEquals(['tag1', 'tag2'], $method->invoke($this->service, 'tag1,tag2'));
+        $this->assertEquals(['tag1', 'tag2'], $method->invoke($this->service, ['tag1', 'tag2']));
+        $this->assertEquals([], $method->invoke($this->service, ''));
+    }
+
+    public function test_normalize_date_values()
+    {
+        $method = new \ReflectionMethod($this->service, 'normalizeDateValue');
+
+        $this->assertEquals('2024-01-01 00:00:00', $method->invoke($this->service, '2024-01-01'));
+        $this->assertNotNull($method->invoke($this->service, true));
+        $this->assertNull($method->invoke($this->service, 'invalid-date'));
+    }
+
+    public function test_handles_timestamp_dates()
+    {
+        // 2024-01-01 00:00:00
+        $timestamp = 1704067200;
+
+        $method = new \ReflectionMethod($this->service, 'normalizeDateValue');
+
+        $this->assertEquals(
+            '2024-01-01 00:00:00',
+            $method->invoke($this->service, $timestamp)
+        );
     }
 
     protected function tearDown(): void
     {
-        if (file_exists($this->testDataPath)) {
-            $this->rrmdir($this->testDataPath);
-        }
+        $this->tearDownTestFiles();
         parent::tearDown();
-    }
-
-    protected function rrmdir($dir)
-    {
-        if (is_dir($dir)) {
-            $objects = scandir($dir);
-            foreach ($objects as $object) {
-                if ($object != "." && $object != "..") {
-                    if (is_dir($dir. DIRECTORY_SEPARATOR .$object) && !is_link($dir."/".$object)) {
-                        $this->rrmdir($dir. DIRECTORY_SEPARATOR .$object);
-                    } else {
-                        unlink($dir. DIRECTORY_SEPARATOR .$object);
-                    }
-                }
-            }
-            rmdir($dir);
-        }
     }
 }

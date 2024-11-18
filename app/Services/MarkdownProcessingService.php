@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Entry;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Webuni\FrontMatter\FrontMatter;
@@ -20,17 +20,17 @@ class MarkdownProcessingService
         'tags',
         'published_at',
         'excerpt',
-        'description',
     ];
 
     public function __construct(
-        protected readonly ImageService $imageService
+        protected readonly ImageService $imageService,
+        protected readonly Filesystem $disk
     ) {}
 
     /**
      * Process a markdown file and extract its content and metadata.
      *
-     * @param string $filename The path to the markdown file
+     * @param string $relativePath The relative path to the markdown file within the disk
      * @param string $type The content type
      * @param string $slug The slug for the content
      * @param array $fillable Additional fillable fields
@@ -51,18 +51,17 @@ class MarkdownProcessingService
      * @throws \InvalidArgumentException If the file cannot be read
      */
     public function processMarkdownFile(
-        string $filename,
+        string $relativePath,
         string $type,
         string $slug,
         array $fillable = [],
         array $options = []
-    ): array
-    {
-        if (!File::exists($filename)) {
-            throw new InvalidArgumentException("File not found: {$filename}");
+    ): array {
+        if (!$this->disk->exists($relativePath)) {
+            throw new InvalidArgumentException("File not found: {$relativePath}");
         }
 
-        $content = File::get($filename);
+        $content = $this->disk->get($relativePath);
         $frontMatter = new FrontMatter;
         $document = $frontMatter->parse($content);
 
@@ -81,9 +80,9 @@ class MarkdownProcessingService
 
         return [
             'type' => $type,
-            'slug' => $slug, // Use provided slug instead of generating
+            'slug' => $slug,
             'content' => $markdownContent,
-            'filename' => $filename,
+            'filename' => $relativePath,
             'meta' => $this->normalizeMetaData($processedData['meta'] ?? []),
             'images' => $this->normalizeImageData($processedData['images'] ?? [], $data),
             ...$processedData['attributes'],
@@ -116,21 +115,16 @@ class MarkdownProcessingService
         // Second pass: process remaining data
         foreach ($data as $key => $value) {
             match (true) {
-                // Legacy support for dot notation images
-                str_starts_with($key, 'images.') =>
-                $processed['images'][Str::after($key, 'images.')] = $value,
-
                 // Handle fillable fields
                 in_array($key, $fillable) =>
-                $processed['attributes'][$key] = $this->normalizeAttributeValue(
-                    $key,
-                    $value,
-                    ['dateFormat' => $dateFormat]
-                ),
+                    $processed['attributes'][$key] = $this->normalizeAttributeValue(
+                        $key,
+                        $value,
+                        ['dateFormat' => $dateFormat]
+                    ),
 
                 // Everything else goes to meta
-                default =>
-                Arr::set($processed['meta'], $key, $value)
+                default => Arr::set($processed['meta'], $key, $value)
             };
         }
 
@@ -139,17 +133,13 @@ class MarkdownProcessingService
 
     /**
      * Handle media specified in front matter.
-     *
-     * @param Entry $entry The entry to attach images to
-     * @param array $images The image definitions
-     * @param string $filename The base filename for resolving paths
      */
-    public function handleMediaFromFrontMatter(Entry $entry, array $images, string $filename): void
+    public function handleMediaFromFrontMatter(Entry $entry, array $images, string $relativePath): void
     {
         foreach ($images as $collectionName => $imagePaths) {
             $paths = collect(Arr::wrap($imagePaths))
-                ->map(fn ($path) => $this->imageService->resolveMediaPath($path, $filename))
-                ->filter(fn ($path) => File::exists($path))
+                ->map(fn ($path) => $this->imageService->resolveMediaPath($path, $relativePath))
+                ->filter(fn ($path) => $this->disk->exists($path))
                 ->values();
 
             if ($paths->isNotEmpty()) {
@@ -160,15 +150,10 @@ class MarkdownProcessingService
 
     /**
      * Process images in markdown content.
-     *
-     * @param Entry $entry The entry to process images for
-     * @param string $markdownContent The markdown content
-     * @param string $filename The base filename for resolving paths
-     * @return string The processed content
      */
-    public function processMarkdownImages(Entry $entry, string $markdownContent, string $filename): string
+    public function processMarkdownImages(Entry $entry, string $markdownContent, string $relativePath): string
     {
-        $processedContent = $this->imageService->syncContentImages($entry, $markdownContent, $filename);
+        $processedContent = $this->imageService->syncContentImages($entry, $markdownContent, $relativePath);
 
         // Remove any unused images from the content collection
         $usedImages = $entry->images()->where('collection', 'content')->pluck('id');
@@ -182,9 +167,6 @@ class MarkdownProcessingService
 
     /**
      * Extract title from content.
-     *
-     * @param string $content The markdown content
-     * @return array{0: string|null, 1: string} The extracted title and remaining content
      */
     protected function extractTitleFromContent(string $content): array
     {
@@ -201,9 +183,6 @@ class MarkdownProcessingService
 
     /**
      * Generate a slug from a filename.
-     *
-     * @param string $filename The filename to generate a slug from
-     * @return string The generated slug
      */
     public function generateSlugFromFilename(string $filename): string
     {
@@ -220,10 +199,6 @@ class MarkdownProcessingService
 
     /**
      * Normalize image data from various formats into a consistent structure.
-     *
-     * @param array $images The processed image data
-     * @param array $rawData The raw front matter data for fallback processing
-     * @return array The normalized image data
      */
     protected function normalizeImageData(array $images, array $rawData): array
     {
@@ -251,9 +226,6 @@ class MarkdownProcessingService
 
     /**
      * Normalize meta data into a consistent structure.
-     *
-     * @param array $meta The meta data to normalize
-     * @return array The normalized meta data
      */
     protected function normalizeMetaData(array $meta): array
     {
@@ -275,10 +247,6 @@ class MarkdownProcessingService
 
     /**
      * Normalize attribute values based on their key.
-     *
-     * @param string $key The attribute key
-     * @param mixed $value The attribute value
-     * @return mixed The normalized value
      */
     protected function normalizeAttributeValue(string $key, mixed $value, array $options = []): mixed
     {
@@ -291,14 +259,14 @@ class MarkdownProcessingService
 
     /**
      * Normalize tag values into a consistent array format.
-     *
-     * @param mixed $value The tag value to normalize
-     * @return array The normalized tags
      */
     protected function normalizeTagValue(mixed $value): array
     {
         if (is_string($value)) {
-            return array_map('trim', explode(',', $value));
+            if (empty($value)) {
+                return [];
+            }
+            return array_filter(array_map('trim', explode(',', $value)));
         }
 
         if (is_array($value)) {
@@ -310,10 +278,6 @@ class MarkdownProcessingService
 
     /**
      * Normalize date values into a consistent format.
-     *
-     * @param mixed $value The date value to normalize
-     * @param string $format The date format to use
-     * @return string|null The normalized date string
      */
     protected function normalizeDateValue(mixed $value, string $format = 'Y-m-d H:i:s'): ?string
     {
@@ -325,14 +289,23 @@ class MarkdownProcessingService
             return now()->format($format);
         }
 
-        if (is_string($value)) {
-            try {
-                return date($format, strtotime($value));
-            } catch (\Exception $e) {
-                return null;
+        try {
+            if (is_int($value)) {
+                return date($format, $value);
             }
-        }
 
-        return null;
+            // Handle string dates
+            if (is_string($value)) {
+                $timestamp = strtotime($value);
+                if ($timestamp === false) {
+                    return null;
+                }
+                return date($format, $timestamp);
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }
