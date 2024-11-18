@@ -40,8 +40,6 @@ class EntrySyncJob implements ShouldQueue
 
     /**
      * The number of times the job may be attempted.
-     *
-     * @var int
      */
     protected int $tries;
 
@@ -55,11 +53,11 @@ class EntrySyncJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param string $type The type of content being synced
-     * @param string|null $diskName The name of the Laravel disk to use (optional)
-     * @param bool $shouldPull Whether to pull latest changes from Git (default: false)
-     * @param bool $skipIfNoChanges Whether to skip processing if no changes detected (default: false)
-     * @param string|null $webhookUrl The URL to trigger after sync completion (default: null)
+     * @param  string  $type  The type of content being synced
+     * @param  string|null  $diskName  The name of the Laravel disk to use (optional)
+     * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
+     * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
+     * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
      */
     public function __construct(
         protected string $type,
@@ -80,9 +78,10 @@ class EntrySyncJob implements ShouldQueue
     /**
      * Execute the job.
      *
-     * @param Git $git The Git instance for repository operations
-     * @param FileDiscoveryService $fileDiscovery The file discovery service
-     * @param RepositoryDiskManager $diskManager The repository disk manager
+     * @param  Git  $git  The Git instance for repository operations
+     * @param  FileDiscoveryService  $fileDiscovery  The file discovery service
+     * @param  RepositoryDiskManager  $diskManager  The repository disk manager
+     *
      * @throws GitException
      */
     public function handle(Git $git, FileDiscoveryService $fileDiscovery, RepositoryDiskManager $diskManager): void
@@ -96,8 +95,9 @@ class EntrySyncJob implements ShouldQueue
             $changesDetected = true;
             if ($this->shouldPull) {
                 $changesDetected = $this->handleGitPull($git, $diskManager);
-                if (!$changesDetected && $this->skipIfNoChanges) {
+                if (! $changesDetected && $this->skipIfNoChanges) {
                     Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
+
                     return;
                 }
             }
@@ -119,7 +119,7 @@ class EntrySyncJob implements ShouldQueue
             return Storage::disk($this->diskName);
         }
 
-        if (!$diskManager->hasRepository($this->type)) {
+        if (! $diskManager->hasRepository($this->type)) {
             throw new \RuntimeException("No repository configured for type: {$this->type}");
         }
 
@@ -137,8 +137,9 @@ class EntrySyncJob implements ShouldQueue
         $diskRoot = $diskConfig['path'];
 
         // Verify this is a local repository
-        if (!file_exists($diskRoot) || !is_dir($diskRoot)) {
+        if (! file_exists($diskRoot) || ! is_dir($diskRoot)) {
             Log::warning("Cannot pull from Git: {$diskRoot} is not a local directory");
+
             return false;
         }
 
@@ -205,7 +206,7 @@ class EntrySyncJob implements ShouldQueue
                     $sshKeyPath = config('flatlayer.git.ssh_key_path');
                     if ($sshKeyPath && file_exists($sshKeyPath)) {
                         $repo->setSSHKey($sshKeyPath);
-                        Log::info("Git authentication configured using SSH key");
+                        Log::info('Git authentication configured using SSH key');
                     }
                     break;
 

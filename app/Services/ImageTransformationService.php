@@ -19,13 +19,14 @@ class ImageTransformationService
     /**
      * Transform an image based on the given parameters.
      *
-     * @param string $path Relative path within the disk
-     * @param array $params Transformation parameters
+     * @param  string  $path  Relative path within the disk
+     * @param  array  $params  Transformation parameters
+     *
      * @throws ImageDimensionException
      */
     public function transformImage(string $path, array $params): string
     {
-        if (!$this->disk->exists($path)) {
+        if (! $this->disk->exists($path)) {
             throw new \RuntimeException("Image not found: {$path}");
         }
 
@@ -126,12 +127,13 @@ class ImageTransformationService
     /**
      * Get image metadata.
      *
-     * @param string $path Relative path within the disk
+     * @param  string  $path  Relative path within the disk
+     *
      * @throws \RuntimeException If the image cannot be read
      */
     public function getImageMetadata(string $path): array
     {
-        if (!$this->disk->exists($path)) {
+        if (! $this->disk->exists($path)) {
             throw new \RuntimeException("Image not found: {$path}");
         }
 

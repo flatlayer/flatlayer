@@ -122,8 +122,8 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             '$hierarchy' => [
-                'descendants' => 'docs/getting-started'
-            ]
+                'descendants' => 'docs/getting-started',
+            ],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -138,8 +138,8 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             'slug' => [
-                '$isSiblingOf' => 'docs/getting-started/installation'
-            ]
+                '$isSiblingOf' => 'docs/getting-started/installation',
+            ],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -153,8 +153,8 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             'slug' => [
-                '$startsWith' => 'docs/advanced'
-            ]
+                '$startsWith' => 'docs/advanced',
+            ],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -169,7 +169,7 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             'slug' => ['$startsWith' => 'docs/'],
-            'meta.difficulty' => 'advanced'
+            'meta.difficulty' => 'advanced',
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -197,8 +197,8 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             'slug' => [
-                '$hasParent' => 'docs/getting-started'
-            ]
+                '$hasParent' => 'docs/getting-started',
+            ],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -215,9 +215,9 @@ class ListControllerTest extends TestCase
             '$and' => [
                 [
                     'slug' => ['$startsWith' => 'docs/'],
-                    'meta.difficulty' => ['$in' => ['beginner', 'intermediate']]
-                ]
-            ]
+                    'meta.difficulty' => ['$in' => ['beginner', 'intermediate']],
+                ],
+            ],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -238,13 +238,13 @@ class ListControllerTest extends TestCase
     {
         $entry = Entry::factory()->atPath('docs/getting-started/tutorial')->create([
             'title' => 'Tutorial',
-            'type' => 'doc'
+            'type' => 'doc',
         ]);
         $entry->attachTag('beginner');
 
         $filter = json_encode([
             '$tags' => ['beginner'],
-            'slug' => ['$startsWith' => 'docs/getting-started']
+            'slug' => ['$startsWith' => 'docs/getting-started'],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");
@@ -263,9 +263,9 @@ class ListControllerTest extends TestCase
                 'version' => '2.0',
                 'api' => [
                     'stability' => 'stable',
-                    'auth' => ['token', 'oauth']
-                ]
-            ]
+                    'auth' => ['token', 'oauth'],
+                ],
+            ],
         ]);
 
         $fields = json_encode(['title', 'meta.version', 'meta.api.stability']);
@@ -278,8 +278,8 @@ class ListControllerTest extends TestCase
                 'title',
                 'meta' => [
                     'version',
-                    'api' => ['stability']
-                ]
+                    'api' => ['stability'],
+                ],
             ]]])
             ->assertJsonMissing(['meta' => ['api' => ['auth']]]);
     }
@@ -288,7 +288,7 @@ class ListControllerTest extends TestCase
     {
         $filter = json_encode([
             'slug' => ['$startsWith' => 'docs/'],
-            '$order' => ['slug' => 'asc']
+            '$order' => ['slug' => 'asc'],
         ]);
 
         $response = $this->getJson("/entry/doc?filter={$filter}");

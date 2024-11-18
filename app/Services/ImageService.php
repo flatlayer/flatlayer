@@ -9,7 +9,6 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
@@ -22,7 +21,7 @@ class ImageService
 {
     public function __construct(
         private readonly Filesystem $disk,
-        private readonly ImageManager $imageManager = new ImageManager(new Driver()),
+        private readonly ImageManager $imageManager = new ImageManager(new Driver),
     ) {}
 
     /**
@@ -107,7 +106,7 @@ class ImageService
             try {
                 $imagePath = $this->resolveMediaPath($src, $relativePath);
 
-                if (!$this->disk->exists($imagePath)) {
+                if (! $this->disk->exists($imagePath)) {
                     return $matches[0];
                 }
 
@@ -136,6 +135,7 @@ class ImageService
 
         if ($image) {
             $this->updateImageIfNeeded($image, $fileInfo);
+
             return $image;
         }
 
@@ -173,7 +173,7 @@ class ImageService
     {
         $relativePath = $this->getRelativePath($path);
 
-        if (!$this->disk->exists($relativePath)) {
+        if (! $this->disk->exists($relativePath)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
@@ -210,7 +210,7 @@ class ImageService
      */
     protected function generateThumbhashWithImagick(string $imageContents): string
     {
-        $imagick = new \Imagick();
+        $imagick = new \Imagick;
         $imagick->readImageBlob($imageContents);
         $imagick->resizeImage(100, 100, \Imagick::FILTER_LANCZOS, 1, true);
         $imagick->setImageFormat('png');
@@ -246,12 +246,12 @@ class ImageService
         // If dealing with a relative path, resolve it against the content directory
         if (str_starts_with($mediaItem, './') || str_starts_with($mediaItem, '../')) {
             $contentDir = dirname($contentPath);
-            $mediaItem = $contentDir . '/' . $mediaItem;
+            $mediaItem = $contentDir.'/'.$mediaItem;
         }
 
-        if (!$this->disk->exists($mediaItem)) {
+        if (! $this->disk->exists($mediaItem)) {
             throw new RuntimeException(sprintf(
-                "Media file not found: %s (relative to %s)",
+                'Media file not found: %s (relative to %s)',
                 $mediaItem,
                 $contentPath
             ));

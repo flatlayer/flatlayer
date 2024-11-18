@@ -18,22 +18,23 @@ class RepositoryDiskManager
     /**
      * Create a new disk for a repository
      *
-     * @param string $type The content type (e.g., 'posts', 'docs')
-     * @param string $path The local path to the repository
-     * @param array $config Additional disk configuration
+     * @param  string  $type  The content type (e.g., 'posts', 'docs')
+     * @param  string  $path  The local path to the repository
+     * @param  array  $config  Additional disk configuration
      * @return Filesystem The configured filesystem disk
+     *
      * @throws InvalidArgumentException If path is invalid
      */
     public function createDiskForRepository(string $type, string $path, array $config = []): Filesystem
     {
         $realPath = realpath($path);
 
-        if (!$realPath || !is_dir($realPath)) {
+        if (! $realPath || ! is_dir($realPath)) {
             throw new InvalidArgumentException("Invalid repository path: {$path}");
         }
 
         // Generate a unique disk name for this repository
-        $diskName = "repo_{$type}_" . md5($realPath);
+        $diskName = "repo_{$type}_".md5($realPath);
 
         // Store repository configuration
         $this->repositories[$type] = [
@@ -68,13 +69,14 @@ class RepositoryDiskManager
     /**
      * Get a repository disk by content type
      *
-     * @param string $type The content type
+     * @param  string  $type  The content type
      * @return Filesystem The filesystem disk
+     *
      * @throws InvalidArgumentException If repository type not found
      */
     public function getDisk(string $type): Filesystem
     {
-        if (!isset($this->repositories[$type])) {
+        if (! isset($this->repositories[$type])) {
             throw new InvalidArgumentException("No repository configured for type: {$type}");
         }
 
@@ -84,13 +86,14 @@ class RepositoryDiskManager
     /**
      * Get repository configuration
      *
-     * @param string $type The content type
+     * @param  string  $type  The content type
      * @return array{disk: string, path: string, config: array} Repository configuration
+     *
      * @throws InvalidArgumentException If repository type not found
      */
     public function getConfig(string $type): array
     {
-        if (!isset($this->repositories[$type])) {
+        if (! isset($this->repositories[$type])) {
             throw new InvalidArgumentException("No repository configured for type: {$type}");
         }
 
@@ -100,7 +103,7 @@ class RepositoryDiskManager
     /**
      * Check if a repository is configured
      *
-     * @param string $type The content type
+     * @param  string  $type  The content type
      * @return bool Whether the repository is configured
      */
     public function hasRepository(string $type): bool

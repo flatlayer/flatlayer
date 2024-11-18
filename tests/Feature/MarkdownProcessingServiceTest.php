@@ -14,10 +14,12 @@ use Tests\Traits\CreatesTestFiles;
 
 class MarkdownProcessingServiceTest extends TestCase
 {
-    use RefreshDatabase, CreatesTestFiles;
+    use CreatesTestFiles, RefreshDatabase;
 
     protected MarkdownProcessingService $service;
+
     protected ImageService $imageService;
+
     protected Entry $entry;
 
     protected function setUp(): void
@@ -27,7 +29,7 @@ class MarkdownProcessingServiceTest extends TestCase
 
         $this->imageService = new ImageService(
             disk: $this->disk,
-            imageManager: new ImageManager(new Driver())
+            imageManager: new ImageManager(new Driver)
         );
 
         $this->service = new MarkdownProcessingService(
@@ -92,9 +94,9 @@ class MarkdownProcessingServiceTest extends TestCase
         $this->createMarkdownFile('nested/page.md', [
             'type' => 'post',
             'images' => [
-                'featured' => '../images/featured.jpg'
-            ]
-        ], "![Image](../images/featured.jpg)");
+                'featured' => '../images/featured.jpg',
+            ],
+        ], '![Image](../images/featured.jpg)');
 
         $result = $this->service->processMarkdownFile(
             'nested/page.md',
@@ -110,7 +112,7 @@ class MarkdownProcessingServiceTest extends TestCase
     public function test_handles_html_in_markdown()
     {
         $this->createMarkdownFile('mixed.md', [
-            'type' => 'post'
+            'type' => 'post',
         ], "# Title\n<div class=\"custom\">HTML content</div>\n\nMarkdown content");
 
         $result = $this->service->processMarkdownFile(
@@ -151,12 +153,12 @@ class MarkdownProcessingServiceTest extends TestCase
     {
         $rootMeta = [
             'type' => 'doc',
-            'meta' => ['shared' => 'root-value']
+            'meta' => ['shared' => 'root-value'],
         ];
 
         $childMeta = [
             'type' => 'doc',
-            'meta' => ['local' => 'child-value']
+            'meta' => ['local' => 'child-value'],
         ];
 
         $this->createMarkdownFile('section/index.md', $rootMeta, 'Root content');

@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +46,7 @@ class ShowRequest extends FormRequest
                             str_contains($normalizedSlug, '..') ||
                             preg_match('/%2e(?:%2e|\.)\/|\.(?:%2e|\.)\/|%2e%2f|%2f%2e/i', $decodedSlug)) {
                             $fail('Invalid path format: Directory traversal not allowed.');
+
                             return;
                         }
 
@@ -55,58 +55,66 @@ class ShowRequest extends FormRequest
                             str_contains($decodedSlug, '%00') ||
                             str_contains($decodedSlug, '\0')) {
                             $fail('Invalid path format: Null bytes not allowed.');
+
                             return;
                         }
 
                         // Check for double slashes
                         if (str_contains($normalizedSlug, '//')) {
                             $fail('Invalid path format: Double slashes not allowed.');
+
                             return;
                         }
 
                         // Check for backslashes
                         if (str_contains($slug, '\\')) {
                             $fail('Invalid path format: Backslashes not allowed.');
+
                             return;
                         }
 
                         // Check for invalid characters and control characters
                         if (preg_match('/[<>:"\\|?*\x00-\x1F]/', $decodedSlug)) {
                             $fail('Invalid path format: Contains invalid characters.');
+
                             return;
                         }
 
                         // Check for relative path indicators
                         if (preg_match('/^\.\.?\/|\/\.\.?\/|\/\.\.?$/', $normalizedSlug)) {
                             $fail('Invalid path format: Relative path indicators not allowed.');
+
                             return;
                         }
 
                         // Check for leading/trailing slashes after trimming
                         if (Str::startsWith($normalizedSlug, '/') || Str::endsWith($normalizedSlug, '/')) {
                             $fail('Invalid path format: Leading or trailing slashes not allowed.');
+
                             return;
                         }
 
                         // Check for any encoded characters that might be used for bypasses
                         if (preg_match('/%(?:2e|2f|5c)/i', $slug)) {
                             $fail('Invalid path format: Encoded path separators not allowed.');
+
                             return;
                         }
 
                         // Ensure slug contains only allowed characters after decoding
-                        if (!preg_match('/^[a-zA-Z0-9\-_\/]+$/', $normalizedSlug)) {
+                        if (! preg_match('/^[a-zA-Z0-9\-_\/]+$/', $normalizedSlug)) {
                             $fail('Invalid path format: Contains disallowed characters.');
+
                             return;
                         }
                     }
-                }
+                },
             ],
             'fields' => [
                 'sometimes',
                 Rule::when(is_string($this->input('fields')), 'json'),
             ],
-            'includes' => 'sometimes|string'
+            'includes' => 'sometimes|string',
         ];
     }
 
@@ -163,6 +171,7 @@ class ShowRequest extends FormRequest
     public function getSlugs(): array
     {
         $slugs = $this->input('slugs', '');
+
         return array_unique(array_filter(array_map('trim', explode(',', $slugs))));
     }
 

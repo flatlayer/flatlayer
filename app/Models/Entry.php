@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Query\EntrySerializer;
-use App\Query\Exceptions\InvalidCastException;
-use App\Query\Exceptions\QueryException;
 use App\Rules\ValidPath;
 use App\Traits\GeneratesContentSlugs;
 use App\Traits\HasImages;
@@ -16,12 +14,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Pgvector\Laravel\Vector;
 
 class Entry extends Model
 {
-    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable, GeneratesContentSlugs;
+    use GeneratesContentSlugs, HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
 
     protected $fillable = [
         'type',
@@ -54,7 +51,7 @@ class Entry extends Model
             // Extract any leading number from the basename (e.g., "01-introduction" -> "01")
             $order = 999999;
             if (preg_match('/^(\d+)-/', $basename, $matches)) {
-                $order = (int)$matches[1];
+                $order = (int) $matches[1];
             }
 
             return [count($segments), $order, $basename];
@@ -115,10 +112,10 @@ class Entry extends Model
      */
     public function children(): Collection
     {
-        $prefix = $this->slug === '' ? '' : $this->slug . '/';
+        $prefix = $this->slug === '' ? '' : $this->slug.'/';
 
         $entries = static::where('type', $this->type)
-            ->where('slug', 'like', $prefix . '%')
+            ->where('slug', 'like', $prefix.'%')
             ->where(function ($query) use ($prefix) {
                 $query->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix]);
             })
@@ -139,7 +136,7 @@ class Entry extends Model
                 ->get();
         } else {
             $entries = static::where('type', $this->type)
-                ->where('slug', 'like', $this->slug . '/%')
+                ->where('slug', 'like', $this->slug.'/%')
                 ->get();
         }
 
@@ -163,12 +160,12 @@ class Entry extends Model
             $parentPath = '';
         }
 
-        $prefix = $parentPath === '' ? '' : $parentPath . '/';
+        $prefix = $parentPath === '' ? '' : $parentPath.'/';
 
         $entries = static::where('type', $this->type)
             ->where('slug', '!=', $this->slug)  // Not the current entry
             ->where('slug', '!=', $parentPath)  // Not the parent
-            ->where('slug', 'like', $prefix . '%')  // In the same directory
+            ->where('slug', 'like', $prefix.'%')  // In the same directory
             ->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix])  // Not in subdirectories
             ->get();
 
@@ -196,7 +193,7 @@ class Entry extends Model
             ['slug' => $normalized],  // Validate the normalized value
             ['slug' => [
                 'nullable',
-                new ValidPath
+                new ValidPath,
             ]]
         );
 
@@ -239,7 +236,7 @@ class Entry extends Model
      */
     public function toSearchableText(): string
     {
-        return '# ' . $this->title . "\n\n" . $this->excerpt . "\n\n" . $this->stripMdxComponents($this->content ?? '');
+        return '# '.$this->title."\n\n".$this->excerpt."\n\n".$this->stripMdxComponents($this->content ?? '');
     }
 
     /**

@@ -10,7 +10,7 @@ use Tests\Traits\CreatesTestFiles;
 
 class MarkdownModelTest extends TestCase
 {
-    use RefreshDatabase, WithFaker, CreatesTestFiles;
+    use CreatesTestFiles, RefreshDatabase, WithFaker;
 
     protected function setUp(): void
     {

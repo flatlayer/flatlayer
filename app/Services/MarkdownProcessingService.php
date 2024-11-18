@@ -30,11 +30,11 @@ class MarkdownProcessingService
     /**
      * Process a markdown file and extract its content and metadata.
      *
-     * @param string $relativePath The relative path to the markdown file within the disk
-     * @param string $type The content type
-     * @param string $slug The slug for the content
-     * @param array $fillable Additional fillable fields
-     * @param array $options Options for processing
+     * @param  string  $relativePath  The relative path to the markdown file within the disk
+     * @param  string  $type  The content type
+     * @param  string  $slug  The slug for the content
+     * @param  array  $fillable  Additional fillable fields
+     * @param  array  $options  Options for processing
      * @return array{
      *     type: string,
      *     slug: string,
@@ -57,7 +57,7 @@ class MarkdownProcessingService
         array $fillable = [],
         array $options = []
     ): array {
-        if (!$this->disk->exists($relativePath)) {
+        if (! $this->disk->exists($relativePath)) {
             throw new InvalidArgumentException("File not found: {$relativePath}");
         }
 
@@ -92,8 +92,8 @@ class MarkdownProcessingService
     /**
      * Process front matter data into structured components.
      *
-     * @param array $data The raw front matter data
-     * @param array $fillable The fillable fields to extract as attributes
+     * @param  array  $data  The raw front matter data
+     * @param  array  $fillable  The fillable fields to extract as attributes
      * @return array{attributes: array, meta: array, images: array}
      */
     public function processFrontMatter(array $data, array $fillable = [], array $options = []): array
@@ -116,12 +116,11 @@ class MarkdownProcessingService
         foreach ($data as $key => $value) {
             match (true) {
                 // Handle fillable fields
-                in_array($key, $fillable) =>
-                    $processed['attributes'][$key] = $this->normalizeAttributeValue(
-                        $key,
-                        $value,
-                        ['dateFormat' => $dateFormat]
-                    ),
+                in_array($key, $fillable) => $processed['attributes'][$key] = $this->normalizeAttributeValue(
+                    $key,
+                    $value,
+                    ['dateFormat' => $dateFormat]
+                ),
 
                 // Everything else goes to meta
                 default => Arr::set($processed['meta'], $key, $value)
@@ -175,6 +174,7 @@ class MarkdownProcessingService
 
         if (str_starts_with($firstLine, '# ')) {
             $title = trim(substr($firstLine, 2));
+
             return [$title, trim(implode("\n", array_slice($lines, 1)))];
         }
 
@@ -218,8 +218,10 @@ class MarkdownProcessingService
                 if (str_contains($value, ',')) {
                     return array_map('trim', explode(',', $value));
                 }
+
                 return $value;
             }
+
             return $value;
         }, $images);
     }
@@ -250,7 +252,7 @@ class MarkdownProcessingService
      */
     protected function normalizeAttributeValue(string $key, mixed $value, array $options = []): mixed
     {
-        return match($key) {
+        return match ($key) {
             'tags' => $this->normalizeTagValue($value),
             'published_at' => $this->normalizeDateValue($value, $options['dateFormat'] ?? 'Y-m-d H:i:s'),
             default => $value,
@@ -266,6 +268,7 @@ class MarkdownProcessingService
             if (empty($value)) {
                 return [];
             }
+
             return array_filter(array_map('trim', explode(',', $value)));
         }
 
@@ -300,6 +303,7 @@ class MarkdownProcessingService
                 if ($timestamp === false) {
                     return null;
                 }
+
                 return date($format, $timestamp);
             }
 

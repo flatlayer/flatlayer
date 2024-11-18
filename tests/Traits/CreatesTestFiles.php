@@ -2,7 +2,6 @@
 
 namespace Tests\Traits;
 
-use Carbon\CarbonInterface;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -13,8 +12,11 @@ use Intervention\Image\ImageManager;
 trait CreatesTestFiles
 {
     protected Filesystem $disk;
+
     protected ImageManager $imageManager;
+
     protected Collection $createdFiles;
+
     protected Collection $createdDirectories;
 
     /**
@@ -24,7 +26,7 @@ trait CreatesTestFiles
     {
         Storage::fake($diskName);
         $this->disk = Storage::disk($diskName);
-        $this->imageManager = new ImageManager(new Driver());
+        $this->imageManager = new ImageManager(new Driver);
         $this->createdFiles = collect();
         $this->createdDirectories = collect();
     }
@@ -35,22 +37,22 @@ trait CreatesTestFiles
     protected function generateMarkdownContent(array $frontMatter = [], string $content = '', ?string $title = null): string
     {
         $frontMatterContent = '';
-        if (!empty($frontMatter) || $title) {
+        if (! empty($frontMatter) || $title) {
             $frontMatterContent = "---\n";
             if ($title) {
                 $frontMatterContent .= "title: {$title}\n";
             }
             foreach ($frontMatter as $key => $value) {
-                $frontMatterContent .= "{$key}: " . $this->formatYamlValue($value) . "\n";
+                $frontMatterContent .= "{$key}: ".$this->formatYamlValue($value)."\n";
             }
             $frontMatterContent .= "---\n\n";
         }
 
-        if ($title && !str_contains($content, '# ')) {
-            $content = "# {$title}\n\n" . $content;
+        if ($title && ! str_contains($content, '# ')) {
+            $content = "# {$title}\n\n".$content;
         }
 
-        return $frontMatterContent . $content;
+        return $frontMatterContent.$content;
     }
 
     /**
@@ -60,17 +62,18 @@ trait CreatesTestFiles
     {
         if (is_array($value)) {
             if (array_is_list($value)) {
-                return '[' . implode(', ', array_map([$this, 'formatYamlValue'], $value)) . ']';
+                return '['.implode(', ', array_map([$this, 'formatYamlValue'], $value)).']';
             }
             $formatted = "{\n";
             foreach ($value as $k => $v) {
-                $formatted .= "  {$k}: " . $this->formatYamlValue($v) . ",\n";
+                $formatted .= "  {$k}: ".$this->formatYamlValue($v).",\n";
             }
-            return rtrim($formatted, ",\n") . "\n}";
+
+            return rtrim($formatted, ",\n")."\n}";
         }
 
         if (is_string($value) && str_contains($value, ' ')) {
-            return '"' . $value . '"';
+            return '"'.$value.'"';
         }
 
         return (string) $value;
@@ -87,7 +90,7 @@ trait CreatesTestFiles
         array $imagePaths = [],
         bool $createImages = true
     ): void {
-        if (!str_ends_with($relativePath, '.md')) {
+        if (! str_ends_with($relativePath, '.md')) {
             throw new \InvalidArgumentException('Filename must end with .md');
         }
 
@@ -103,7 +106,7 @@ trait CreatesTestFiles
 
         $markdownContent = $this->generateMarkdownContent($frontMatter, $content, $title);
 
-        if ($createImages && !empty($imagePaths)) {
+        if ($createImages && ! empty($imagePaths)) {
             $this->createImagesForMarkdown($directory, $imagePaths, $content);
         }
 
@@ -151,7 +154,7 @@ trait CreatesTestFiles
         // Create the featured image
         $this->createImage('images/featured.jpg', 1200, 630);
 
-        $content = <<<MD
+        $content = <<<'MD'
 ---
 title: Test Basic Markdown
 type: post
@@ -184,7 +187,7 @@ MD;
             'square.jpg' => [800, 800],
             'portrait.jpg' => [600, 800],
             'landscape.jpg' => [800, 600],
-            'nested/external.jpg' => [400, 300]
+            'nested/external.jpg' => [400, 300],
         ];
 
         foreach ($imageSpecs as $name => [$width, $height]) {
@@ -195,7 +198,7 @@ MD;
         $this->createMarkdownFile(
             'images/inline-images.md',
             ['type' => 'post'],
-            <<<MD
+            <<<'MD'
 # Images in markdown
 
 ![First Image](images/square.jpg)
@@ -213,10 +216,10 @@ MD
                 'type' => 'post',
                 'images' => [
                     'featured' => 'images/square.jpg',
-                    'gallery' => ['images/portrait.jpg', 'images/landscape.jpg']
-                ]
+                    'gallery' => ['images/portrait.jpg', 'images/landscape.jpg'],
+                ],
             ],
-            <<<MD
+            <<<'MD'
 # Mixed Image References
 
 Featured image: ![Featured](images/square.jpg)
@@ -230,7 +233,7 @@ MD
         $this->createMarkdownFile(
             'images/nested/relative-paths.md',
             ['type' => 'post'],
-            <<<MD
+            <<<'MD'
 # Images with relative paths
 
 Up one level: ![Up](../square.jpg)
@@ -246,7 +249,7 @@ MD
     protected function createSyncTestFiles(): void
     {
         // Initial version
-        $initial = <<<MD
+        $initial = <<<'MD'
 ---
 title: Initial Title
 type: post
@@ -259,7 +262,7 @@ MD;
         $this->disk->put('test-sync.md', $initial);
 
         // Store updated content for later use in tests
-        $updated = <<<MD
+        $updated = <<<'MD'
 ---
 title: Updated Title
 type: post
@@ -280,7 +283,7 @@ MD;
         $this->disk->makeDirectory('special');
 
         // Published true case
-        $publishedTrue = <<<MD
+        $publishedTrue = <<<'MD'
 ---
 type: post
 published_at: true
@@ -290,7 +293,7 @@ MD;
         $this->disk->put('special/published-true.md', $publishedTrue);
 
         // No title in front matter
-        $noTitle = <<<MD
+        $noTitle = <<<'MD'
 ---
 type: post
 ---
@@ -300,7 +303,7 @@ MD;
         $this->disk->put('special/no-title.md', $noTitle);
 
         // Multiple headings
-        $multipleHeadings = <<<MD
+        $multipleHeadings = <<<'MD'
 ---
 type: post
 ---
@@ -319,7 +322,7 @@ MD;
         $this->disk->makeDirectory('docs/getting-started');
 
         // Root index
-        $this->disk->put('docs/index.md', <<<MD
+        $this->disk->put('docs/index.md', <<<'MD'
 ---
 title: Documentation
 type: doc
@@ -331,7 +334,7 @@ Documentation content
 MD);
 
         // Getting started section
-        $this->disk->put('docs/getting-started/index.md', <<<MD
+        $this->disk->put('docs/getting-started/index.md', <<<'MD'
 ---
 title: Getting Started
 type: doc
@@ -343,7 +346,7 @@ Getting started content
 MD);
 
         // Installation guide
-        $this->disk->put('docs/getting-started/installation.md', <<<MD
+        $this->disk->put('docs/getting-started/installation.md', <<<'MD'
 ---
 title: Installation
 type: doc
@@ -369,7 +372,7 @@ MD);
             'gallery1' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
             'gallery2' => ['width' => 800, 'height' => 600, 'extension' => 'jpg'],
             'thumb1' => ['width' => 150, 'height' => 150, 'extension' => 'png'],
-            'thumb2' => ['width' => 150, 'height' => 150, 'extension' => 'png']
+            'thumb2' => ['width' => 150, 'height' => 150, 'extension' => 'png'],
         ];
 
         foreach ($imageSpecs as $name => $spec) {
@@ -380,7 +383,7 @@ MD);
             );
         }
 
-        $content = <<<MD
+        $content = <<<'MD'
 ---
 type: post
 title: Test Multiple Images
@@ -410,7 +413,7 @@ MD;
         $this->disk->makeDirectory('section');
 
         // Section index
-        $this->disk->put('section/index.md', <<<MD
+        $this->disk->put('section/index.md', <<<'MD'
 ---
 type: doc
 title: Section Index
@@ -419,7 +422,7 @@ title: Section Index
 MD);
 
         // Root index
-        $this->disk->put('index.md', <<<MD
+        $this->disk->put('index.md', <<<'MD'
 ---
 type: doc
 title: Root Index
@@ -455,7 +458,7 @@ MD);
             'dates/iso-format.md',
             [
                 'type' => 'post',
-                'published_at' => '2024-01-01T10:00:00Z'
+                'published_at' => '2024-01-01T10:00:00Z',
             ],
             'ISO date format test'
         );
@@ -464,7 +467,7 @@ MD);
             'dates/date-only.md',
             [
                 'type' => 'post',
-                'published_at' => '2024-01-01'
+                'published_at' => '2024-01-01',
             ],
             'Date only format test'
         );
@@ -473,7 +476,7 @@ MD);
             'dates/published-true.md',
             [
                 'type' => 'post',
-                'published_at' => true
+                'published_at' => true,
             ],
             'Published true test'
         );
@@ -494,8 +497,8 @@ MD);
                 'meta' => [
                     'quotes' => 'String with "quotes"',
                     'multiline' => "Line 1\nLine 2",
-                    'symbols' => '$@#%'
-                ]
+                    'symbols' => '$@#%',
+                ],
             ],
             'Content with special characters'
         );
@@ -508,11 +511,11 @@ MD);
                 'meta' => [
                     'level1' => [
                         'level2' => [
-                            'level3' => 'deep value'
+                            'level3' => 'deep value',
                         ],
-                        'array' => [1, 2, 3]
-                    ]
-                ]
+                        'array' => [1, 2, 3],
+                    ],
+                ],
             ],
             'Testing complex metadata'
         );
@@ -526,7 +529,7 @@ MD);
         $this->disk->makeDirectory('invalid');
 
         // Invalid YAML
-        $this->disk->put('invalid/bad-yaml.md', <<<MD
+        $this->disk->put('invalid/bad-yaml.md', <<<'MD'
 ---
 title: "Unclosed quote
 type: post
@@ -535,7 +538,7 @@ Content
 MD);
 
         // Invalid date
-        $this->disk->put('invalid/bad-date.md', <<<MD
+        $this->disk->put('invalid/bad-date.md', <<<'MD'
 ---
 type: post
 published_at: not-a-date
@@ -544,7 +547,7 @@ Content
 MD);
 
         // Missing required fields
-        $this->disk->put('invalid/missing-type.md', <<<MD
+        $this->disk->put('invalid/missing-type.md', <<<'MD'
 ---
 title: No Type
 ---
@@ -561,8 +564,8 @@ MD);
         foreach ($imagePaths as $collection => $images) {
             $images = is_array($images) ? $images : [$images];
             foreach ($images as $image) {
-                $imagePath = trim($directory . '/' . $image, '/');
-                if (!$this->disk->exists($imagePath)) {
+                $imagePath = trim($directory.'/'.$image, '/');
+                if (! $this->disk->exists($imagePath)) {
                     $this->createImage($imagePath);
                 }
             }
@@ -571,9 +574,9 @@ MD);
         // Create images referenced in markdown content
         preg_match_all('/!\[([^\]]*)\]\(([^)]+)\)/', $content, $matches);
         foreach ($matches[2] as $imagePath) {
-            if (!Str::startsWith($imagePath, ['http://', 'https://'])) {
-                $fullPath = trim($directory . '/' . $imagePath, '/');
-                if (!$this->disk->exists($fullPath)) {
+            if (! Str::startsWith($imagePath, ['http://', 'https://'])) {
+                $fullPath = trim($directory.'/'.$imagePath, '/');
+                if (! $this->disk->exists($fullPath)) {
                     $this->createImage($fullPath);
                 }
             }

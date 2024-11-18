@@ -48,6 +48,7 @@ class EntryFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $slug = trim($attributes['slug'], '/');
+
             return [
                 'filename' => $slug.'/index.md',
                 'is_index' => true,
@@ -63,7 +64,7 @@ class EntryFactory extends Factory
         return $this->state(function (array $attributes) use ($path) {
             return [
                 'slug' => $path,
-                'filename' => $path . '.md',
+                'filename' => $path.'.md',
             ];
         });
     }

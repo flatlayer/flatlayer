@@ -5,7 +5,6 @@ namespace Tests\Unit\Query\Filter;
 use App\Models\Entry;
 use App\Query\EntryFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class AdvancedQueryFilterTest extends TestCase
@@ -248,7 +247,7 @@ class AdvancedQueryFilterTest extends TestCase
 
         // Instead of checking for specific titles, let's verify the correct behavior:
         // 1. No entries should start with 'tutorials/'
-        $this->assertTrue($results->every(fn($entry) => !str_starts_with($entry->slug, 'tutorials/')));
+        $this->assertTrue($results->every(fn ($entry) => ! str_starts_with($entry->slug, 'tutorials/')));
 
         // 2. Should contain courses that aren't index pages
         $this->assertTrue($results->pluck('title')->contains('Machine Learning with Python'));

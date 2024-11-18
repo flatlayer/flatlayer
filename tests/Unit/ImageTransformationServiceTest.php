@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use App\Exceptions\ImageDimensionException;
 use App\Services\ImageTransformationService;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use Tests\TestCase;
@@ -24,7 +23,7 @@ class ImageTransformationServiceTest extends TestCase
 
         $this->service = new ImageTransformationService(
             disk: $this->disk,
-            manager: new ImageManager(new Driver())
+            manager: new ImageManager(new Driver)
         );
 
         // Create our test image
@@ -49,7 +48,7 @@ class ImageTransformationServiceTest extends TestCase
         $result = $this->service->transformImage('test.jpg', $params);
 
         $resultImage = (new ImageManager(new Driver))->read($result);
-        $tempFile = tempnam(sys_get_temp_dir(), 'test_') . '.webp';
+        $tempFile = tempnam(sys_get_temp_dir(), 'test_').'.webp';
         file_put_contents($tempFile, $result);
 
         try {
@@ -147,13 +146,13 @@ class ImageTransformationServiceTest extends TestCase
         $highQualityResult = $this->service->transformImage('test.jpg', [
             'w' => 500,
             'h' => 500,
-            'q' => 100
+            'q' => 100,
         ]);
 
         $lowQualityResult = $this->service->transformImage('test.jpg', [
             'w' => 500,
             'h' => 500,
-            'q' => 10
+            'q' => 10,
         ]);
 
         // Lower quality should result in smaller file size

@@ -30,6 +30,7 @@ class ValidPath implements ValidationRule
             if ($part === '..') {
                 if (empty($stack)) {
                     $fail('Path traversal not allowed.');
+
                     return;
                 }
                 array_pop($stack);
@@ -41,30 +42,35 @@ class ValidPath implements ValidationRule
         $resolved = implode('/', $stack);
         if ($resolved !== $normalized) {
             $fail('Path traversal not allowed.');
+
             return;
         }
 
         // Check for encoded path separators
         if (preg_match('/%(?:2e|2f|5c)/i', $value)) {
             $fail('Encoded path separators not allowed.');
+
             return;
         }
 
         // Check for invalid characters
         if (preg_match('/[\x00-\x1F\x7F]/', $value)) {
             $fail('Invalid characters in path.');
+
             return;
         }
 
         // Check for invalid characters common in filenames
         if (preg_match('#[<>:"|?*]#', $value)) {
             $fail('Invalid characters in path.');
+
             return;
         }
 
         // Check for remaining allowed characters
-        if (!preg_match('#^[a-zA-Z0-9_\-./]+$#', $normalized)) {
+        if (! preg_match('#^[a-zA-Z0-9_\-./]+$#', $normalized)) {
             $fail('Invalid characters in path.');
+
             return;
         }
     }

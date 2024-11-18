@@ -10,16 +10,17 @@ use Tests\TestCase;
 class RepositoryDiskManagerTest extends TestCase
 {
     protected RepositoryDiskManager $manager;
+
     protected string $testPath;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->manager = new RepositoryDiskManager();
+        $this->manager = new RepositoryDiskManager;
 
         // Create a test directory
         $this->testPath = Storage::path('test-repos');
-        if (!file_exists($this->testPath)) {
+        if (! file_exists($this->testPath)) {
             mkdir($this->testPath, 0755, true);
         }
     }
@@ -35,7 +36,7 @@ class RepositoryDiskManagerTest extends TestCase
 
     public function test_can_create_disk_for_repository()
     {
-        $repoPath = $this->testPath . '/docs';
+        $repoPath = $this->testPath.'/docs';
         mkdir($repoPath, 0755, true);
 
         $disk = $this->manager->createDiskForRepository('docs', $repoPath);
@@ -52,7 +53,7 @@ class RepositoryDiskManagerTest extends TestCase
 
     public function test_can_get_disk_by_type()
     {
-        $repoPath = $this->testPath . '/posts';
+        $repoPath = $this->testPath.'/posts';
         mkdir($repoPath, 0755, true);
 
         $this->manager->createDiskForRepository('posts', $repoPath);
@@ -69,7 +70,7 @@ class RepositoryDiskManagerTest extends TestCase
 
     public function test_can_get_repository_config()
     {
-        $repoPath = $this->testPath . '/posts';
+        $repoPath = $this->testPath.'/posts';
         mkdir($repoPath, 0755, true);
 
         $config = ['custom' => 'value'];
@@ -83,8 +84,8 @@ class RepositoryDiskManagerTest extends TestCase
     public function test_can_manage_multiple_repositories()
     {
         // Create test directories
-        $docsPath = $this->testPath . '/docs';
-        $postsPath = $this->testPath . '/posts';
+        $docsPath = $this->testPath.'/docs';
+        $postsPath = $this->testPath.'/posts';
         mkdir($docsPath, 0755, true);
         mkdir($postsPath, 0755, true);
 
@@ -113,11 +114,11 @@ class RepositoryDiskManagerTest extends TestCase
         if (is_dir($dir)) {
             $objects = scandir($dir);
             foreach ($objects as $object) {
-                if ($object != "." && $object != "..") {
-                    if (is_dir($dir . "/" . $object)) {
-                        $this->rrmdir($dir . "/" . $object);
+                if ($object != '.' && $object != '..') {
+                    if (is_dir($dir.'/'.$object)) {
+                        $this->rrmdir($dir.'/'.$object);
                     } else {
-                        unlink($dir . "/" . $object);
+                        unlink($dir.'/'.$object);
                     }
                 }
             }

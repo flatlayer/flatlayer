@@ -23,7 +23,7 @@ class ShowController extends Controller
         $slug = trim($slug, '/');
 
         // Handle potential index redirects
-        if (!Str::endsWith($slug, '/index')) {
+        if (! Str::endsWith($slug, '/index')) {
             // Check for index file at this level
             $indexEntry = Entry::where('type', $type)
                 ->where('slug', $slug.'/index')
@@ -41,7 +41,7 @@ class ShowController extends Controller
                 ->where('slug', $slug)
                 ->first();
 
-            if (!$contentItem) {
+            if (! $contentItem) {
                 $parentSlug = Str::beforeLast($slug, '/');
                 $parentIndexEntry = Entry::where('type', $type)
                     ->where('slug', $parentSlug.'/index')
@@ -61,7 +61,7 @@ class ShowController extends Controller
             ->where('slug', $slug)
             ->first();
 
-        if (!$contentItem) {
+        if (! $contentItem) {
             return response()->json(['error' => 'No item found for the specified type and slug'], 404);
         }
 
@@ -72,19 +72,19 @@ class ShowController extends Controller
         if ($request->includes('navigation')) {
             $result['navigation'] = [
                 'ancestors' => $contentItem->ancestors()
-                    ->map(fn($entry) => [
+                    ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
                         'is_index' => $entry->is_index,
                     ]),
                 'siblings' => $contentItem->siblings()
-                    ->map(fn($entry) => [
+                    ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
                         'is_index' => $entry->is_index,
                     ]),
                 'children' => $contentItem->children()
-                    ->map(fn($entry) => [
+                    ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
                         'is_index' => $entry->is_index,
@@ -125,7 +125,7 @@ class ShowController extends Controller
 
         foreach ($slugs as $slug) {
             $normalizedSlug = trim($slug, '/');
-            if (!Str::endsWith($normalizedSlug, '/index')) {
+            if (! Str::endsWith($normalizedSlug, '/index')) {
                 $indexSlug = $normalizedSlug.'/index';
                 $redirectSlugs[$normalizedSlug] = $indexSlug;
             } else {
@@ -145,7 +145,7 @@ class ShowController extends Controller
 
         // Create a map of available slugs (both direct and index)
         $availableSlugs = $items->pluck('slug')->toArray();
-        $availableRedirects = array_filter($redirectSlugs, function($indexSlug) use ($availableSlugs) {
+        $availableRedirects = array_filter($redirectSlugs, function ($indexSlug) use ($availableSlugs) {
             return in_array($indexSlug, $availableSlugs);
         });
 
@@ -180,10 +180,10 @@ class ShowController extends Controller
 
             $result = $this->arrayConverter->toDetailArray($item);
             $result['is_index'] = $item->is_index;
+
             return $result;
         })
-            ->sortBy(fn ($item) =>
-                $slugOrder[$item['redirect'] ?? false ? $item['from'] : $item['slug']] ?? PHP_INT_MAX
+            ->sortBy(fn ($item) => $slugOrder[$item['redirect'] ?? false ? $item['from'] : $item['slug']] ?? PHP_INT_MAX
             )
             ->values();
 

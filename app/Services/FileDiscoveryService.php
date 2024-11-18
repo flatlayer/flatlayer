@@ -6,8 +6,6 @@ use App\Traits\GeneratesContentSlugs;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use SplFileInfo;
 
 class FileDiscoveryService
 {
@@ -18,16 +16,16 @@ class FileDiscoveryService
      * When a slug conflict occurs between a single file and an index file
      * (e.g., /foo.md vs /foo/index.md), the single file takes precedence.
      *
-     * @param Filesystem $disk The filesystem disk to search
-     * @param string $pattern The glob pattern to match
+     * @param  Filesystem  $disk  The filesystem disk to search
+     * @param  string  $pattern  The glob pattern to match
      * @return Collection<string, array> Collection of files with metadata, keyed by relative paths
      */
     public function findFiles(Filesystem $disk): Collection
     {
         // Get all markdown files and sort them naturally
         $files = collect($disk->allFiles())
-            ->filter(fn($path) => pathinfo($path, PATHINFO_EXTENSION) === 'md')
-            ->sort(fn($a, $b) => $this->compareFilePaths($a, $b));
+            ->filter(fn ($path) => pathinfo($path, PATHINFO_EXTENSION) === 'md')
+            ->sort(fn ($a, $b) => $this->compareFilePaths($a, $b));
 
         // Track slugs we've seen to detect conflicts
         $seenSlugs = [];
@@ -41,6 +39,7 @@ class FileDiscoveryService
             if (isset($seenSlugs[$slug])) {
                 // Log the conflict
                 Log::warning("Slug conflict detected: {$slug}. Files: {$seenSlugs[$slug]}, {$relativePath}");
+
                 continue;
             }
 
@@ -82,8 +81,12 @@ class FileDiscoveryService
             if ($i === $depthA - 1 || $i === $depthB - 1) {
                 // If we're in the same directory, index.md comes first
                 if (dirname($a) === dirname($b)) {
-                    if (basename($a) === 'index.md') return -1;
-                    if (basename($b) === 'index.md') return 1;
+                    if (basename($a) === 'index.md') {
+                        return -1;
+                    }
+                    if (basename($b) === 'index.md') {
+                        return 1;
+                    }
 
                     // Otherwise, natural sort the filenames
                     return strnatcmp(basename($a), basename($b));
@@ -94,8 +97,12 @@ class FileDiscoveryService
             if ($partsA[$i] !== $partsB[$i]) {
                 // If one path still has more parts (is a subdirectory)
                 // and we're comparing against a file in the current directory
-                if ($i === $depthB - 1 && $depthA > $depthB) return 1;  // Subdirectories come after
-                if ($i === $depthA - 1 && $depthB > $depthA) return -1; // Files come first
+                if ($i === $depthB - 1 && $depthA > $depthB) {
+                    return 1;
+                }  // Subdirectories come after
+                if ($i === $depthA - 1 && $depthB > $depthA) {
+                    return -1;
+                } // Files come first
 
                 // Otherwise, natural sort the directory/file names
                 return strnatcmp($partsA[$i], $partsB[$i]);
@@ -119,6 +126,7 @@ class FileDiscoveryService
         }
 
         $parentSlug = dirname($slug);
+
         return $parentSlug === '.' ? null : $parentSlug;
     }
 

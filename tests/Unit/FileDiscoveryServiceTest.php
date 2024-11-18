@@ -9,12 +9,13 @@ use Tests\TestCase;
 class FileDiscoveryServiceTest extends TestCase
 {
     protected FileDiscoveryService $service;
+
     protected $disk;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new FileDiscoveryService();
+        $this->service = new FileDiscoveryService;
         Storage::fake('test');
         $this->disk = Storage::disk('test');
     }
@@ -98,7 +99,7 @@ class FileDiscoveryServiceTest extends TestCase
 
         $this->assertEquals([
             'docs',
-            'docs/getting-started'
+            'docs/getting-started',
         ], $ancestors);
     }
 

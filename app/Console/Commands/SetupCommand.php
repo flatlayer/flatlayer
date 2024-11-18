@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 class SetupCommand extends Command
 {
@@ -16,8 +15,11 @@ class SetupCommand extends Command
     protected $description = 'Interactive setup wizard for Flatlayer CMS';
 
     protected array $progress = [];
+
     protected string $envPath;
+
     protected array $currentEnv = [];
+
     protected array $exampleEnv = [];
 
     // Define keys that should be treated as sensitive
@@ -44,21 +46,21 @@ class SetupCommand extends Command
         $this->info('🚀 Welcome to Flatlayer CMS Setup!');
         $this->line('This wizard will help you configure your CMS.');
 
-        if (File::exists($this->envPath) && !$this->option('force')) {
-            if (!$this->confirm('⚠️  Configuration already exists. Continue setup?', false)) {
+        if (File::exists($this->envPath) && ! $this->option('force')) {
+            if (! $this->confirm('⚠️  Configuration already exists. Continue setup?', false)) {
                 return 1;
             }
         }
 
         // Create .env if it doesn't exist
-        if (!File::exists($this->envPath)) {
+        if (! File::exists($this->envPath)) {
             File::copy(base_path('.env.example'), $this->envPath);
             $this->loadEnvironmentFiles(); // Reload after copying
         }
 
         $this->configureEssentials();
 
-        if (!$this->option('quick')) {
+        if (! $this->option('quick')) {
             $this->configureOptionals();
         }
 
@@ -102,7 +104,7 @@ class SetupCommand extends Command
                 // Remove quotes if present
                 $value = trim($value, '"\'');
 
-                if (!str_starts_with($key, 'FLATLAYER_SYNC_')) {
+                if (! str_starts_with($key, 'FLATLAYER_SYNC_')) {
                     $env[$key] = $value;
                 }
             }
@@ -138,7 +140,7 @@ class SetupCommand extends Command
             $maskedValue = str_repeat('*', strlen($currentValue));
             $this->line("Current value: $maskedValue");
 
-            if (!$this->confirm('Would you like to change it?', false)) {
+            if (! $this->confirm('Would you like to change it?', false)) {
                 return $currentValue;
             }
         }
@@ -169,7 +171,7 @@ class SetupCommand extends Command
             : false;
 
         // Generate app key if not exists
-        if (!env('APP_KEY')) {
+        if (! env('APP_KEY')) {
             $this->call('key:generate', ['--force' => true]);
         }
 
@@ -396,7 +398,7 @@ class SetupCommand extends Command
             $path = $this->ask("What is the local path for {$type}?");
 
             // Suggest pattern based on type
-            $defaultPattern = match($type) {
+            $defaultPattern = match ($type) {
                 'docs' => '**/*.md',  // Recursive for documentation
                 'posts' => '*.md',    // Flat structure for blog posts
                 'pages' => '*.md',    // Flat structure for pages
@@ -419,13 +421,13 @@ class SetupCommand extends Command
             if ($webhook && isset($env['GITHUB_WEBHOOK_SECRET'])) {
                 $this->info("Webhook URL will be: {$this->getWebhookUrl($type)}");
                 $this->line("Add this URL to your GitHub repository's webhook settings");
-                $this->line("Set the webhook secret to the value configured above");
+                $this->line('Set the webhook secret to the value configured above');
                 $this->line("Set the content type to 'application/json'");
             }
         }
 
         foreach ($sources as $type => $config) {
-            $prefix = "FLATLAYER_SYNC_".strtoupper($type)."_";
+            $prefix = 'FLATLAYER_SYNC_'.strtoupper($type).'_';
             $env[$prefix.'PATH'] = $config['path'];
             $env[$prefix.'PATTERN'] = $config['pattern'];
             if ($config['webhook']) {
@@ -468,7 +470,7 @@ class SetupCommand extends Command
         $this->call('cache:clear');
 
         // Create storage link
-        if (!file_exists(public_path('storage'))) {
+        if (! file_exists(public_path('storage'))) {
             $this->call('storage:link');
         }
 
@@ -492,7 +494,7 @@ class SetupCommand extends Command
         $steps[] = (empty($steps) ? '1' : '2').'. Configure your web server';
 
         // Webhooks
-        if (!empty($this->currentEnv['GITHUB_WEBHOOK_SECRET'])) {
+        if (! empty($this->currentEnv['GITHUB_WEBHOOK_SECRET'])) {
             $steps[] = (empty($steps) ? '1' : '3').'. Set up GitHub webhooks using the URLs provided above';
             $steps[] = '   Content type: application/json';
             $steps[] = '   Secret: '.$this->currentEnv['GITHUB_WEBHOOK_SECRET'];
@@ -527,7 +529,7 @@ class SetupCommand extends Command
     protected function createSqliteDatabase()
     {
         $path = database_path('database.sqlite');
-        if (!File::exists($path)) {
+        if (! File::exists($path)) {
             File::put($path, '');
             $this->info("Created SQLite database at: {$path}");
         }
@@ -536,6 +538,7 @@ class SetupCommand extends Command
     protected function getWebhookUrl($type)
     {
         $appUrl = rtrim($this->currentEnv['APP_URL'] ?? 'http://localhost', '/');
+
         return "{$appUrl}/webhook/{$type}";
     }
 

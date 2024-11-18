@@ -17,9 +17,9 @@ class EntryTest extends TestCase
         $mock = $this->getMockBuilder(ValidPath::class)
             ->getMock();
         $mock->method('validate')
-            ->willReturnCallback(function() {});
+            ->willReturnCallback(function () {});
 
-        $this->app->bind(ValidPath::class, function() use ($mock) {
+        $this->app->bind(ValidPath::class, function () use ($mock) {
             return $mock;
         });
 
@@ -71,7 +71,7 @@ class EntryTest extends TestCase
                 $entry->slug = $path;
                 $this->assertTrue(true, "Path '$path' should be accepted");
             } catch (\InvalidArgumentException $e) {
-                $this->fail("Path '$path' should be accepted but failed with: " . $e->getMessage());
+                $this->fail("Path '$path' should be accepted but failed with: ".$e->getMessage());
             }
         }
     }
@@ -160,7 +160,7 @@ class EntryTest extends TestCase
             [
                 'docs/getting-started',
                 'docs/getting-started/installation',
-                'docs/getting-started/configuration'
+                'docs/getting-started/configuration',
             ],
             $gettingStartedEntries->pluck('slug')->toArray()
         );
@@ -178,7 +178,7 @@ class EntryTest extends TestCase
                 'docs/getting-started/installation',
                 'docs/getting-started/configuration',
                 'docs/advanced',
-                'docs/advanced/deployment'
+                'docs/advanced/deployment',
             ],
             $allEntries->pluck('slug')->toArray()
         );
@@ -193,7 +193,7 @@ class EntryTest extends TestCase
         $this->assertEqualsCanonicalizing(
             [
                 'docs/getting-started',
-                'docs/advanced'
+                'docs/advanced',
             ],
             $indexFiles->pluck('slug')->toArray()
         );

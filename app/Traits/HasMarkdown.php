@@ -14,7 +14,9 @@ trait HasMarkdown
     use GeneratesContentSlugs;
 
     protected MarkdownProcessingService $markdownContentService;
+
     protected ?array $pendingTags = null;
+
     protected ?array $pendingMedia = null;
 
     /**
@@ -24,7 +26,7 @@ trait HasMarkdown
     {
         $imageService = new ImageService(
             disk: $disk,
-            imageManager: new ImageManager(new Driver())
+            imageManager: new ImageManager(new Driver)
         );
 
         $this->markdownContentService = new MarkdownProcessingService(
@@ -38,7 +40,7 @@ trait HasMarkdown
      */
     public static function createFromMarkdown(Filesystem $disk, string $relativePath, string $type = 'post'): static
     {
-        if (!$disk->exists($relativePath)) {
+        if (! $disk->exists($relativePath)) {
             throw new \InvalidArgumentException("File not found: {$relativePath}");
         }
 
@@ -103,7 +105,7 @@ trait HasMarkdown
             ['type' => $type]
         );
 
-        if (!$model->exists) {
+        if (! $model->exists) {
             return static::createFromMarkdown($disk, $relativePath, $type);
         }
 
