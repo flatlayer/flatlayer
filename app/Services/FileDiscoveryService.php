@@ -2,21 +2,28 @@
 
 namespace App\Services;
 
-use FilesystemIterator;
+use App\Traits\GeneratesContentSlugs;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use SplFileInfo;
+use Illuminate\Support\Facades\Log;
+use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RegexIterator;
+use SplFileInfo;
 
 class FileDiscoveryService
 {
+    use GeneratesContentSlugs;
+
     /**
-     * Find all Markdown files in a directory, sorted by directory depth.
+     * Find all Markdown files in a directory, sorted by depth.
+     * When a slug conflict occurs between a single file and an index file
+     * (e.g., /foo.md vs /foo/index.md), the single file takes precedence.
      *
      * @param string $path Base directory path
      * @return Collection<string, SplFileInfo> Collection of files keyed by their relative paths
+     * @throws \InvalidArgumentException If path doesn't exist or isn't a directory
      */
     public function findFiles(string $path): Collection
     {
@@ -38,23 +45,29 @@ class FileDiscoveryService
         // Find all .md files
         $files = new RegexIterator($iterator, '/\.md$/i');
 
-        // Convert to array and sort by directory depth
+        // Track slugs we've seen to detect conflicts
+        $seenSlugs = [];
         $sortedFiles = collect();
+
         foreach ($files as $file) {
             $relativePath = $this->getRelativePath($path, $file->getPathname());
+            $slug = $this->generateSlug($relativePath);
+
+            // If we've already seen this slug, we have a conflict
+            if (isset($seenSlugs[$slug])) {
+                // Log the conflict - you might want to handle this differently
+                Log::warning("Slug conflict detected: {$slug}. Files: {$seenSlugs[$slug]}, {$relativePath}");
+                continue;
+            }
+
+            $seenSlugs[$slug] = $relativePath;
             $sortedFiles[$relativePath] = $file;
         }
 
-        // Sort files so that:
-        // 1. Shallower paths come before deeper paths
-        // 2. Regular .md files come before index.md files at the same level
-        // 3. Alphabetical sorting within the same depth
+        // Sort files by directory depth and then alphabetically
         return $sortedFiles->sortBy(function ($file, $relativePath) {
             $depth = substr_count($relativePath, DIRECTORY_SEPARATOR);
-            $isIndex = basename($relativePath) === 'index.md';
-
-            // Use depth as primary sort key, then isIndex, then path
-            return sprintf('%08d-%d-%s', $depth, $isIndex ? 1 : 0, $relativePath);
+            return sprintf('%08d-%s', $depth, $relativePath);
         });
     }
 
@@ -68,39 +81,13 @@ class FileDiscoveryService
     }
 
     /**
-     * Generate a slug from a file path.
-     *
-     * @param string $relativePath Relative path to the markdown file
-     * @return string The generated slug
-     */
-    public function generateSlug(string $relativePath): string
-    {
-        // Remove .md extension
-        $slug = preg_replace('/\.md$/', '', $relativePath);
-
-        // Convert Windows path separators to Unix style
-        $slug = str_replace('\\', '/', $slug);
-
-        // Remove leading/trailing slashes
-        return trim($slug, '/');
-    }
-
-    /**
-     * Check if a given file is an index file.
-     */
-    public function isIndexFile(string $relativePath): bool
-    {
-        return basename($relativePath) === 'index.md';
-    }
-
-    /**
      * Get the parent slug for a given path.
      */
     public function getParentSlug(string $relativePath): ?string
     {
         $slug = $this->generateSlug($relativePath);
 
-        if ($slug === 'index') {
+        if ($slug === '') {
             return null;
         }
 
@@ -115,7 +102,7 @@ class FileDiscoveryService
      */
     public function getAncestorSlugs(string $relativePath): array
     {
-        $slug = $this->generateSlug($relativePath, fn() => false);
+        $slug = $this->generateSlug($relativePath);
 
         if (empty($slug)) {
             return [];

@@ -6,6 +6,7 @@ use App\Query\EntrySerializer;
 use App\Query\Exceptions\InvalidCastException;
 use App\Query\Exceptions\QueryException;
 use App\Rules\ValidPath;
+use App\Traits\GeneratesContentSlugs;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
 use App\Traits\HasTags;
@@ -20,7 +21,7 @@ use Pgvector\Laravel\Vector;
 
 class Entry extends Model
 {
-    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
+    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable, GeneratesContentSlugs;
 
     protected $fillable = [
         'type',
@@ -42,21 +43,13 @@ class Entry extends Model
     ];
 
     /**
-     * Order a collection of entries using natural file system ordering.
+     * Order entries by their path segments and any numeric prefixes.
      */
     protected function orderEntriesNaturally(Collection $entries): Collection
     {
         return $entries->sortBy(function ($entry) {
-            // Split the path into segments
             $segments = explode('/', $entry->slug);
-
-            // Get the basename (last segment)
             $basename = end($segments);
-
-            // Special handling for index files - they should come first in their directory
-            if ($entry->is_index) {
-                return [count($segments), 0, ''];
-            }
 
             // Extract any leading number from the basename (e.g., "01-introduction" -> "01")
             $order = 999999;
@@ -69,33 +62,33 @@ class Entry extends Model
     }
 
     /**
-     * Get ancestors.
+     * Get all ancestors of the current entry.
      */
     public function ancestors(): Collection
     {
-        if ($this->slug === '' || !str_contains($this->slug, '/')) {
+        if ($this->slug === '') {
             return collect();
         }
 
-        $ancestorSlugs = collect();
-        $parts = explode('/', $this->slug);
-        array_pop($parts); // Remove current slug
+        // Get all parent paths up to the root
+        $segments = explode('/', $this->slug);
+        array_pop($segments); // Remove current segment
 
+        $ancestorPaths = [];
         $currentPath = '';
-        foreach ($parts as $part) {
-            $currentPath = $currentPath ? "{$currentPath}/{$part}" : $part;
-            $ancestorSlugs->push($currentPath . '/index');
+        foreach ($segments as $segment) {
+            $currentPath = $currentPath ? "{$currentPath}/{$segment}" : $segment;
+            $ancestorPaths[] = $currentPath;
         }
 
-        // Get ancestors and ensure they're in the correct order by path depth
-        $entries = static::where('type', $this->type)
-            ->whereIn('slug', $ancestorSlugs)
-            ->get();
+        if (empty($ancestorPaths)) {
+            return collect();
+        }
 
-        // Return in path order (shorter paths first)
-        return $entries->sortBy(function ($entry) {
-            return substr_count($entry->slug, '/');
-        })->values();
+        return static::where('type', $this->type)
+            ->whereIn('slug', $ancestorPaths)
+            ->orderBy('slug')
+            ->get();
     }
 
     /**
@@ -103,7 +96,7 @@ class Entry extends Model
      */
     public function parent(): ?self
     {
-        if ($this->slug === '' || !str_contains($this->slug, '/')) {
+        if ($this->slug === '') {
             return null;
         }
 
@@ -113,7 +106,7 @@ class Entry extends Model
         }
 
         return static::where('type', $this->type)
-            ->where('slug', $parentPath . '/index')
+            ->where('slug', $parentPath)
             ->first();
     }
 
@@ -122,24 +115,21 @@ class Entry extends Model
      */
     public function children(): Collection
     {
-        $prefix = dirname($this->slug) . '/';
-        if ($prefix === './') {
-            $prefix = '';
-        }
+        $prefix = $this->slug === '' ? '' : $this->slug . '/';
 
         $entries = static::where('type', $this->type)
             ->where('slug', 'like', $prefix . '%')
             ->where(function ($query) use ($prefix) {
-                $query->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix])
-                    ->where('slug', '!=', $this->slug);
+                $query->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix]);
             })
+            ->where('slug', '!=', $this->slug)
             ->get();
 
         return $this->orderEntriesNaturally($entries);
     }
 
     /**
-     * Get all descendant entries (children, grandchildren, etc.).
+     * Get all descendant entries.
      */
     public function descendants(): Collection
     {
@@ -148,14 +138,8 @@ class Entry extends Model
                 ->where('slug', '!=', '')
                 ->get();
         } else {
-            $prefix = dirname($this->slug) . '/';
-            if ($prefix === './') {
-                $prefix = '';
-            }
-
             $entries = static::where('type', $this->type)
-                ->where('slug', 'like', $prefix . '%')
-                ->where('slug', '!=', $this->slug)
+                ->where('slug', 'like', $this->slug . '/%')
                 ->get();
         }
 
@@ -163,37 +147,29 @@ class Entry extends Model
     }
 
     /**
-     * Get siblings (entries with the same parent).
+     * Get siblings (entries at the same level).
      */
     public function siblings(): Collection
     {
-        // If we're at root level
-        if (!str_contains($this->slug, '/')) {
-            // Only get root level files that:
-            // - Aren't index files
-            // - Aren't the current file
-            // - Don't contain any slashes (not in subdirectories)
-            $entries = static::where('type', $this->type)
-                ->where('is_index', false) // Explicitly exclude all index files
-                ->where('slug', '!=', $this->slug)
-                ->whereRaw('slug not like "%/%"')
+        if ($this->slug === '') {
+            return static::where('type', $this->type)
+                ->where('slug', 'not like', '%/%')
+                ->where('slug', '!=', '')
                 ->get();
-
-            return $this->orderEntriesNaturally($entries);
         }
 
-        // Get the parent path
         $parentPath = dirname($this->slug);
+        if ($parentPath === '.') {
+            $parentPath = '';
+        }
 
-        // Get siblings at the same level
+        $prefix = $parentPath === '' ? '' : $parentPath . '/';
+
         $entries = static::where('type', $this->type)
-            ->where('slug', '!=', $this->slug) // Exclude self
-            ->where('slug', 'like', $parentPath . '/%') // Same parent directory
-            ->where(function ($query) use ($parentPath) {
-                // Either it's not an index file or it doesn't have further nesting
-                $query->where('is_index', false)
-                    ->whereRaw('replace(slug, ?, "") not like "%/%"', [$parentPath . '/']);
-            })
+            ->where('slug', '!=', $this->slug)  // Not the current entry
+            ->where('slug', '!=', $parentPath)  // Not the parent
+            ->where('slug', 'like', $prefix . '%')  // In the same directory
+            ->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix])  // Not in subdirectories
             ->get();
 
         return $this->orderEntriesNaturally($entries);
@@ -208,54 +184,28 @@ class Entry extends Model
     }
 
     /**
-     * Generate a slug from a file path.
-     */
-    public static function generateSlugFromPath(string $path): string
-    {
-        return (new static)->normalizePath($path);
-    }
-
-    /**
      * Set the slug attribute with validation and normalization.
      */
     public function setSlugAttribute(string $value): void
     {
         // First normalize the path
-        $normalized = $this->normalizePath($value);
+        $normalized = $this->generateSlug($value);
 
-        // Then validate the normalized path
+        // Validate the normalized path
         $validator = Validator::make(
-            ['slug' => $normalized],
-            ['slug' => ['required', new ValidPath]]
+            ['slug' => $normalized],  // Validate the normalized value
+            ['slug' => [
+                'nullable',
+                new ValidPath
+            ]]
         );
 
         if ($validator->fails()) {
             throw new \InvalidArgumentException($validator->errors()->first('slug'));
         }
 
-        // Set the normalized and validated path
         $this->attributes['slug'] = $normalized;
-
-        // Set is_index based on whether the original file was index.md
-        $this->attributes['is_index'] = str_ends_with($value, 'index.md');
-    }
-
-    /**
-     * Normalize a path for use as a slug.
-     */
-    protected function normalizePath(string $path): string
-    {
-        // Convert backslashes to forward slashes
-        $path = str_replace('\\', '/', $path);
-
-        // Remove multiple consecutive slashes
-        $path = preg_replace('#/+#', '/', $path);
-
-        // Remove leading and trailing slashes first
-        $path = trim($path, '/');
-
-        // Then remove .md extension
-        return preg_replace('/\.md$/', '', $path);
+        $this->attributes['is_index'] = $this->isIndexPath($value);
     }
 
     /**
@@ -290,7 +240,7 @@ class Entry extends Model
      */
     public function toSearchableText(): string
     {
-        return '# '.$this->title."\n\n".$this->excerpt."\n\n".$this->stripMdxComponents($this->content ?? '');
+        return '# ' . $this->title . "\n\n" . $this->excerpt . "\n\n" . $this->stripMdxComponents($this->content ?? '');
     }
 
     /**
