@@ -46,11 +46,19 @@ class DiskResolver
      */
     protected function resolveFromString(string $name): Filesystem
     {
-        if (! array_key_exists($name, config('filesystems.disks', []))) {
-            throw new InvalidArgumentException("Disk '{$name}' is not configured");
+        $fullName = $name;
+        if (! str_contains($name, '.')) {
+            $fullName = "content.{$name}";
         }
 
-        return Storage::disk($name);
+        if (! Config::has("filesystems.disks.{$fullName}")) {
+            if (! Config::has("filesystems.disks.{$name}")) {
+                throw new InvalidArgumentException("Disk '{$name}' is not configured");
+            }
+            $fullName = $name;
+        }
+
+        return Storage::disk($fullName);
     }
 
     /**

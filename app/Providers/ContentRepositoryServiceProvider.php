@@ -27,7 +27,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
 
         foreach ($repositories as $type => $config) {
             // Register the disk directly with the repository type as the name
-            Config::set("filesystems.disks.{$type}", [
+            Config::set("filesystems.disks.content.{$type}", [
                 'driver' => $config['driver'] ?? 'local',
                 'root' => $config['path'],
                 'throw' => true,
