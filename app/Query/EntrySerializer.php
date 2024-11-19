@@ -41,8 +41,10 @@ class EntrySerializer
      * @throws QueryException
      * @throws InvalidCastException
      */
-    public function toArray(Entry $item, array $fields = []): array
+    public function toArray(Entry $item, ?array $fields = null): array
     {
+        $fields = $fields ?: $this->defaultFields;
+
         try {
             return $this->convertToArray($item, $fields ?: $this->defaultFields);
         } catch (InvalidCastException|CastException $e) {
