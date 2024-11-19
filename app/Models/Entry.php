@@ -7,6 +7,7 @@ use App\Rules\ValidPath;
 use App\Support\Path;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
+use App\Traits\HasNavigation;
 use App\Traits\HasTags;
 use App\Traits\Searchable;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,8 +19,16 @@ use Pgvector\Laravel\Vector;
 
 class Entry extends Model
 {
-    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
+    use HasFactory,
+        HasImages,
+        HasMarkdown,
+        HasNavigation,
+        HasTags,
+        Searchable;
 
+    /**
+     * The attributes that are mass assignable.
+     */
     protected $fillable = [
         'type',
         'title',
@@ -31,6 +40,9 @@ class Entry extends Model
         'filename',
     ];
 
+    /**
+     * The attributes that should be cast.
+     */
     protected $casts = [
         'published_at' => 'datetime',
         'meta' => 'array',
@@ -38,22 +50,50 @@ class Entry extends Model
     ];
 
     /**
-     * Order entries by their path segments and any numeric prefixes.
+     * Set the slug attribute with validation and normalization.
      */
-    protected function orderEntriesNaturally(Collection $entries): Collection
+    public function setSlugAttribute(string $value): void
     {
-        return $entries->sortBy(function ($entry) {
-            $segments = explode('/', $entry->slug);
-            $basename = end($segments);
+        $normalized = Path::toSlug($value);
 
-            // Extract any leading number from the basename (e.g., "01-introduction" -> "01")
-            $order = 999999;
-            if (preg_match('/^(\d+)-/', $basename, $matches)) {
-                $order = (int) $matches[1];
-            }
+        $validator = Validator::make(
+            ['slug' => $normalized],
+            ['slug' => [
+                'nullable',
+                new ValidPath,
+            ]]
+        );
 
-            return [count($segments), $order, $basename];
-        })->values();
+        if ($validator->fails()) {
+            throw new \InvalidArgumentException($validator->errors()->first('slug'));
+        }
+
+        $this->attributes['slug'] = $normalized;
+    }
+
+    /**
+     * Determine if the entry is an index file.
+     */
+    public function getIsIndexAttribute(): bool
+    {
+        return basename($this->filename) === 'index.md';
+    }
+
+    /**
+     * Scope a query to only include published entries.
+     */
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
+    }
+
+    /**
+     * Scope a query to entries of a specific type.
+     */
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('type', $type);
     }
 
     /**
@@ -145,32 +185,19 @@ class Entry extends Model
     }
 
     /**
-     * Set the slug attribute with validation and normalization.
+     * Get the searchable text representation of the entry.
      */
-    public function setSlugAttribute(string $value): void
+    public function toSearchableText(): string
     {
-        // Use Path::toSlug() for normalization
-        $normalized = Path::toSlug($value);
-
-        // Validate the normalized path
-        $validator = Validator::make(
-            ['slug' => $normalized],
-            ['slug' => [
-                'nullable',
-                new ValidPath,
-            ]]
-        );
-
-        if ($validator->fails()) {
-            throw new \InvalidArgumentException($validator->errors()->first('slug'));
-        }
-
-        $this->attributes['slug'] = $normalized;
+        return '# '.$this->title."\n\n".$this->excerpt."\n\n".$this->stripMdxComponents($this->content ?? '');
     }
 
-    public function getIsIndexAttribute()
+    /**
+     * Convert the model instance to an array.
+     */
+    public function toArray(?array $fields = null): array
     {
-        return basename($this->filename) === 'index.md';
+        return (new EntrySerializer)->toArray($this, $fields);
     }
 
     /**
@@ -184,43 +211,29 @@ class Entry extends Model
     }
 
     /**
-     * Scope a query to only include published entries.
+     * Order entries by their path segments and any numeric prefixes.
      */
-    public function scopePublished(Builder $query): Builder
+    protected function orderEntriesNaturally(Collection $entries): Collection
     {
-        return $query->whereNotNull('published_at')
-            ->where('published_at', '<=', now());
-    }
+        return $entries->sortBy(function ($entry) {
+            $segments = explode('/', $entry->slug);
+            $basename = end($segments);
 
-    /**
-     * Scope a query to entries of a specific type.
-     */
-    public function scopeOfType(Builder $query, string $type): Builder
-    {
-        return $query->where('type', $type);
-    }
+            // Extract any leading number from the basename (e.g., "01-introduction" -> "01")
+            $order = 999999;
+            if (preg_match('/^(\d+)-/', $basename, $matches)) {
+                $order = (int) $matches[1];
+            }
 
-    /**
-     * Get the searchable text representation of the entry.
-     */
-    public function toSearchableText(): string
-    {
-        return '# '.$this->title."\n\n".$this->excerpt."\n\n".$this->stripMdxComponents($this->content ?? '');
+            return [count($segments), $order, $basename];
+        })->values();
     }
 
     /**
      * Get the field name that contains the Markdown content.
      */
-    public function getMarkdownContentField(): string
+    protected function getMarkdownContentField(): string
     {
         return 'content';
-    }
-
-    /**
-     * Convert the model instance to an array.
-     */
-    public function toArray(?array $fields = null): array
-    {
-        return (new EntrySerializer)->toArray($this, $fields);
     }
 }
