@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BatchShowRequest;
 use App\Http\Requests\ShowRequest;
 use App\Models\Entry;
 use App\Query\EntrySerializer;
@@ -77,7 +78,7 @@ class ShowController extends Controller
     /**
      * Show multiple content entries in a single request.
      */
-    public function batch(ShowRequest $request, string $type): JsonResponse
+    public function batch(BatchShowRequest $request, string $type): JsonResponse
     {
         $slugs = $request->getSlugs();
 
@@ -92,11 +93,13 @@ class ShowController extends Controller
 
         // Find all requested entries
         $items = Entry::where('type', $type)
-            ->whereIn('slug', $processedSlugs)
+            ->whereIn('slug', array_unique($processedSlugs))
             ->get();
 
         // If we haven't found all requested slugs, return 404
-        if ($items->count() !== count($processedSlugs)) {
+        $foundSlugs = $items->pluck('slug')->toArray();
+        $missingSlugs = array_diff($processedSlugs, $foundSlugs);
+        if (!empty($missingSlugs)) {
             return response()->json(['error' => 'No items found for the specified type and slugs'], 404);
         }
 
@@ -104,9 +107,7 @@ class ShowController extends Controller
         $slugOrder = collect($slugs)->flip();
 
         $result = $items->map(function (Entry $item) use ($fields) {
-            $result = $this->arrayConverter->toDetailArray($item, $fields);
-            $result['is_index'] = $item->is_index;
-            return $result;
+            return $this->arrayConverter->toDetailArray($item, $fields);
         })
             ->sortBy(fn ($item) => $slugOrder[$item['slug']] ?? PHP_INT_MAX)
             ->values();
