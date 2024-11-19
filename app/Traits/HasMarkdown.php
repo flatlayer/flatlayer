@@ -97,7 +97,7 @@ trait HasMarkdown
         string $type = 'post',
         bool $autoSave = false
     ): self {
-        $slug = static::generateSlugFromFilename($relativePath);
+        $slug = static::generateSlug($relativePath);
 
         // Find existing or create new
         $model = static::firstOrNew(

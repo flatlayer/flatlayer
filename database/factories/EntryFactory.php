@@ -24,7 +24,6 @@ class EntryFactory extends Factory
             'content' => $this->generateMarkdownLikeContent(),
             'excerpt' => $this->faker->paragraph,
             'filename' => $path.'.md',
-            'is_index' => false,
             'meta' => [
                 'author' => $this->faker->name,
                 'reading_time' => $this->faker->numberBetween(1, 20),
@@ -51,7 +50,6 @@ class EntryFactory extends Factory
 
             return [
                 'filename' => $slug.'/index.md',
-                'is_index' => true,
             ];
         });
     }

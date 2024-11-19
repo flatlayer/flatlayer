@@ -77,4 +77,18 @@ class WebhookTriggerJob implements ShouldQueue
     {
         Log::error("WebhookTriggerJob failed for {$this->contentType}: ".$exception);
     }
+
+    /**
+     * Get the job configuration for testing.
+     *
+     * @return array The job configuration
+     */
+    public function getJobConfig(): array
+    {
+        return [
+            'webhookUrl' => $this->webhookUrl,
+            'contentType' => $this->contentType,
+            'payload' => $this->payload,
+        ];
+    }
 }

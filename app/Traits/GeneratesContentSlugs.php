@@ -8,7 +8,7 @@ trait GeneratesContentSlugs
      * Generate a slug from a file path.
      * This is the central place for all slug generation logic.
      */
-    protected static function generateSlug(string $path): string
+    public static function generateSlug(string $path): string
     {
         // Normalize path separators
         $path = str_replace('\\', '/', $path);
@@ -43,7 +43,7 @@ trait GeneratesContentSlugs
     /**
      * Check if a path represents an index file.
      */
-    protected static function isIndexPath(string $path): bool
+    public static function isIndexPath(string $path): bool
     {
         return str_ends_with($path, '/index.md') || $path === 'index.md';
     }

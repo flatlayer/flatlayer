@@ -41,8 +41,8 @@ class EntrySyncService
 
         // Handle Git operations if needed and disk is local
         $changesDetected = true;
-        if ($shouldPull && $this->isLocalDisk($disk, $type)) {
-            $changesDetected = $this->handleGitPull($type);
+        if ($shouldPull && $this->isLocalDisk($disk)) {
+            $changesDetected = $this->handleGitPull($disk);
             if (!$changesDetected && $skipIfNoChanges) {
                 Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
                 return [
@@ -75,13 +75,11 @@ class EntrySyncService
     /**
      * Check if a disk is local by checking if it has a local path.
      */
-    protected function isLocalDisk(Filesystem $disk, string $type): bool
+    protected function isLocalDisk(Filesystem $disk): bool
     {
         try {
-            $diskConfig = $this->diskManager->getConfig($type);
-            $diskRoot = $diskConfig['path'];
-
-            return file_exists($diskRoot) && is_dir($diskRoot);
+            $root = $disk->path('');
+            return file_exists($root) && is_dir($root);
         } catch (\Exception $e) {
             return false;
         }
@@ -93,10 +91,9 @@ class EntrySyncService
      * @return bool True if changes were detected, false otherwise
      * @throws GitException
      */
-    protected function handleGitPull(string $type): bool
+    protected function handleGitPull(Filesystem $disk): bool
     {
-        $diskConfig = $this->diskManager->getConfig($type);
-        $diskRoot = $diskConfig['path'];
+        $diskRoot = $disk->path('');
 
         try {
             $repo = $this->git->open($diskRoot);
@@ -108,11 +105,11 @@ class EntrySyncService
             $beforeHash = $repo->getLastCommitId()->toString();
             Log::info("Current commit hash before pull: {$beforeHash}");
 
-            // Set timeout for Git operations
+            // Get timeout for Git operations
             $timeout = config('flatlayer.git.timeout', 60);
-            $repo->setTimeout($timeout);
 
-            $repo->pull();
+            // Pass timeout to pull command
+            $repo->pull(['timeout' => $timeout]);
             Log::info('Pull completed successfully');
 
             $afterHash = $repo->getLastCommitId()->toString();
@@ -198,34 +195,31 @@ class EntrySyncService
         $updatedCount = 0;
         $createdCount = 0;
 
-        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
-        foreach ($files->chunk($batchSize) as $batch) {
-            foreach ($batch as $relativePath => $file) {
-                try {
-                    $slug = $this->fileDiscovery->generateSlug($relativePath);
-                    $processedSlugs[] = $slug;
+        foreach ($files as $relativePath => $file) {
+            try {
+                $slug = $this->fileDiscovery->generateSlug($relativePath);
+                $processedSlugs[] = $slug;
 
-                    // Process the file using the disk
-                    $item = Entry::syncFromMarkdown($disk, $relativePath, $type, true);
+                // Process the file using the disk
+                $item = Entry::syncFromMarkdown($disk, $relativePath, $type, true);
 
-                    // Ensure the correct slug is set
-                    if ($item->slug !== $slug) {
-                        $item->slug = $slug;
-                        $item->save();
-                    }
+                // Ensure the correct slug is set
+                if ($item->slug !== $slug) {
+                    $item->slug = $slug;
+                    $item->save();
+                }
 
-                    if ($existingSlugs->has($slug)) {
-                        $updatedCount++;
-                        Log::info("Updated content item: {$slug}");
-                    } else {
-                        $createdCount++;
-                        Log::info("Created new content item: {$slug}");
-                    }
-                } catch (\Exception $e) {
-                    Log::error("Error processing file {$relativePath}: " . $e->getMessage());
-                    if (config('flatlayer.sync.log_level') === 'debug') {
-                        Log::debug($e->getTraceAsString());
-                    }
+                if ($existingSlugs->has($slug)) {
+                    $updatedCount++;
+                    Log::info("Updated content item: {$slug}");
+                } else {
+                    $createdCount++;
+                    Log::info("Created new content item: {$slug}");
+                }
+            } catch (\Exception $e) {
+                Log::error("Error processing file {$relativePath}: " . $e->getMessage());
+                if (config('flatlayer.sync.log_level') === 'debug') {
+                    Log::debug($e->getTraceAsString());
                 }
             }
         }

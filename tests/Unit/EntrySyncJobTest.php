@@ -3,10 +3,11 @@
 namespace Tests\Unit;
 
 use App\Jobs\EntrySyncJob;
-use App\Models\Entry;
-use App\Models\Image;
-use App\Services\SyncConfigurationService;
+use App\Jobs\WebhookTriggerJob;
+use App\Services\EntrySyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Tests\TestCase;
@@ -15,161 +16,179 @@ class EntrySyncJobTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $syncConfigService;
+    private $syncService;
+    private array $logMessages = [];
+    private string $fakePath;
 
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        Queue::fake();
+        Storage::fake('sync');
+        $this->fakePath = Storage::disk('sync')->path('');
 
-        $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
-        $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
+        $this->syncService = Mockery::mock(EntrySyncService::class);
+        $this->app->instance(EntrySyncService::class, $this->syncService);
+
+        Log::listen(function ($message) {
+            $this->logMessages[] = $message->message;
+        });
     }
 
-    public function test_sync_job_creates_new_entries()
+    public function test_job_calls_sync_service_with_correct_parameters()
     {
-        $this->createTestFile('test-post.md', "---\ntitle: Test Post\n---\nThis is a test post.");
+        // Arrange
+        $this->syncService->shouldReceive('sync')
+            ->once()
+            ->with(
+                'post',
+                Mockery::any(),
+                true,
+                true
+            )
+            ->andReturn([
+                'files_processed' => 10,
+                'entries_updated' => 5,
+                'entries_created' => 3,
+                'entries_deleted' => 2,
+                'skipped' => false,
+            ]);
 
-        EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
+        // Act
+        $job = new EntrySyncJob(
+            type: 'post',
+            path: $this->fakePath,
+            shouldPull: true,
+            skipIfNoChanges: true
+        );
 
-        $this->assertDatabaseHas('entries', [
-            'title' => 'Test Post',
-            'content' => 'This is a test post.',
-            'slug' => 'test-post',
-            'type' => 'post',
-        ]);
+        $job->handle($this->syncService);
+
+        // Assert
+        $this->assertTrue(in_array(
+            "Starting EntrySyncJob for type: post",
+            $this->logMessages
+        ));
     }
 
-    public function test_sync_job_updates_existing_entries()
+    public function test_job_triggers_webhook_on_success()
     {
-        Entry::factory()->create([
-            'title' => 'Existing Post',
-            'content' => 'Old content',
-            'slug' => 'existing-post',
-            'type' => 'post',
+        // Arrange
+        $this->syncService->shouldReceive('sync')->andReturn([
+            'files_processed' => 10,
+            'entries_updated' => 5,
+            'entries_created' => 3,
+            'entries_deleted' => 2,
+            'skipped' => false,
         ]);
 
-        $this->createTestFile('existing-post.md', "---\ntitle: Updated Post\n---\nThis is updated content.");
+        // Act
+        $job = new EntrySyncJob(
+            type: 'post',
+            path: $this->fakePath,
+            webhookUrl: 'https://example.com/webhook'
+        );
 
-        EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
+        $job->handle($this->syncService);
 
-        $this->assertDatabaseHas('entries', [
-            'title' => 'Updated Post',
-            'content' => 'This is updated content.',
-            'slug' => 'existing-post',
-            'type' => 'post',
-        ]);
+        // Assert
+        Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
+            $config = $job->getJobConfig();
+            return $config['webhookUrl'] === 'https://example.com/webhook' &&
+                $config['contentType'] === 'post' &&
+                $config['payload']['status'] === 'completed' &&
+                isset($config['payload']['files_processed']) &&
+                isset($config['payload']['timestamp']);
+        });
     }
 
-    public function test_sync_job_deletes_removed_entries()
+    public function test_job_triggers_webhook_on_error()
     {
-        Entry::factory()->create([
-            'title' => 'Post to Delete',
-            'content' => 'This post should be deleted',
-            'slug' => 'post-to-delete',
-            'type' => 'post',
-        ]);
+        // Arrange
+        $this->syncService->shouldReceive('sync')
+            ->andThrow(new \Exception('Sync failed'));
 
-        $this->createTestFile('remaining-post.md', "---\ntitle: Remaining Post\n---\nThis post should remain.");
+        // Act
+        $job = new EntrySyncJob(
+            type: 'post',
+            path: $this->fakePath,
+            webhookUrl: 'https://example.com/webhook'
+        );
 
-        EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
-
-        $this->assertDatabaseMissing('entries', [
-            'slug' => 'post-to-delete',
-            'type' => 'post',
-        ]);
-
-        $this->assertDatabaseHas('entries', [
-            'title' => 'Remaining Post',
-            'content' => 'This post should remain.',
-            'slug' => 'remaining-post',
-            'type' => 'post',
-        ]);
-    }
-
-    public function test_sync_job_handles_multiple_files()
-    {
-        $this->createTestFile('post1.md', "---\ntitle: Post 1\n---\nContent 1");
-        $this->createTestFile('post2.md', "---\ntitle: Post 2\n---\nContent 2");
-        $this->createTestFile('post3.md', "---\ntitle: Post 3\n---\nContent 3");
-
-        EntrySyncJob::dispatch(Storage::path('posts'), 'post', '*.md');
-
-        $this->assertDatabaseCount('entries', 3);
-        $this->assertDatabaseHas('entries', ['title' => 'Post 1', 'type' => 'post']);
-        $this->assertDatabaseHas('entries', ['title' => 'Post 2', 'type' => 'post']);
-        $this->assertDatabaseHas('entries', ['title' => 'Post 3', 'type' => 'post']);
-    }
-
-    public function test_sync_job_performs_chunked_deletion()
-    {
-        $this->fakeOpenAi(50);
-
-        // Create markdown files for only some of the entries
-        for ($i = 0; $i < 20; $i++) {
-            $this->createTestFile("post-$i.md", "---\ntitle: Post $i\n---\nContent $i");
+        // Assert
+        try {
+            $job->handle($this->syncService);
+            $this->fail('Expected exception was not thrown');
+        } catch (\Exception $e) {
+            $this->assertEquals('Sync failed', $e->getMessage());
         }
 
-        EntrySyncJob::dispatchSync(Storage::path('posts'), 'post', '*.md');
-
-        // Verify that only entries with corresponding markdown files remain
-        $this->assertDatabaseCount('entries', 20);
-        for ($i = 0; $i < 20; $i++) {
-            $this->assertDatabaseHas('entries', ['slug' => "post-$i", 'type' => 'post']);
-        }
+        Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
+            $config = $job->getJobConfig();
+            return $config['webhookUrl'] === 'https://example.com/webhook' &&
+                $config['contentType'] === 'post' &&
+                $config['payload']['status'] === 'failed' &&
+                $config['payload']['error'] === 'Sync failed' &&
+                isset($config['payload']['timestamp']);
+        });
     }
 
-    public function test_sync_job_handles_entries_with_tags_and_images()
+    public function test_job_skips_webhook_when_sync_skipped()
     {
-        // Create test images using ImageFactory
-        $image1 = Image::factory()->withRealImage(640, 480)->create();
-        $image2 = Image::factory()->withRealImage(800, 600)->create();
-        $image3 = Image::factory()->withRealImage(1024, 768)->create();
+        // Arrange
+        $this->syncService->shouldReceive('sync')->andReturn([
+            'files_processed' => 0,
+            'entries_updated' => 0,
+            'entries_created' => 0,
+            'entries_deleted' => 0,
+            'skipped' => true
+        ]);
 
-        // Move the created images to the posts directory
-        Storage::disk('local')->put('posts/'.$image1->filename, file_get_contents($image1->path));
-        Storage::disk('local')->put('posts/'.$image2->filename, file_get_contents($image2->path));
-        Storage::disk('local')->put('posts/'.$image3->filename, file_get_contents($image3->path));
+        // Act
+        $job = new EntrySyncJob(
+            type: 'post',
+            path: $this->fakePath,
+            webhookUrl: 'https://example.com/webhook'
+        );
 
-        // Create the markdown file with references to the real images
-        $this->createTestFile('post-with-tags-and-images.md', "---
-title: Test Post
-tags: [tag1, tag2]
-images.featured: {$image1->filename}
-images.gallery: [{$image2->filename}, {$image3->filename}]
----
-This is a test post with tags and images.");
+        $job->handle($this->syncService);
 
-        EntrySyncJob::dispatch(Storage::disk('local')->path('posts'), 'post', '*.md');
-
-        $entry = Entry::where('slug', 'post-with-tags-and-images')->first();
-
-        $this->assertNotNull($entry);
-        $this->assertEquals('Test Post', $entry->title);
-        $this->assertEquals(['tag1', 'tag2'], $entry->tags->pluck('name')->toArray());
-
-        $this->assertEquals(3, $entry->images()->count());
-        $this->assertDatabaseHas('images', ['entry_id' => $entry->id, 'collection' => 'featured']);
-        $this->assertDatabaseHas('images', ['entry_id' => $entry->id, 'collection' => 'gallery']);
-
-        // Additional checks for image properties
-        $featuredImage = $entry->images()->where('collection', 'featured')->first();
-        $this->assertEquals(640, $featuredImage->dimensions['width']);
-        $this->assertEquals(480, $featuredImage->dimensions['height']);
-
-        $galleryImages = $entry->images()->where('collection', 'gallery')->get();
-        $this->assertCount(2, $galleryImages);
-        $this->assertTrue($galleryImages->contains(function ($image) {
-            return $image->dimensions['width'] == 800 && $image->dimensions['height'] == 600;
-        }));
-        $this->assertTrue($galleryImages->contains(function ($image) {
-            return $image->dimensions['width'] == 1024 && $image->dimensions['height'] == 768;
-        }));
+        // Assert
+        Queue::assertNotPushed(WebhookTriggerJob::class);
+        $this->assertTrue(in_array(
+            "Sync skipped for type post - no changes detected",
+            $this->logMessages
+        ));
     }
 
-    protected function createTestFile($filename, $content)
+    public function test_job_logs_completion_with_sync_results()
     {
-        Storage::put("posts/$filename", $content);
+        // Arrange
+        $this->syncService->shouldReceive('sync')->andReturn([
+            'files_processed' => 10,
+            'entries_updated' => 5,
+            'entries_created' => 3,
+            'entries_deleted' => 2,
+            'skipped' => false,
+        ]);
+
+        // Act
+        $job = new EntrySyncJob(
+            type: 'post',
+            path: $this->fakePath
+        );
+
+        $job->handle($this->syncService);
+
+        // Assert
+        $this->assertTrue(in_array(
+            "Starting EntrySyncJob for type: post",
+            $this->logMessages
+        ));
+        $this->assertTrue(in_array(
+            "Sync completed for type post",
+            $this->logMessages
+        ));
     }
 
     protected function tearDown(): void

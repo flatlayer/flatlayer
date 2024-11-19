@@ -102,19 +102,6 @@ class EntrySyncServiceTest extends TestCase
 
     public function test_sync_updates_existing_entries()
     {
-        // Create an existing entry
-        Entry::factory()->create([
-            'title' => 'Original Title',
-            'type' => 'post',
-            'slug' => 'test1',
-        ]);
-
-        // Create updated file
-        $this->createMarkdownFile('test1.md', [
-            'title' => 'Updated Title',
-            'type' => 'post'
-        ], 'Updated content');
-
         // Configure disk manager mock
         $this->diskManager->shouldReceive('hasRepository')
             ->with('post')
@@ -124,21 +111,55 @@ class EntrySyncServiceTest extends TestCase
             ->with('post')
             ->andReturn($this->disk);
 
-        // Perform sync
-        $result = $this->service->sync('post', $this->disk);
+        // Create initial file and sync
+        $this->createMarkdownFile('test1.md', [
+            'title' => 'Original Title',
+            'type' => 'post',
+            'meta' => ['version' => '1.0']
+        ], 'Original content');
 
-        // Assert results
-        $this->assertEquals(1, $result['files_processed']);
-        $this->assertEquals(0, $result['entries_created']);
-        $this->assertEquals(1, $result['entries_updated']);
-        $this->assertEquals(0, $result['entries_deleted']);
+        $firstSyncResult = $this->service->sync('post', $this->disk);
 
-        // Verify database state
+        // Verify initial sync
+        $this->assertEquals(1, $firstSyncResult['files_processed']);
+        $this->assertEquals(1, $firstSyncResult['entries_created']);
+        $this->assertEquals(0, $firstSyncResult['entries_updated']);
+
+        // Verify initial state
+        $this->assertDatabaseHas('entries', [
+            'title' => 'Original Title',
+            'type' => 'post',
+            'slug' => 'test1',
+        ]);
+
+        // Update the file
+        $this->createMarkdownFile('test1.md', [
+            'title' => 'Updated Title',
+            'type' => 'post',
+            'meta' => ['version' => '2.0']
+        ], 'Updated content');
+
+        // Perform second sync
+        $secondSyncResult = $this->service->sync('post', $this->disk);
+
+        // Assert second sync results
+        $this->assertEquals(1, $secondSyncResult['files_processed']);
+        $this->assertEquals(0, $secondSyncResult['entries_created']);
+        $this->assertEquals(1, $secondSyncResult['entries_updated']);
+        $this->assertEquals(0, $secondSyncResult['entries_deleted']);
+
+        // Verify final state
         $this->assertDatabaseHas('entries', [
             'title' => 'Updated Title',
             'type' => 'post',
             'slug' => 'test1',
         ]);
+
+        // Verify only one entry exists and it has the updated content
+        $this->assertEquals(1, Entry::count());
+        $entry = Entry::first();
+        $this->assertEquals('Updated content', $entry->content);
+        $this->assertEquals(['version' => '2.0'], $entry->meta);
     }
 
     public function test_sync_deletes_removed_entries()
@@ -187,7 +208,7 @@ class EntrySyncServiceTest extends TestCase
 
     public function test_sync_with_git_pull()
     {
-        // Configure disk manager mock
+        // Configure disk manager mock - only needed for initial disk retrieval
         $this->diskManager->shouldReceive('hasRepository')
             ->with('post')
             ->andReturn(true);
@@ -196,28 +217,27 @@ class EntrySyncServiceTest extends TestCase
             ->with('post')
             ->andReturn($this->disk);
 
-        $this->diskManager->shouldReceive('getConfig')
-            ->with('post')
-            ->andReturn(['path' => Storage::path('content')]);
-
         // Configure Git mocks
         $this->git->shouldReceive('open')
             ->once()
+            ->with($this->disk->path(''))  // Now using disk->path() instead of config
             ->andReturn($this->gitRepo);
 
         $this->gitRepo->shouldReceive('setIdentity')
-            ->once();
+            ->once()
+            ->with(
+                'Flatlayer CMS',
+                'cms@flatlayer.io'
+            );
 
         $this->gitRepo->shouldReceive('setAuthentication')
             ->once()
             ->with('test-user', 'test-token');
 
-        $this->gitRepo->shouldReceive('setTimeout')
-            ->once()
-            ->with(60);
-
         $this->gitRepo->shouldReceive('pull')
-            ->once();
+            ->once()
+            ->with(['timeout' => 60])  // Updated to pass timeout as option
+            ->andReturn(null);  // pull() doesn't return anything
 
         $this->gitRepo->shouldReceive('getLastCommitId->toString')
             ->twice()
@@ -241,11 +261,14 @@ class EntrySyncServiceTest extends TestCase
         $this->assertContains('Git authentication configured using token for user: test-user', $this->logMessages);
         $this->assertContains('Pull completed successfully', $this->logMessages);
         $this->assertContains('Changes detected during pull', $this->logMessages);
+
+        // Verify Git operations were performed in correct order
+        Mockery::getContainer()->mockery_verify();
     }
 
     public function test_sync_skips_when_no_changes()
     {
-        // Configure disk manager mock
+        // Configure disk manager mock - only needed for initial disk retrieval
         $this->diskManager->shouldReceive('hasRepository')
             ->with('post')
             ->andReturn(true);
@@ -254,26 +277,27 @@ class EntrySyncServiceTest extends TestCase
             ->with('post')
             ->andReturn($this->disk);
 
-        $this->diskManager->shouldReceive('getConfig')
-            ->with('post')
-            ->andReturn(['path' => Storage::path('content')]);
-
         // Configure Git mocks to return same hash (no changes)
         $this->git->shouldReceive('open')
             ->once()
+            ->with($this->disk->path(''))
             ->andReturn($this->gitRepo);
 
         $this->gitRepo->shouldReceive('setIdentity')
-            ->once();
+            ->once()
+            ->with(
+                'Flatlayer CMS',
+                'cms@flatlayer.io'
+            );
 
         $this->gitRepo->shouldReceive('setAuthentication')
-            ->once();
-
-        $this->gitRepo->shouldReceive('setTimeout')
-            ->once();
+            ->once()
+            ->with('test-user', 'test-token');
 
         $this->gitRepo->shouldReceive('pull')
-            ->once();
+            ->once()
+            ->with(['timeout' => 60])
+            ->andReturn(null);
 
         $this->gitRepo->shouldReceive('getLastCommitId->toString')
             ->twice()
@@ -292,6 +316,9 @@ class EntrySyncServiceTest extends TestCase
         // Verify log messages
         $this->assertContains('No changes detected during pull', $this->logMessages);
         $this->assertContains('No changes detected and skipIfNoChanges is true. Skipping sync.', $this->logMessages);
+
+        // Verify Git operations were performed in correct order
+        Mockery::getContainer()->mockery_verify();
     }
 
     public function test_sync_throws_exception_for_unconfigured_type()
