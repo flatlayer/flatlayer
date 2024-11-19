@@ -29,10 +29,10 @@ class EntrySyncService
      *
      * @param  string  $type  Content type to sync
      * @param  string|array|Filesystem|null  $disk  The disk to use:
-     *   - string: Name of an existing disk
-     *   - array: Configuration for Storage::build()
-     *   - Filesystem: Use directly
-     *   - null: Get using type
+     *                                              - string: Name of an existing disk
+     *                                              - array: Configuration for Storage::build()
+     *                                              - Filesystem: Use directly
+     *                                              - null: Get using type
      * @param  bool  $shouldPull  Whether to pull latest changes from Git
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected
      * @return array{

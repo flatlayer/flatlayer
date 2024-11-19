@@ -33,6 +33,7 @@ class SyncCommand extends Command
 
         if (! $type) {
             $this->error("The '--type' option is required.");
+
             return Command::FAILURE;
         }
 
@@ -46,6 +47,7 @@ class SyncCommand extends Command
                     $shouldPull = $this->option('pull');
                 } catch (\InvalidArgumentException $e) {
                     $this->error("Invalid disk specified: {$diskName}");
+
                     return Command::FAILURE;
                 }
             }
@@ -53,6 +55,7 @@ class SyncCommand extends Command
             else {
                 if (! Config::has("flatlayer.repositories.{$type}")) {
                     $this->error("No repository configuration found for type: {$type}");
+
                     return Command::FAILURE;
                 }
 
@@ -89,6 +92,7 @@ class SyncCommand extends Command
         } catch (\Exception $e) {
             $this->error("Error running sync: {$e->getMessage()}");
             $this->error($e->getTraceAsString());
+
             return Command::FAILURE;
         }
     }

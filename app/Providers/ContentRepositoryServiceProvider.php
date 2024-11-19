@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 
@@ -74,7 +73,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
         $prefix = 'CONTENT_REPOSITORY_';
 
         foreach ($_ENV as $key => $value) {
-            if (!str_starts_with($key, $prefix) || !str_ends_with($key, '_PATH')) {
+            if (! str_starts_with($key, $prefix) || ! str_ends_with($key, '_PATH')) {
                 continue;
             }
 
@@ -122,6 +121,6 @@ class ContentRepositoryServiceProvider extends ServiceProvider
                 false;
         }
 
-        return array_filter($config, fn($value) => !is_null($value));
+        return array_filter($config, fn ($value) => ! is_null($value));
     }
 }

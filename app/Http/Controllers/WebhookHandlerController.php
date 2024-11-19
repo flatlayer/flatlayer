@@ -16,6 +16,7 @@ class WebhookHandlerController extends Controller
 
             if (! $this->verifySignature($payload, $signature)) {
                 Log::warning('Invalid GitHub webhook signature');
+
                 return response('Invalid signature', 403);
             }
 
@@ -29,17 +30,17 @@ class WebhookHandlerController extends Controller
 
             return response('Sync initiated', 202);
         } catch (\Exception $e) {
-            Log::error('Error in webhook handler: ' . $e->getMessage());
+            Log::error('Error in webhook handler: '.$e->getMessage());
             Log::error($e->getTraceAsString());
 
-            return response('Error executing sync: ' . $e->getMessage(), 500);
+            return response('Error executing sync: '.$e->getMessage(), 500);
         }
     }
 
     private function verifySignature($payload, $signature)
     {
         $secret = config('flatlayer.github.webhook_secret');
-        $computedSignature = 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
+        $computedSignature = 'sha256='.hash_hmac('sha256', json_encode($payload), $secret);
 
         return hash_equals($computedSignature, $signature);
     }

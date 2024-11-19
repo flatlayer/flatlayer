@@ -13,12 +13,11 @@ class DiskResolver
      * Resolve a disk from various input types.
      *
      * @param  string|array|Filesystem|null  $disk  The disk specification:
-     *   - string: Name of an existing disk
-     *   - array: Configuration for Storage::build()
-     *   - Filesystem: Used directly
-     *   - null: Use repository configuration
+     *                                              - string: Name of an existing disk
+     *                                              - array: Configuration for Storage::build()
+     *                                              - Filesystem: Used directly
+     *                                              - null: Use repository configuration
      * @param  string  $type  Content type (used when disk is null)
-     * @return Filesystem
      *
      * @throws InvalidArgumentException If disk cannot be resolved
      */
@@ -76,6 +75,7 @@ class DiskResolver
         }
 
         $diskName = Config::get("flatlayer.repositories.{$type}.disk");
+
         return Storage::disk($diskName);
     }
 }

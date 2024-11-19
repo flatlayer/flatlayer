@@ -27,17 +27,17 @@ class WebhookHandlerControllerTest extends TestCase
 
         // Test with invalid signature
         $response = $this->postJson('/webhook/docs', $payload, [
-            'X-Hub-Signature-256' => 'invalid_signature'
+            'X-Hub-Signature-256' => 'invalid_signature',
         ]);
 
         $response->assertStatus(403)
             ->assertSeeText('Invalid signature');
 
         // Test with valid signature
-        $validSignature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $validSignature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $response = $this->postJson('/webhook/docs', $payload, [
-            'X-Hub-Signature-256' => $validSignature
+            'X-Hub-Signature-256' => $validSignature,
         ]);
 
         $response->assertStatus(202)
@@ -47,13 +47,13 @@ class WebhookHandlerControllerTest extends TestCase
     public function test_webhook_initiates_sync_job()
     {
         $payload = ['repository' => ['name' => 'test-repo']];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         // Configure test webhook URL
         Config::set('flatlayer.sync.docs.webhook_url', 'https://example.com/webhook');
 
         $response = $this->postJson('/webhook/docs', $payload, [
-            'X-Hub-Signature-256' => $signature
+            'X-Hub-Signature-256' => $signature,
         ]);
 
         $response->assertStatus(202);
@@ -61,6 +61,7 @@ class WebhookHandlerControllerTest extends TestCase
         // Verify that the sync job was dispatched with correct parameters
         Queue::assertPushed(EntrySyncJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['type'] === 'docs'
                 && $config['shouldPull'] === true
                 && $config['skipIfNoChanges'] === true
@@ -71,10 +72,10 @@ class WebhookHandlerControllerTest extends TestCase
     public function test_webhook_handles_empty_payload()
     {
         $payload = [];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $response = $this->postJson('/webhook/docs', $payload, [
-            'X-Hub-Signature-256' => $signature
+            'X-Hub-Signature-256' => $signature,
         ]);
 
         $response->assertStatus(202);
@@ -84,12 +85,12 @@ class WebhookHandlerControllerTest extends TestCase
     public function test_webhook_route_is_throttled()
     {
         $payload = ['repository' => ['name' => 'test-repo']];
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         // Make 11 requests (throttle limit is 10 per minute)
         for ($i = 0; $i < 11; $i++) {
             $response = $this->postJson('/webhook/docs', $payload, [
-                'X-Hub-Signature-256' => $signature
+                'X-Hub-Signature-256' => $signature,
             ]);
 
             if ($i < 10) {
@@ -112,12 +113,12 @@ class WebhookHandlerControllerTest extends TestCase
 
     public function test_webhook_handles_malformed_json_payload()
     {
-        $payload = "invalid json";
-        $signature = 'sha256=' . hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
+        $payload = 'invalid json';
+        $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
         $response = $this->postJson('/webhook/docs', $payload, [
             'X-Hub-Signature-256' => $signature,
-            'Content-Type' => 'application/json'
+            'Content-Type' => 'application/json',
         ]);
 
         $response->assertStatus(400);

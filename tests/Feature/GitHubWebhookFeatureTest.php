@@ -20,7 +20,9 @@ class GitHubWebhookFeatureTest extends TestCase
     use RefreshDatabase;
 
     protected MockInterface|SyncConfigurationService $syncConfigService;
+
     protected MockInterface|EntrySyncService $syncService;
+
     protected array $logMessages = [];
 
     protected function setUp(): void

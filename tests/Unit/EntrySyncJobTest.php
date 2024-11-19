@@ -17,7 +17,9 @@ class EntrySyncJobTest extends TestCase
     use RefreshDatabase;
 
     private $syncService;
+
     private $disk;
+
     private array $logMessages = [];
 
     protected function setUp(): void
@@ -87,6 +89,7 @@ class EntrySyncJobTest extends TestCase
 
         Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['webhookUrl'] === 'https://example.com/webhook' &&
                 $config['contentType'] === 'post' &&
                 $config['payload']['status'] === 'completed' &&
@@ -115,6 +118,7 @@ class EntrySyncJobTest extends TestCase
 
         Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['webhookUrl'] === 'https://example.com/webhook' &&
                 $config['contentType'] === 'post' &&
                 $config['payload']['status'] === 'failed' &&

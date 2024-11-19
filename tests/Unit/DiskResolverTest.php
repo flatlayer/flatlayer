@@ -16,7 +16,7 @@ class DiskResolverTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resolver = new DiskResolver();
+        $this->resolver = new DiskResolver;
 
         // Clear any existing disk configurations
         Config::set('filesystems.disks', []);
@@ -56,7 +56,7 @@ class DiskResolverTest extends TestCase
     public function test_resolves_null_to_repository_disk()
     {
         Config::set('flatlayer.repositories.posts', [
-            'disk' => 'posts_disk'
+            'disk' => 'posts_disk',
         ]);
 
         Config::set('filesystems.disks.posts_disk', [

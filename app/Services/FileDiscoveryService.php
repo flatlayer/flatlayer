@@ -14,7 +14,7 @@ class FileDiscoveryService
      * When a slug conflict occurs between a single file and an index file
      * (e.g., /foo.md vs /foo/index.md), the single file takes precedence.
      *
-     * @param Filesystem $disk The filesystem disk to search
+     * @param  Filesystem  $disk  The filesystem disk to search
      * @return Collection<string, array> Collection of files with metadata, keyed by relative paths
      */
     public function findFiles(Filesystem $disk): Collection

@@ -20,9 +20,13 @@ class EntrySyncServiceTest extends TestCase
     use CreatesTestFiles, RefreshDatabase;
 
     protected EntrySyncService $service;
+
     protected $git;
+
     protected $gitRepo;
+
     protected $diskResolver;
+
     protected array $logMessages = [];
 
     protected function setUp(): void

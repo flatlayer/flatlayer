@@ -71,6 +71,7 @@ class EntrySyncJob implements ShouldQueue
             // If sync was skipped due to no changes, return early
             if ($result['skipped']) {
                 Log::info("Sync skipped for type {$this->type} - no changes detected");
+
                 return;
             }
 
