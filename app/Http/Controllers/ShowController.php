@@ -20,49 +20,15 @@ class ShowController extends Controller
      */
     public function show(ShowRequest $request, string $type, string $slug): JsonResponse
     {
-        // Normalize the slug using Path class
+        // Normalize the slug using Path class - this now strips any /index
         $slug = Path::toSlug($slug);
-
-        // Handle potential index redirects
-        if (! Str::endsWith($slug, '/index')) {
-            // Check for index file at this level
-            $indexEntry = Entry::where('type', $type)
-                ->where('slug', $slug.'/index')
-                ->first();
-
-            if ($indexEntry) {
-                return response()->json([
-                    'redirect' => true,
-                    'location' => "/entry/{$type}/{$slug}/index",
-                ], 307);
-            }
-
-            // Check for index file in parent directory if this path doesn't exist
-            $contentItem = Entry::where('type', $type)
-                ->where('slug', $slug)
-                ->first();
-
-            if (! $contentItem) {
-                $parentSlug = Str::beforeLast($slug, '/');
-                $parentIndexEntry = Entry::where('type', $type)
-                    ->where('slug', $parentSlug.'/index')
-                    ->first();
-
-                if ($parentIndexEntry) {
-                    return response()->json([
-                        'redirect' => true,
-                        'location' => "/entry/{$type}/{$parentSlug}/index",
-                    ], 307);
-                }
-            }
-        }
 
         // Get the entry
         $contentItem = Entry::where('type', $type)
             ->where('slug', $slug)
             ->first();
 
-        if (! $contentItem) {
+        if (!$contentItem) {
             return response()->json(['error' => 'No item found for the specified type and slug'], 404);
         }
 
@@ -92,8 +58,8 @@ class ShowController extends Controller
                     ]),
             ];
 
+            // For index pages, include parent navigation
             if ($contentItem->is_index) {
-                // For index files, include parent navigation
                 $parent = $contentItem->parent();
                 if ($parent) {
                     $result['navigation']['parent'] = [
@@ -119,73 +85,30 @@ class ShowController extends Controller
             return response()->json(['error' => 'No valid slugs provided'], 400);
         }
 
-        // Prepare index redirects
-        $redirectSlugs = [];
-        $processedSlugs = [];
-        $nonRedirectSlugs = [];
+        // Process and normalize all slugs
+        $processedSlugs = array_map(function($slug) {
+            return Path::toSlug($slug);
+        }, $slugs);
 
-        foreach ($slugs as $slug) {
-            $normalizedSlug = trim($slug, '/');
-            if (! Str::endsWith($normalizedSlug, '/index')) {
-                $indexSlug = $normalizedSlug.'/index';
-                $redirectSlugs[$normalizedSlug] = $indexSlug;
-            } else {
-                $nonRedirectSlugs[] = $normalizedSlug;
-            }
-            $processedSlugs[] = $normalizedSlug;
-        }
+        // Find all requested entries
+        $items = Entry::where('type', $type)
+            ->whereIn('slug', $processedSlugs)
+            ->get();
 
-        // Add potential index slugs to the query
-        $query = Entry::where('type', $type)
-            ->where(function ($query) use ($processedSlugs, $redirectSlugs) {
-                $query->whereIn('slug', $processedSlugs)
-                    ->orWhereIn('slug', array_values($redirectSlugs));
-            });
-
-        $items = $query->get();
-
-        // Create a map of available slugs (both direct and index)
-        $availableSlugs = $items->pluck('slug')->toArray();
-        $availableRedirects = array_filter($redirectSlugs, function ($indexSlug) use ($availableSlugs) {
-            return in_array($indexSlug, $availableSlugs);
-        });
-
-        // Check if all requested slugs are available (either directly or via redirect)
-        $foundCount = 0;
-        foreach ($processedSlugs as $slug) {
-            if (in_array($slug, $availableSlugs) || array_key_exists($slug, $availableRedirects)) {
-                $foundCount++;
-            }
-        }
-
-        // If not all slugs were found, return 404
-        if ($foundCount !== count($processedSlugs)) {
+        // If we haven't found all requested slugs, return 404
+        if ($items->count() !== count($processedSlugs)) {
             return response()->json(['error' => 'No items found for the specified type and slugs'], 404);
         }
 
         $fields = $request->getFields();
         $slugOrder = collect($slugs)->flip();
 
-        $result = $items->map(function (Entry $item) use ($redirectSlugs, $type) {
-            // Check if this is an index file that should trigger a redirect
-            $originalSlug = array_search($item->slug, $redirectSlugs);
-            if ($originalSlug !== false) {
-                return [
-                    'redirect' => true,
-                    'from' => $originalSlug,
-                    'to' => $item->slug,
-                    'location' => "/entry/{$type}/{$item->slug}",
-                    'is_index' => true,
-                ];
-            }
-
-            $result = $this->arrayConverter->toDetailArray($item);
+        $result = $items->map(function (Entry $item) use ($fields) {
+            $result = $this->arrayConverter->toDetailArray($item, $fields);
             $result['is_index'] = $item->is_index;
-
             return $result;
         })
-            ->sortBy(fn ($item) => $slugOrder[$item['redirect'] ?? false ? $item['from'] : $item['slug']] ?? PHP_INT_MAX
-            )
+            ->sortBy(fn ($item) => $slugOrder[$item['slug']] ?? PHP_INT_MAX)
             ->values();
 
         return response()->json(['data' => $result]);

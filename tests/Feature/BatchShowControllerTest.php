@@ -24,16 +24,14 @@ class BatchShowControllerTest extends TestCase
             'title' => 'Documentation Root',
             'content' => 'Root documentation content',
             'slug' => 'docs',
-            'is_index' => false,
         ]);
 
         // Create nested documentation structure
         Entry::factory()->create([
             'type' => 'doc',
-            'title' => 'Getting Started Index',
+            'title' => 'Getting Started',
             'content' => 'Getting started guide',
-            'slug' => 'docs/getting-started/index',
-            'is_index' => true,
+            'slug' => 'docs/getting-started',
         ]);
 
         Entry::factory()->create([
@@ -41,7 +39,6 @@ class BatchShowControllerTest extends TestCase
             'title' => 'Installation Guide',
             'content' => 'Installation instructions',
             'slug' => 'docs/getting-started/installation',
-            'is_index' => false,
         ]);
 
         Entry::factory()->create([
@@ -49,16 +46,14 @@ class BatchShowControllerTest extends TestCase
             'title' => 'Configuration Guide',
             'content' => 'Configuration instructions',
             'slug' => 'docs/getting-started/configuration',
-            'is_index' => false,
         ]);
 
-        // Create another section with both index and content files
+        // Create another section with content files
         Entry::factory()->create([
             'type' => 'doc',
             'title' => 'Tutorials Section',
-            'content' => 'Tutorial index content',
-            'slug' => 'docs/tutorials/index',
-            'is_index' => true,
+            'content' => 'Tutorial section content',
+            'slug' => 'docs/tutorials',
         ]);
 
         Entry::factory()->create([
@@ -66,7 +61,6 @@ class BatchShowControllerTest extends TestCase
             'title' => 'Basic Tutorial',
             'content' => 'Basic tutorial content',
             'slug' => 'docs/tutorials/basic',
-            'is_index' => false,
         ]);
 
         Entry::factory()->create([
@@ -74,7 +68,6 @@ class BatchShowControllerTest extends TestCase
             'title' => 'Advanced Tutorial',
             'content' => 'Advanced tutorial content',
             'slug' => 'docs/tutorials/advanced',
-            'is_index' => false,
         ]);
 
         // Create deeply nested content
@@ -82,8 +75,7 @@ class BatchShowControllerTest extends TestCase
             'type' => 'doc',
             'title' => 'Cloud Deployment',
             'content' => 'Cloud deployment tutorial',
-            'slug' => 'docs/tutorials/deployment/cloud/index',
-            'is_index' => true,
+            'slug' => 'docs/tutorials/deployment/cloud',
         ]);
     }
 
@@ -95,28 +87,24 @@ class BatchShowControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Installation Guide')
-            ->assertJsonPath('data.1.title', 'Configuration Guide')
-            ->assertJsonPath('data.0.is_index', false)
-            ->assertJsonPath('data.1.is_index', false);
+            ->assertJsonPath('data.1.title', 'Configuration Guide');
     }
 
-    public function test_batch_retrieval_with_index_files()
+    public function test_batch_retrieval_with_nested_paths()
     {
-        $paths = 'docs/tutorials/index,docs/tutorials/deployment/cloud/index';
+        $paths = 'docs/tutorials,docs/tutorials/deployment/cloud';
         $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Tutorials Section')
-            ->assertJsonPath('data.1.title', 'Cloud Deployment')
-            ->assertJsonPath('data.0.is_index', true)
-            ->assertJsonPath('data.1.is_index', true);
+            ->assertJsonPath('data.1.title', 'Cloud Deployment');
     }
 
-    public function test_batch_show_respects_fields_parameter_with_nested_content()
+    public function test_batch_show_respects_fields_parameter()
     {
         $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
-        $fields = json_encode(['title', 'slug', 'is_index']);
+        $fields = json_encode(['title', 'slug']);
 
         $response = $this->getJson("/entry/batch/doc?slugs={$paths}&fields={$fields}");
 
@@ -124,67 +112,14 @@ class BatchShowControllerTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonStructure([
                 'data' => [
-                    ['title', 'slug', 'is_index'],
-                    ['title', 'slug', 'is_index'],
+                    ['title', 'slug'],
+                    ['title', 'slug'],
                 ],
             ])
             ->assertJsonMissing(['content']);
     }
 
-    public function test_handles_mixed_regular_and_index_paths()
-    {
-        $paths = 'docs/tutorials/basic,docs/tutorials/index';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'Basic Tutorial')
-            ->assertJsonPath('data.0.is_index', false)
-            ->assertJsonPath('data.1.title', 'Tutorials Section')
-            ->assertJsonPath('data.1.is_index', true);
-    }
-
-    public function test_handles_directory_to_index_redirects()
-    {
-        $paths = 'docs/tutorials,docs/getting-started';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
-
-        $response->assertStatus(200)
-            ->assertJsonStructure(['data' => [
-                ['redirect', 'from', 'to', 'location', 'is_index'],
-                ['redirect', 'from', 'to', 'location', 'is_index'],
-            ]])
-            ->assertJson([
-                'data' => [
-                    [
-                        'redirect' => true,
-                        'from' => 'docs/tutorials',
-                        'to' => 'docs/tutorials/index',
-                        'location' => '/entry/doc/docs/tutorials/index',
-                    ],
-                    [
-                        'redirect' => true,
-                        'from' => 'docs/getting-started',
-                        'to' => 'docs/getting-started/index',
-                        'location' => '/entry/doc/docs/getting-started/index',
-                    ],
-                ],
-            ]);
-    }
-
-    public function test_handles_mixed_paths_and_redirects()
-    {
-        $paths = 'docs/tutorials/basic,docs/tutorials,docs/tutorials/advanced';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
-
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.title', 'Basic Tutorial')
-            ->assertJsonPath('data.1.redirect', true)
-            ->assertJsonPath('data.2.title', 'Advanced Tutorial');
-    }
-
-    public function test_returns_404_for_non_existent_nested_paths()
+    public function test_returns_404_for_non_existent_paths()
     {
         $paths = 'docs/getting-started/installation,docs/nonexistent/path';
         $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
@@ -193,7 +128,7 @@ class BatchShowControllerTest extends TestCase
             ->assertJson(['error' => 'No items found for the specified type and slugs']);
     }
 
-    public function test_maintains_order_with_nested_paths()
+    public function test_maintains_request_order()
     {
         $paths = 'docs/tutorials/advanced,docs/getting-started/installation,docs/tutorials/basic';
         $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
@@ -205,7 +140,7 @@ class BatchShowControllerTest extends TestCase
             ->assertJsonPath('data.2.title', 'Basic Tutorial');
     }
 
-    public function test_handles_duplicate_nested_paths()
+    public function test_handles_duplicate_paths()
     {
         $paths = 'docs/getting-started/installation,docs/getting-started/installation';
         $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
@@ -227,7 +162,7 @@ class BatchShowControllerTest extends TestCase
     public function test_handles_deeply_nested_paths()
     {
         $paths = implode(',', [
-            'docs/tutorials/deployment/cloud/index',
+            'docs/tutorials/deployment/cloud',
             'docs/tutorials/basic',
         ]);
 
@@ -236,9 +171,7 @@ class BatchShowControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Cloud Deployment')
-            ->assertJsonPath('data.0.is_index', true)
-            ->assertJsonPath('data.1.title', 'Basic Tutorial')
-            ->assertJsonPath('data.1.is_index', false);
+            ->assertJsonPath('data.1.title', 'Basic Tutorial');
     }
 
     public function test_validates_path_security()
