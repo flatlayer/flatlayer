@@ -43,19 +43,16 @@ class ShowController extends Controller
                     ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
-                        'is_index' => $entry->is_index,
                     ]),
                 'siblings' => $contentItem->siblings()
                     ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
-                        'is_index' => $entry->is_index,
                     ]),
                 'children' => $contentItem->children()
                     ->map(fn ($entry) => [
                         'title' => $entry->title,
                         'slug' => $entry->slug,
-                        'is_index' => $entry->is_index,
                     ]),
             ];
 

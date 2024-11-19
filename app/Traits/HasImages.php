@@ -4,8 +4,10 @@ namespace App\Traits;
 
 use App\Models\Image;
 use App\Services\ImageService;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Trait HasImages
@@ -15,6 +17,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 trait HasImages
 {
+    protected ?ImageService $imageService = null;
+
+    protected ?Filesystem $imageDisk = null;
+
     /**
      * Get all images associated with the model.
      */
@@ -24,11 +30,39 @@ trait HasImages
     }
 
     /**
+     * Set the disk to use for image operations.
+     */
+    public function useImageDisk(Filesystem|string $disk): self
+    {
+        $this->imageDisk = is_string($disk) ? Storage::disk($disk) : $disk;
+        return $this;
+    }
+
+    /**
+     * Get the disk being used for image operations.
+     */
+    protected function getImageDisk(): Filesystem
+    {
+        return $this->imageDisk ?? Storage::disk(config('flatlayer.images.disk', 'local'));
+    }
+
+    /**
+     * Get the image service instance.
+     */
+    protected function getImageService(): ImageService
+    {
+        if ($this->imageService === null) {
+            $this->imageService = new ImageService($this->getImageDisk());
+        }
+        return $this->imageService;
+    }
+
+    /**
      * Add an image to the model.
      */
     public function addImage(string $path, string $collectionName = 'default'): Image
     {
-        return app(ImageService::class)->addImageToModel($this, $path, $collectionName);
+        return $this->getImageService()->addImageToModel($this, $path, $collectionName);
     }
 
     /**
@@ -45,7 +79,6 @@ trait HasImages
     public function clearImageCollection(string $collectionName = 'default'): self
     {
         $this->images()->where('collection', $collectionName)->delete();
-
         return $this;
     }
 
@@ -54,14 +87,14 @@ trait HasImages
      */
     public function syncImages(array $paths, string $collectionName = 'default'): void
     {
-        app(ImageService::class)->syncImagesForEntry($this, $paths, $collectionName);
+        $this->getImageService()->syncImagesForEntry($this, $paths, $collectionName);
     }
 
     /**
      * Update an existing image or create a new one.
      */
-    public function updateOrCreateImage(string $fullPath, string $collectionName = 'default'): Image
+    public function updateOrCreateImage(string $path, string $collectionName = 'default'): Image
     {
-        return app(ImageService::class)->updateOrCreateImage($this, $fullPath, $collectionName);
+        return $this->getImageService()->updateOrCreateImage($this, $path, $collectionName);
     }
 }

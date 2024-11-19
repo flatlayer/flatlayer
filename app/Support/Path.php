@@ -13,14 +13,27 @@ class Path
      */
     public static function toSlug(string $path, bool $preserveExtension = false): string
     {
+        // Empty path handling
+        if (empty($path) || $path === '/' || $path === '.') {
+            return '';
+        }
+
+        // URL decode the path first to handle encoded traversal attempts
+        $path = urldecode($path);
+
         // Normalize path separators
         $path = str_replace('\\', '/', $path);
 
-        // Remove leading and trailing slashes first
-        $path = trim($path, '/');
-
         // Remove multiple consecutive slashes
         $path = preg_replace('#/+#', '/', $path);
+
+        // Security: Block path traversal attempts - now checked after normalization
+        if (preg_match('#(?:^|/)\.\.(?:/|$)|^\.\.?/?$#', $path)) {
+            return '';
+        }
+
+        // Remove leading and trailing slashes
+        $path = trim($path, '/');
 
         if (!$preserveExtension) {
             // Remove .md extension anywhere in the path
@@ -35,25 +48,33 @@ class Path
             return '';
         }
 
-        // Transliterate Unicode characters first
+        // Transliterate Unicode characters
         $path = transliterator_transliterate('Any-Latin; Latin-ASCII', $path);
 
-        // Handle special characters, but preserve dots except for the last one
+        // Handle segments individually
         $segments = explode('/', $path);
         $segments = array_map(function($segment) {
-            // Preserve dots except in special cases
-            if (preg_match('/^\.+$/', $segment)) {
-                return preg_replace('/[^a-zA-Z0-9_-]/', '-', $segment);
+            // Handle dot directory paths
+            if ($segment === '.' || empty($segment)) {
+                return '';
             }
-            // Handle other special characters but preserve dots
-            return preg_replace('/[^a-zA-Z0-9_.-]/', '-', $segment);
+
+            // Replace invalid characters with dashes
+            $segment = preg_replace('/[^a-zA-Z0-9_.-]/', '-', $segment);
+
+            // Collapse multiple dashes
+            $segment = preg_replace('/-+/', '-', $segment);
+
+            // Remove leading/trailing dashes
+            return trim($segment, '-');
         }, $segments);
-        $path = implode('/', $segments);
 
-        // Then collapse multiple dashes into one
-        $path = preg_replace('/-+/', '-', $path);
+        // Filter out empty segments and join
+        $segments = array_filter($segments, function($segment) {
+            return $segment !== '';
+        });
 
-        return $path;
+        return implode('/', $segments);
     }
 
     /**
@@ -96,8 +117,10 @@ class Path
         $ancestors = [];
         $currentPath = '';
         foreach ($parts as $segment) {
-            $currentPath = $currentPath ? "{$currentPath}/{$segment}" : $segment;
-            $ancestors[] = $currentPath;
+            if (!empty($segment)) {
+                $currentPath = $currentPath ? "{$currentPath}/{$segment}" : $segment;
+                $ancestors[] = $currentPath;
+            }
         }
 
         return $ancestors;

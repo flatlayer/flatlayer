@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Entry;
+use App\Support\Path;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitException;
 use CzProject\GitPhp\GitRepository;
@@ -197,7 +198,7 @@ class EntrySyncService
 
         foreach ($files as $relativePath => $file) {
             try {
-                $slug = Path($relativePath);
+                $slug = Path::toSlug($relativePath);
                 $processedSlugs[] = $slug;
 
                 // Process the file using the disk

@@ -23,15 +23,15 @@ class EntrySerializer
     public function __construct()
     {
         $this->defaultFields = [
-            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images', 'is_index',
+            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
         ];
 
         $this->defaultSummaryFields = [
-            'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images', 'is_index',
+            'id', 'type', 'title', 'slug', 'excerpt', 'published_at', 'tags', 'images',
         ];
 
         $this->defaultDetailFields = [
-            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images', 'is_index',
+            'id', 'type', 'title', 'slug', 'content', 'excerpt', 'published_at', 'meta', 'tags', 'images',
         ];
     }
 

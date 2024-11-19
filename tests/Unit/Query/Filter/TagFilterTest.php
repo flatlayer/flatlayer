@@ -13,9 +13,18 @@ class TagFilterTest extends TestCase
 
     public function test_filter_by_single_tag()
     {
-        $post1 = Entry::factory()->create(['type' => 'post']);
-        $post2 = Entry::factory()->create(['type' => 'post']);
-        $post3 = Entry::factory()->create(['type' => 'post']);
+        $post1 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-one'
+        ]);
+        $post2 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-two'
+        ]);
+        $post3 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-three'
+        ]);
 
         $post1->attachTag('red');
         $post2->attachTag('blue');
@@ -35,10 +44,22 @@ class TagFilterTest extends TestCase
 
     public function test_filter_by_multiple_tags()
     {
-        $post1 = Entry::factory()->create(['type' => 'post']);
-        $post2 = Entry::factory()->create(['type' => 'post']);
-        $post3 = Entry::factory()->create(['type' => 'post']);
-        $post4 = Entry::factory()->create(['type' => 'post']);
+        $post1 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-one'
+        ]);
+        $post2 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-two'
+        ]);
+        $post3 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-three'
+        ]);
+        $post4 = Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-four'
+        ]);
 
         $post1->attachTags(['red', 'big']);
         $post2->attachTags(['blue', 'small']);
@@ -60,8 +81,15 @@ class TagFilterTest extends TestCase
 
     public function test_filter_by_non_existent_tag()
     {
-        Entry::factory()->create(['type' => 'post'])->attachTag('red');
-        Entry::factory()->create(['type' => 'post'])->attachTag('blue');
+        Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-one'
+        ])->attachTag('red');
+
+        Entry::factory()->create([
+            'type' => 'post',
+            'slug' => 'post-two'
+        ])->attachTag('blue');
 
         $filters = ['$tags' => ['non_existent_tag']];
         $query = Entry::query();

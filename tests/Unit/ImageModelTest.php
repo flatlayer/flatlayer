@@ -5,122 +5,178 @@ namespace Tests\Unit;
 use App\Models\Entry;
 use App\Services\ImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use Tests\Traits\CreatesTestFiles;
 
 class ImageModelTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesTestFiles;
+
+    protected Entry $entry;
 
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        $this->setupTestFiles();
+
+        // Create a test entry and configure it to use our test disk
+        $this->entry = Entry::factory()->create(['type' => 'post']);
+        $this->entry->useImageDisk($this->disk);
+
+        // Create test images directory
+        $this->disk->makeDirectory('images');
     }
 
     public function test_add_image_to_entry()
     {
-        $entry = Entry::factory()->create(['type' => 'post']);
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $path = $file->store('test');
+        // Create a test image
+        $this->createImage('images/test.jpg', 100, 100);
 
-        $image = $entry->addImage(Storage::path($path));
+        // Add image to entry
+        $image = $this->entry->addImage('images/test.jpg');
 
+        // Verify database state
         $this->assertDatabaseHas('images', [
-            'entry_id' => $entry->id,
+            'entry_id' => $this->entry->id,
             'collection' => 'default',
+            'filename' => 'test.jpg',
         ]);
 
-        $this->assertEquals($entry->id, $image->entry_id);
+        // Verify image attributes
+        $this->assertEquals($this->entry->id, $image->entry_id);
         $this->assertEquals('default', $image->collection);
-        $this->assertNotNull($image->filename);
-        $this->assertNotNull($image->thumbhash);
         $this->assertEquals(['width' => 100, 'height' => 100], $image->dimensions);
+        $this->assertNotNull($image->thumbhash);
+        $this->assertIsString($image->thumbhash);
     }
 
     public function test_sync_images()
     {
-        $entry = Entry::factory()->create(['type' => 'post']);
-        $file1 = UploadedFile::fake()->image('test1.jpg', 100, 100);
-        $file2 = UploadedFile::fake()->image('test2.jpg', 200, 200);
-        $path1 = $file1->store('test');
-        $path2 = $file2->store('test');
+        // Create test images
+        $this->createImage('images/test1.jpg', 100, 100);
+        $this->createImage('images/test2.jpg', 200, 200);
+        $this->createImage('images/test3.jpg', 300, 300);
 
-        $image1 = $entry->addImage(Storage::path($path1));
-        $image2 = $entry->addImage(Storage::path($path2));
+        // Add initial images
+        $image1 = $this->entry->addImage('images/test1.jpg');
+        $image2 = $this->entry->addImage('images/test2.jpg');
 
-        $file3 = UploadedFile::fake()->image('test3.jpg', 300, 300);
-        $path3 = $file3->store('test');
+        // Sync with new set of images
+        $this->entry->syncImages(['images/test1.jpg', 'images/test3.jpg']);
 
-        // Update this line to use the correct method and parameters
-        $entry->syncImages([Storage::path($path1), Storage::path($path3)]);
-
+        // Verify database state
         $this->assertDatabaseHas('images', ['id' => $image1->id]);
         $this->assertDatabaseMissing('images', ['id' => $image2->id]);
         $this->assertDatabaseHas('images', [
-            'entry_id' => $entry->id,
-            'filename' => basename($path3),
+            'entry_id' => $this->entry->id,
+            'filename' => 'test3.jpg',
             'dimensions' => json_encode(['width' => 300, 'height' => 300]),
         ]);
     }
 
     public function test_update_or_create_image()
     {
-        $entry = Entry::factory()->create(['type' => 'post']);
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $path = $file->store('test');
-        $fullPath = Storage::path($path);
+        // Create initial test image
+        $this->createImage('images/test.jpg', 100, 100);
 
-        $image = $entry->updateOrCreateImage($fullPath);
+        // Create initial image record
+        $image = $this->entry->updateOrCreateImage('images/test.jpg');
+
+        // Verify initial state
         $this->assertDatabaseHas('images', [
-            'entry_id' => $entry->id,
+            'entry_id' => $this->entry->id,
             'dimensions' => json_encode(['width' => 100, 'height' => 100]),
-            'path' => $fullPath,
         ]);
+
         $originalDimensions = $image->dimensions;
 
-        $newFile = UploadedFile::fake()->image('test_new.jpg', 200, 200);
-        $newPath = $newFile->store('test');
-        Storage::delete($path);
-        Storage::move($newPath, $path);
+        // Replace with new image
+        $this->createImage('images/test.jpg', 200, 200);
 
-        $updatedImage = $entry->updateOrCreateImage($fullPath);
+        // Update the image
+        $updatedImage = $this->entry->updateOrCreateImage('images/test.jpg');
 
+        // Verify update results
         $this->assertEquals($image->id, $updatedImage->id);
         $this->assertNotEquals($originalDimensions, $updatedImage->dimensions);
         $this->assertEquals(['width' => 200, 'height' => 200], $updatedImage->dimensions);
         $this->assertNotNull($updatedImage->thumbhash);
         $this->assertIsString($updatedImage->thumbhash);
-
-        $this->assertEquals(1, $entry->images()->count());
+        $this->assertEquals(1, $this->entry->images()->count());
     }
 
-    public function test_get_file_info()
+    public function test_get_images_by_collection()
     {
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $path = $file->store('test');
+        // Create test images in different collections
+        $this->createImage('images/featured.jpg', 100, 100);
+        $this->createImage('images/gallery1.jpg', 200, 200);
+        $this->createImage('images/gallery2.jpg', 200, 200);
 
-        $service = app(ImageService::class);
-        $fileInfo = $service->getFileInfo(Storage::path($path));
+        // Add images to different collections
+        $this->entry->addImage('images/featured.jpg', 'featured');
+        $this->entry->addImage('images/gallery1.jpg', 'gallery');
+        $this->entry->addImage('images/gallery2.jpg', 'gallery');
 
-        $this->assertArrayHasKey('size', $fileInfo);
-        $this->assertArrayHasKey('mime_type', $fileInfo);
-        $this->assertArrayHasKey('dimensions', $fileInfo);
-        $this->assertArrayHasKey('thumbhash', $fileInfo);
-        $this->assertEquals(['width' => 100, 'height' => 100], $fileInfo['dimensions']);
-        $this->assertNotNull($fileInfo['thumbhash']);
+        // Test retrieving images by collection
+        $featuredImages = $this->entry->getImages('featured');
+        $galleryImages = $this->entry->getImages('gallery');
+
+        $this->assertCount(1, $featuredImages);
+        $this->assertCount(2, $galleryImages);
+        $this->assertEquals('featured.jpg', $featuredImages->first()->filename);
     }
 
-    public function test_generate_thumbhash()
+    public function test_clear_image_collection()
     {
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $path = $file->store('test');
+        // Create and add test images
+        $this->createImage('images/test1.jpg', 100, 100);
+        $this->createImage('images/test2.jpg', 100, 100);
 
-        $service = app(ImageService::class);
-        $thumbhash = $service->generateThumbhash(Storage::path($path));
+        $this->entry->addImage('images/test1.jpg', 'gallery');
+        $this->entry->addImage('images/test2.jpg', 'gallery');
 
-        $this->assertNotNull($thumbhash);
-        $this->assertIsString($thumbhash);
+        // Clear the collection
+        $this->entry->clearImageCollection('gallery');
+
+        $this->assertCount(0, $this->entry->getImages('gallery'));
+    }
+
+    public function test_get_image_service_uses_configured_disk()
+    {
+        $customDisk = Storage::fake('custom');
+        $this->entry->useImageDisk($customDisk);
+
+        $reflection = new \ReflectionClass($this->entry);
+        $method = $reflection->getMethod('getImageService');
+        $method->setAccessible(true);
+
+        /** @var ImageService $service */
+        $service = $method->invoke($this->entry);
+
+        $reflection = new \ReflectionClass($service);
+        $property = $reflection->getProperty('disk');
+        $property->setAccessible(true);
+
+        $this->assertSame($customDisk, $property->getValue($service));
+    }
+
+    public function test_use_image_disk_accepts_string()
+    {
+        Storage::fake('custom');
+        $this->entry->useImageDisk('custom');
+
+        $reflection = new \ReflectionClass($this->entry);
+        $method = $reflection->getMethod('getImageDisk');
+        $method->setAccessible(true);
+
+        $disk = $method->invoke($this->entry);
+        $this->assertSame(Storage::disk('custom'), $disk);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownTestFiles();
+        parent::tearDown();
     }
 }

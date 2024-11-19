@@ -132,21 +132,6 @@ class AdvancedQueryFilterTest extends TestCase
         $this->assertTrue($results->pluck('title')->contains('Introduction to Python'));
     }
 
-    public function test_index_file_filters()
-    {
-        $filters = [
-            'is_index' => true,
-        ];
-
-        $query = Entry::query();
-        $filtered = (new EntryFilter($query, $filters))->apply();
-        $results = $filtered->get();
-
-        $this->assertTrue($results->pluck('title')->contains('Programming Tutorials'));
-        $this->assertTrue($results->pluck('title')->contains('Python Programming'));
-        $this->assertTrue($results->pluck('title')->contains('Online Courses'));
-    }
-
     public function test_sibling_filters()
     {
         $filters = [

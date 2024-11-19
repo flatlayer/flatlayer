@@ -56,27 +56,60 @@ trait CreatesTestFiles
     }
 
     /**
-     * Format a value for YAML front matter.
+     * Format a value for YAML front matter with proper escaping and formatting.
      */
-    protected function formatYamlValue(mixed $value): string
+    protected static function formatYamlValue(mixed $value): string
     {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
         if (is_array($value)) {
             if (array_is_list($value)) {
-                return '['.implode(', ', array_map([$this, 'formatYamlValue'], $value)).']';
+                // Format sequential array
+                $items = array_map(fn ($item) => self::formatYamlValue($item), $value);
+                return "[" . \implode(", ", $items) . "]";
             }
-            $formatted = "{\n";
+
+            // Format associative array
+            $result = "\n";
             foreach ($value as $k => $v) {
-                $formatted .= "  {$k}: ".$this->formatYamlValue($v).",\n";
+                $indentedValue = str_replace("\n", "\n  ", self::formatYamlValue($v));
+                $result .= "  {$k}: {$indentedValue}\n";
+            }
+            return rtrim($result);
+        }
+
+        if (is_string($value)) {
+            // Handle multi-line strings
+            if (str_contains($value, "\n")) {
+                $escaped = str_replace('"', '\"', $value);
+                return "\"{$escaped}\"";
             }
 
-            return rtrim($formatted, ",\n")."\n}";
+            // Handle strings containing special characters
+            if (preg_match('/[:#\[\]{}%@&*!|<>=`\'"?,]/', $value)) {
+                $escaped = str_replace('"', '\"', $value);
+                return "\"{$escaped}\"";
+            }
+
+            // Handle strings containing spaces
+            if (str_contains($value, ' ')) {
+                return "\"{$value}\"";
+            }
+
+            return $value;
         }
 
-        if (is_string($value) && str_contains($value, ' ')) {
-            return '"'.$value.'"';
-        }
-
-        return (string) $value;
+        throw new \InvalidArgumentException("Unsupported YAML value type: " . gettype($value));
     }
 
     /**
@@ -84,7 +117,7 @@ trait CreatesTestFiles
      */
     protected function createMarkdownFile(
         string $relativePath,
-        array $frontMatter = [],
+        array|string $frontMatterOrContent,
         string $content = '',
         ?string $title = null,
         array $imagePaths = [],
@@ -104,7 +137,10 @@ trait CreatesTestFiles
             $this->createdDirectories->push($directory);
         }
 
-        $markdownContent = $this->generateMarkdownContent($frontMatter, $content, $title);
+        // If frontMatterOrContent is a string, treat it as complete content
+        $markdownContent = is_array($frontMatterOrContent)
+            ? $this->generateMarkdownContent($frontMatterOrContent, $content, $title)
+            : $frontMatterOrContent;
 
         if ($createImages && ! empty($imagePaths)) {
             $this->createImagesForMarkdown($directory, $imagePaths, $content);
@@ -439,8 +475,8 @@ MD);
         // Date handling cases
         $this->createDateHandlingCases();
 
-        // Complex meta cases
-        $this->createComplexMetaCases();
+        // Create files for complex metadata handling
+        $this->createMetaTestFiles();
 
         // Invalid cases
         $this->createInvalidCases();
@@ -483,45 +519,6 @@ MD);
     }
 
     /**
-     * Create complex meta test cases.
-     */
-    protected function createComplexMetaCases(): void
-    {
-        $this->disk->makeDirectory('meta');
-
-        // Special characters in meta
-        $this->createMarkdownFile(
-            'meta/special-chars.md',
-            [
-                'type' => 'post',
-                'meta' => [
-                    'quotes' => 'String with "quotes"',
-                    'multiline' => "Line 1\nLine 2",
-                    'symbols' => '$@#%',
-                ],
-            ],
-            'Content with special characters'
-        );
-
-        // Complex nested meta
-        $this->createMarkdownFile(
-            'meta/complex-meta.md',
-            [
-                'type' => 'post',
-                'meta' => [
-                    'level1' => [
-                        'level2' => [
-                            'level3' => 'deep value',
-                        ],
-                        'array' => [1, 2, 3],
-                    ],
-                ],
-            ],
-            'Testing complex metadata'
-        );
-    }
-
-    /**
      * Create invalid cases for error testing.
      */
     protected function createInvalidCases(): void
@@ -553,6 +550,42 @@ title: No Type
 ---
 Content
 MD);
+    }
+
+    /**
+     * Create meta test files for testing complex metadata handling.
+     */
+    protected function createMetaTestFiles(): void
+    {
+        $this->disk->makeDirectory('meta');
+
+        // Special characters test
+        $this->createMarkdownFile('meta/special-chars.md', <<<'MD'
+---
+type: post
+meta:
+  quotes: "String with \"quotes\""
+  multiline: |-
+    Line 1
+    Line 2
+  symbols: "$@#%"
+---
+Content with special characters
+MD
+        );
+
+        // Complex nested metadata test
+        $this->createMarkdownFile('meta/complex-meta.md', [
+            'type' => 'post',
+            'meta' => [
+                'level1' => [
+                    'level2' => [
+                        'level3' => 'deep value'
+                    ],
+                    'array' => [1, 2, 3]
+                ]
+            ]
+        ], 'Testing complex metadata');
     }
 
     /**

@@ -168,6 +168,11 @@ class Entry extends Model
         $this->attributes['slug'] = $normalized;
     }
 
+    public function getIsIndexAttribute()
+    {
+        return basename($this->filename) === 'index.md';
+    }
+
     /**
      * Find an entry by its type and slug.
      */

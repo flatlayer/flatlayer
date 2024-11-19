@@ -3,14 +3,12 @@
 namespace Tests\Unit\Support;
 
 use App\Support\Path;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PathTest extends TestCase
 {
-    /**
-     * @dataProvider slugifyPathProvider
-     */
-    public function test_to_slug_correctly_formats_paths(string $input, string $expected)
+    #[DataProvider('slugifyPathProvider')] public function test_to_slug_correctly_formats_paths(string $input, string $expected)
     {
         $result = Path::toSlug($input);
         $this->assertEquals($expected, $result);
@@ -47,10 +45,7 @@ class PathTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider isIndexProvider
-     */
-    public function test_is_index_correctly_identifies_index_files(string $path, bool $expected)
+    #[DataProvider('isIndexProvider')] public function test_is_index_correctly_identifies_index_files(string $path, bool $expected)
     {
         $result = Path::isIndex($path);
         $this->assertEquals($expected, $result);
@@ -69,10 +64,7 @@ class PathTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider parentPathProvider
-     */
-    public function test_parent_returns_correct_parent_path(string $path, string $expected)
+    #[DataProvider('parentPathProvider')] public function test_parent_returns_correct_parent_path(string $path, string $expected)
     {
         $result = Path::parent($path);
         $this->assertEquals($expected, $result);
@@ -92,10 +84,7 @@ class PathTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider ancestorPathsProvider
-     */
-    public function test_ancestors_returns_correct_ancestor_paths(string $path, array $expected)
+    #[DataProvider('ancestorPathsProvider')] public function test_ancestors_returns_correct_ancestor_paths(string $path, array $expected)
     {
         $result = Path::ancestors($path);
         $this->assertEquals($expected, $result);
@@ -131,10 +120,7 @@ class PathTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider siblingPathsProvider
-     */
-    public function test_siblings_returns_correct_sibling_paths(string $path, array $allPaths, array $expected)
+    #[DataProvider('siblingPathsProvider')] public function test_siblings_returns_correct_sibling_paths(string $path, array $allPaths, array $expected)
     {
         $result = Path::siblings($path, $allPaths);
         sort($result);
@@ -173,10 +159,7 @@ class PathTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider childrenPathsProvider
-     */
-    public function test_children_returns_correct_child_paths(string $path, array $allPaths, array $expected)
+    #[DataProvider('childrenPathsProvider')] public function test_children_returns_correct_child_paths(string $path, array $allPaths, array $expected)
     {
         $result = Path::children($path, $allPaths);
         sort($result);
