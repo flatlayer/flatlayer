@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Jobs\EntrySyncJob;
+use App\Services\EntrySyncService;
 use App\Services\SyncConfigurationService;
-use CzProject\GitPhp\Git;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -20,19 +20,23 @@ class GitHubWebhookFeatureTest extends TestCase
     use RefreshDatabase;
 
     protected MockInterface|SyncConfigurationService $syncConfigService;
-
+    protected MockInterface|EntrySyncService $syncService;
     protected array $logMessages = [];
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        Storage::fake('local');
+        // Create a test disk
+        Storage::fake('content');
 
         Config::set('flatlayer.github.webhook_secret', 'test_webhook_secret');
 
         $this->syncConfigService = Mockery::mock(SyncConfigurationService::class);
+        $this->syncService = Mockery::mock(EntrySyncService::class);
+
         $this->app->instance(SyncConfigurationService::class, $this->syncConfigService);
+        $this->app->instance(EntrySyncService::class, $this->syncService);
 
         Queue::fake();
 
@@ -43,12 +47,10 @@ class GitHubWebhookFeatureTest extends TestCase
 
     public function test_valid_webhook_request_triggers_sync()
     {
-        $tempDir = Storage::path('temp_posts');
-        mkdir($tempDir, 0755, true);
-
         $payload = ['repository' => ['name' => 'test-repo']];
         $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
+        // Set up expectations for config service
         $this->syncConfigService->shouldReceive('hasConfig')
             ->with('post')
             ->andReturn(true);
@@ -60,9 +62,10 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->syncConfigService->shouldReceive('getConfigAsArgs')
             ->with('post')
             ->andReturn([
-                '--path' => $tempDir,
-                '--pattern' => '*.md',
+                '--type' => 'post',
                 '--pull' => true,
+                '--skip' => true,
+                '--dispatch' => true,
             ]);
 
         $response = $this->postJson('/webhook/post', $payload, [
@@ -72,18 +75,13 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertStatus(202);
         $response->assertSee('Sync initiated');
 
-        // Verify that the correct job was pushed to the queue
-        Queue::assertPushed(EntrySyncJob::class, function ($job) use ($tempDir) {
+        Queue::assertPushed(EntrySyncJob::class, function ($job) {
             $config = $job->getJobConfig();
 
             return $config['type'] === 'post' &&
-                $config['path'] === $tempDir &&
-                $config['pattern'] === '*.md' &&
                 $config['shouldPull'] === true &&
                 $config['skipIfNoChanges'] === true;
         });
-
-        rmdir($tempDir);
     }
 
     public function test_invalid_signature_returns_403()
@@ -99,7 +97,7 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertSee('Invalid signature');
 
         Queue::assertNotPushed(EntrySyncJob::class);
-        $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages), 'Expected log message not found');
+        $this->assertTrue(in_array('Invalid GitHub webhook signature', $this->logMessages));
     }
 
     public function test_invalid_content_type_returns_400()
@@ -119,33 +117,38 @@ class GitHubWebhookFeatureTest extends TestCase
         $response->assertSee('Configuration for invalid-type not found');
 
         Queue::assertNotPushed(EntrySyncJob::class);
-        $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages), 'Expected log message not found');
+        $this->assertTrue(in_array('Configuration for invalid-type not found', $this->logMessages));
     }
 
     public function test_entry_sync_job_logs_correctly()
     {
-        $gitMock = Mockery::mock(Git::class);
-        $this->app->instance(Git::class, $gitMock);
+        // Configure sync service mock
+        $this->syncService->shouldReceive('sync')
+            ->once()
+            ->andReturn([
+                'files_processed' => 10,
+                'entries_updated' => 5,
+                'entries_created' => 3,
+                'entries_deleted' => 2,
+                'skipped' => false,
+            ]);
 
-        $repoMock = Mockery::mock('CzProject\GitPhp\GitRepository');
-        $gitMock->shouldReceive('open')->andReturn($repoMock);
-        $repoMock->shouldReceive('pull')->once();
-        $repoMock->shouldReceive('getLastCommitId->toString')->twice()->andReturn('old-hash', 'new-hash');
+        // Create and handle the job
+        $job = new EntrySyncJob(
+            type: 'post',
+            shouldPull: true,
+            skipIfNoChanges: true
+        );
 
-        $type = 'post';
-        $path = '/path/to/posts';
-        $pattern = '*.md';
+        $job->handle($this->syncService);
 
-        $job = new EntrySyncJob($path, $type, $pattern, true, true);
-        $job->handle($gitMock);
-
-        // Check for start and completion log messages
+        // Verify log messages
         $this->assertTrue(
-            in_array("Starting content sync for type: {$type}", $this->logMessages),
+            in_array('Starting EntrySyncJob for type: post', $this->logMessages),
             'Expected start log message not found'
         );
         $this->assertTrue(
-            in_array("Content sync completed for type: {$type}", $this->logMessages),
+            in_array('Sync completed for type: post', $this->logMessages),
             'Expected completion log message not found'
         );
     }
@@ -159,11 +162,12 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->syncConfigService->shouldReceive('getConfigAsArgs')
             ->with('post')
             ->andReturn([
-                '--path' => '/path/to/posts',
-                '--pattern' => '**/*.md',
+                '--type' => 'post',
+                '--pull' => true,
+                '--skip' => true,
+                '--dispatch' => true,
             ]);
 
-        // Simulate a sync error
         Artisan::shouldReceive('call')
             ->andThrow(new \Exception('Sync error'));
 
@@ -180,9 +184,6 @@ class GitHubWebhookFeatureTest extends TestCase
 
     public function test_webhook_handles_custom_pattern()
     {
-        $tempDir = Storage::path('temp_custom');
-        mkdir($tempDir, 0755, true);
-
         $payload = ['repository' => ['name' => 'test-repo']];
         $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
@@ -197,9 +198,10 @@ class GitHubWebhookFeatureTest extends TestCase
         $this->syncConfigService->shouldReceive('getConfigAsArgs')
             ->with('custom')
             ->andReturn([
-                '--path' => $tempDir,
-                '--pattern' => '*.custom',
+                '--type' => 'custom',
                 '--pull' => true,
+                '--skip' => true,
+                '--dispatch' => true,
             ]);
 
         $response = $this->postJson('/webhook/custom', $payload, [
@@ -211,10 +213,10 @@ class GitHubWebhookFeatureTest extends TestCase
         Queue::assertPushed(EntrySyncJob::class, function ($job) {
             $config = $job->getJobConfig();
 
-            return $config['type'] === 'custom' && $config['pattern'] === '*.custom';
+            return $config['type'] === 'custom' &&
+                $config['shouldPull'] === true &&
+                $config['skipIfNoChanges'] === true;
         });
-
-        rmdir($tempDir);
     }
 
     protected function tearDown(): void

@@ -4,12 +4,12 @@ namespace App\Jobs;
 
 use App\Services\EntrySyncService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class EntrySyncJob implements ShouldQueue
 {
@@ -29,16 +29,14 @@ class EntrySyncJob implements ShouldQueue
      * Create a new job instance.
      *
      * @param  string  $type  The type of content being synced
-     * @param  string|null  $path  Local path to the content repository
-     * @param  string|null  $pattern  The glob pattern for finding content files
+     * @param  Filesystem  $disk  The filesystem disk to use for syncing
      * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
      * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
      */
     public function __construct(
         protected string $type,
-        protected ?string $path = null,
-        protected ?string $pattern = null,
+        protected Filesystem $disk,
         protected bool $shouldPull = false,
         protected bool $skipIfNoChanges = false,
         protected ?string $webhookUrl = null
@@ -54,29 +52,10 @@ class EntrySyncJob implements ShouldQueue
         try {
             Log::info("Starting EntrySyncJob for type: {$this->type}");
 
-            // Create the disk if a path was provided
-            $disk = null;
-            if ($this->path) {
-                $diskName = "sync_{$this->type}_".md5($this->path);
-
-                // Configure the disk
-                config(["filesystems.disks.{$diskName}" => [
-                    'driver' => 'local',
-                    'root' => $this->path,
-                    'throw' => true,
-                ]]);
-
-                $disk = Storage::build([
-                    'driver' => 'local',
-                    'root' => $this->path,
-                    'throw' => true,
-                ]);
-            }
-
             // Perform the sync
             $result = $syncService->sync(
                 type: $this->type,
-                disk: $disk,
+                disk: $this->disk,
                 shouldPull: $this->shouldPull,
                 skipIfNoChanges: $this->skipIfNoChanges
             );
@@ -92,7 +71,6 @@ class EntrySyncJob implements ShouldQueue
             // If sync was skipped due to no changes, return early
             if ($result['skipped']) {
                 Log::info("Sync skipped for type {$this->type} - no changes detected");
-
                 return;
             }
 
@@ -161,8 +139,7 @@ class EntrySyncJob implements ShouldQueue
     {
         return [
             'type' => $this->type,
-            'path' => $this->path,
-            'pattern' => $this->pattern,
+            'disk' => 'filesystem',
             'shouldPull' => $this->shouldPull,
             'skipIfNoChanges' => $this->skipIfNoChanges,
             'webhookUrl' => $this->webhookUrl,

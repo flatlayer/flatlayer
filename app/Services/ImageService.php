@@ -20,7 +20,7 @@ use function Thumbhash\extract_size_and_pixels_with_imagick;
 class ImageService
 {
     public function __construct(
-        private readonly Filesystem $disk,
+        private readonly Filesystem   $disk,
         private readonly ImageManager $imageManager = new ImageManager(new Driver),
     ) {}
 

@@ -21,24 +21,40 @@ class EntrySyncService
     public function __construct(
         protected readonly Git $git,
         protected readonly FileDiscoveryService $fileDiscovery,
-        protected readonly RepositoryDiskManager $diskManager
+        protected readonly DiskResolver $diskResolver
     ) {}
 
     /**
      * Perform content synchronization.
      *
-     * @throws GitException|\RuntimeException
+     * @param  string  $type  Content type to sync
+     * @param  string|array|Filesystem|null  $disk  The disk to use:
+     *   - string: Name of an existing disk
+     *   - array: Configuration for Storage::build()
+     *   - Filesystem: Use directly
+     *   - null: Get using type
+     * @param  bool  $shouldPull  Whether to pull latest changes from Git
+     * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected
+     * @return array{
+     *     files_processed: int,
+     *     entries_updated: int,
+     *     entries_created: int,
+     *     entries_deleted: int,
+     *     skipped: bool
+     * }
+     *
+     * @throws GitException|\RuntimeException|\InvalidArgumentException
      */
     public function sync(
         string $type,
-        ?Filesystem $disk = null,
+        string|array|Filesystem|null $disk = null,
         bool $shouldPull = false,
         bool $skipIfNoChanges = false
     ): array {
         Log::info("Starting content sync for type: {$type}");
 
-        // Get the disk from the disk manager if none provided
-        $disk = $disk ?? $this->getDiskForType($type);
+        // Get the disk using the resolver
+        $disk = $this->diskResolver->resolve($disk, $type);
 
         // Handle Git operations if needed and disk is local
         $changesDetected = true;
@@ -58,20 +74,6 @@ class EntrySyncService
         }
 
         return $this->processContent($type, $disk);
-    }
-
-    /**
-     * Get disk for the given content type.
-     *
-     * @throws \RuntimeException if no repository is configured for the type
-     */
-    protected function getDiskForType(string $type): Filesystem
-    {
-        if (! $this->diskManager->hasRepository($type)) {
-            throw new \RuntimeException("No repository configured for type: {$type}");
-        }
-
-        return $this->diskManager->getDisk($type);
     }
 
     /**

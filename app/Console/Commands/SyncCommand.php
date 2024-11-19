@@ -3,26 +3,26 @@
 namespace App\Console\Commands;
 
 use App\Jobs\EntrySyncJob;
+use App\Services\DiskResolver;
 use App\Services\EntrySyncService;
-use App\Services\SyncConfigurationService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Config;
 
 class SyncCommand extends Command
 {
     protected $signature = 'flatlayer:sync
                             {--type= : Content type (required)}
-                            {--path= : Override the path to the content folder}
-                            {--pattern= : Override the glob pattern for finding content files}
+                            {--disk= : Optional disk name to use instead of configured repository}
                             {--pull : Pull latest changes from Git repository before syncing}
                             {--skip : Skip syncing if no changes are detected}
                             {--dispatch : Dispatch the job to the queue}
                             {--webhook= : URL of the webhook to trigger after sync}';
 
-    protected $description = 'Sync files from source folder to Entries, optionally pulling latest changes and triggering a webhook.';
+    protected $description = 'Sync files from source to Entries, optionally pulling latest changes and triggering a webhook.';
 
     public function __construct(
-        protected SyncConfigurationService $syncConfigService,
-        protected EntrySyncService $syncService
+        protected EntrySyncService $syncService,
+        protected DiskResolver $diskResolver,
     ) {
         parent::__construct();
     }
@@ -33,53 +33,63 @@ class SyncCommand extends Command
 
         if (! $type) {
             $this->error("The '--type' option is required.");
-
             return Command::FAILURE;
         }
 
-        $config = $this->syncConfigService->getConfig($type);
+        try {
+            // If disk is specified, use it directly
+            if ($diskName = $this->option('disk')) {
+                // Try to resolve the disk
+                try {
+                    $disk = $this->diskResolver->resolve($diskName, $type);
+                    $webhookUrl = $this->option('webhook');
+                    $shouldPull = $this->option('pull');
+                } catch (\InvalidArgumentException $e) {
+                    $this->error("Invalid disk specified: {$diskName}");
+                    return Command::FAILURE;
+                }
+            }
+            // Otherwise use repository configuration
+            else {
+                if (! Config::has("flatlayer.repositories.{$type}")) {
+                    $this->error("No repository configuration found for type: {$type}");
+                    return Command::FAILURE;
+                }
 
-        $path = $this->option('path') ?? $config['PATH'] ?? null;
-        $pattern = $this->option('pattern') ?? $config['PATTERN'] ?? '*.md';
-        $shouldPull = (bool) ($config['PULL'] ?? $this->option('pull') ?? false);
-        $skipIfNoChanges = $this->option('skip') ?? false;
-        $webhookUrl = $this->option('webhook') ?? $config['WEBHOOK'] ?? null;
+                $config = Config::get("flatlayer.repositories.{$type}");
+                $disk = $this->diskResolver->resolve($config['disk'], $type);
+                $shouldPull = $this->option('pull') ?? $config['pull'] ?? false;
+                $webhookUrl = $this->option('webhook') ?? $config['webhook_url'] ?? null;
+            }
 
-        if (! $path) {
-            $this->error("Path not provided in configuration or command line for type '{$type}'.");
+            $skipIfNoChanges = $this->option('skip') ?? false;
 
+            $job = new EntrySyncJob(
+                type: $type,
+                disk: $disk,
+                shouldPull: $shouldPull,
+                skipIfNoChanges: $skipIfNoChanges,
+                webhookUrl: $webhookUrl
+            );
+
+            if ($this->option('dispatch')) {
+                dispatch($job);
+                $this->info("EntrySyncJob for type '{$type}' has been dispatched to the queue.");
+            } else {
+                $job->handle($this->syncService);
+                $this->info("EntrySyncJob for type '{$type}' completed successfully.");
+            }
+
+            if ($webhookUrl) {
+                $this->info("Webhook URL set: {$webhookUrl}");
+            }
+
+            return Command::SUCCESS;
+
+        } catch (\Exception $e) {
+            $this->error("Error running sync: {$e->getMessage()}");
+            $this->error($e->getTraceAsString());
             return Command::FAILURE;
         }
-
-        $fullPath = realpath($path);
-
-        if (! $fullPath || ! is_dir($fullPath)) {
-            $this->error("The provided path '{$path}' does not exist or is not a directory.");
-
-            return Command::FAILURE;
-        }
-
-        $job = new EntrySyncJob(
-            type: $type,
-            path: $fullPath,
-            pattern: $pattern,
-            shouldPull: $shouldPull,
-            skipIfNoChanges: $skipIfNoChanges,
-            webhookUrl: $webhookUrl
-        );
-
-        if ($this->option('dispatch')) {
-            dispatch($job);
-            $this->info("EntrySyncJob for type '{$type}' has been dispatched to the queue.");
-        } else {
-            $job->handle($this->syncService);
-            $this->info("EntrySyncJob for type '{$type}' completed successfully.");
-        }
-
-        if ($webhookUrl) {
-            $this->info("Webhook URL set: {$webhookUrl}");
-        }
-
-        return Command::SUCCESS;
     }
 }

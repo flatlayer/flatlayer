@@ -3,9 +3,9 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
+use App\Services\DiskResolver;
 use App\Services\EntrySyncService;
 use App\Services\FileDiscoveryService;
-use App\Services\RepositoryDiskManager;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,13 +20,9 @@ class EntrySyncServiceTest extends TestCase
     use CreatesTestFiles, RefreshDatabase;
 
     protected EntrySyncService $service;
-
     protected $git;
-
     protected $gitRepo;
-
-    protected $diskManager;
-
+    protected $diskResolver;
     protected array $logMessages = [];
 
     protected function setUp(): void
@@ -38,14 +34,17 @@ class EntrySyncServiceTest extends TestCase
         $this->git = Mockery::mock(Git::class);
         $this->gitRepo = Mockery::mock(GitRepository::class);
 
-        // Mock disk manager
-        $this->diskManager = Mockery::mock(RepositoryDiskManager::class);
+        // Mock DiskResolver
+        $this->diskResolver = Mockery::mock(DiskResolver::class);
+        $this->diskResolver->shouldReceive('resolve')
+            ->byDefault()
+            ->andReturn($this->disk);
 
         // Create the service with mocked dependencies
         $this->service = new EntrySyncService(
             $this->git,
             new FileDiscoveryService,
-            $this->diskManager
+            $this->diskResolver
         );
 
         // Capture log messages
@@ -73,15 +72,6 @@ class EntrySyncServiceTest extends TestCase
             'type' => 'post',
         ], 'Test content 2');
 
-        // Configure disk manager mock
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('post')
-            ->andReturn(true);
-
-        $this->diskManager->shouldReceive('getDisk')
-            ->with('post')
-            ->andReturn($this->disk);
-
         // Perform sync
         $result = $this->service->sync('post', $this->disk);
 
@@ -105,15 +95,6 @@ class EntrySyncServiceTest extends TestCase
 
     public function test_sync_updates_existing_entries()
     {
-        // Configure disk manager mock
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('post')
-            ->andReturn(true);
-
-        $this->diskManager->shouldReceive('getDisk')
-            ->with('post')
-            ->andReturn($this->disk);
-
         // Create initial file and sync
         $this->createMarkdownFile('test1.md', [
             'title' => 'Original Title',
@@ -186,15 +167,6 @@ class EntrySyncServiceTest extends TestCase
             'type' => 'post',
         ], 'Content to keep');
 
-        // Configure disk manager mock
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('post')
-            ->andReturn(true);
-
-        $this->diskManager->shouldReceive('getDisk')
-            ->with('post')
-            ->andReturn($this->disk);
-
         // Perform sync
         $result = $this->service->sync('post', $this->disk);
 
@@ -211,19 +183,10 @@ class EntrySyncServiceTest extends TestCase
 
     public function test_sync_with_git_pull()
     {
-        // Configure disk manager mock - only needed for initial disk retrieval
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('post')
-            ->andReturn(true);
-
-        $this->diskManager->shouldReceive('getDisk')
-            ->with('post')
-            ->andReturn($this->disk);
-
         // Configure Git mocks
         $this->git->shouldReceive('open')
             ->once()
-            ->with($this->disk->path(''))  // Now using disk->path() instead of config
+            ->with($this->disk->path(''))
             ->andReturn($this->gitRepo);
 
         $this->gitRepo->shouldReceive('setIdentity')
@@ -239,8 +202,8 @@ class EntrySyncServiceTest extends TestCase
 
         $this->gitRepo->shouldReceive('pull')
             ->once()
-            ->with(['timeout' => 60])  // Updated to pass timeout as option
-            ->andReturn(null);  // pull() doesn't return anything
+            ->with(['timeout' => 60])
+            ->andReturn(null);
 
         $this->gitRepo->shouldReceive('getLastCommitId->toString')
             ->twice()
@@ -264,22 +227,10 @@ class EntrySyncServiceTest extends TestCase
         $this->assertContains('Git authentication configured using token for user: test-user', $this->logMessages);
         $this->assertContains('Pull completed successfully', $this->logMessages);
         $this->assertContains('Changes detected during pull', $this->logMessages);
-
-        // Verify Git operations were performed in correct order
-        Mockery::getContainer()->mockery_verify();
     }
 
     public function test_sync_skips_when_no_changes()
     {
-        // Configure disk manager mock - only needed for initial disk retrieval
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('post')
-            ->andReturn(true);
-
-        $this->diskManager->shouldReceive('getDisk')
-            ->with('post')
-            ->andReturn($this->disk);
-
         // Configure Git mocks to return same hash (no changes)
         $this->git->shouldReceive('open')
             ->once()
@@ -319,18 +270,16 @@ class EntrySyncServiceTest extends TestCase
         // Verify log messages
         $this->assertContains('No changes detected during pull', $this->logMessages);
         $this->assertContains('No changes detected and skipIfNoChanges is true. Skipping sync.', $this->logMessages);
-
-        // Verify Git operations were performed in correct order
-        Mockery::getContainer()->mockery_verify();
     }
 
     public function test_sync_throws_exception_for_unconfigured_type()
     {
-        $this->diskManager->shouldReceive('hasRepository')
-            ->with('invalid')
-            ->andReturn(false);
+        $this->diskResolver->shouldReceive('resolve')
+            ->once()
+            ->with(null, 'invalid')
+            ->andThrow(new \InvalidArgumentException('No repository configured for type: invalid'));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('No repository configured for type: invalid');
 
         $this->service->sync('invalid');
