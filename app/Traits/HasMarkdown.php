@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Services\ImageService;
 use App\Services\MarkdownProcessingService;
+use App\Support\Path;
 use Carbon\Carbon;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -11,8 +12,6 @@ use Intervention\Image\ImageManager;
 
 trait HasMarkdown
 {
-    use GeneratesContentSlugs;
-
     protected MarkdownProcessingService $markdownContentService;
 
     protected ?array $pendingTags = null;
@@ -48,7 +47,7 @@ trait HasMarkdown
         $model->initializeMarkdownModel($disk);
 
         // Generate slug from the relative path
-        $model->slug = static::generateSlug($relativePath);
+        $model->slug = Path::toSlug($relativePath);
 
         // Process the markdown content
         $processedData = $model->markdownContentService->processMarkdownFile(
@@ -97,7 +96,7 @@ trait HasMarkdown
         string $type = 'post',
         bool $autoSave = false
     ): self {
-        $slug = static::generateSlug($relativePath);
+        $slug = Path::toSlug($relativePath);
 
         // Find existing or create new
         $model = static::firstOrNew(

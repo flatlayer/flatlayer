@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Query\EntrySerializer;
 use App\Rules\ValidPath;
-use App\Traits\GeneratesContentSlugs;
+use App\Support\Path;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
 use App\Traits\HasTags;
@@ -18,7 +18,7 @@ use Pgvector\Laravel\Vector;
 
 class Entry extends Model
 {
-    use GeneratesContentSlugs, HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
+    use HasFactory, HasImages, HasMarkdown, HasTags, Searchable;
 
     protected $fillable = [
         'type',
@@ -28,15 +28,13 @@ class Entry extends Model
         'excerpt',
         'meta',
         'published_at',
-        'filename',
-        'is_index',
+        'filename'
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'meta' => 'array',
         'embedding' => Vector::class,
-        'is_index' => 'boolean',
     ];
 
     /**
@@ -63,20 +61,7 @@ class Entry extends Model
      */
     public function ancestors(): Collection
     {
-        if ($this->slug === '') {
-            return collect();
-        }
-
-        // Get all parent paths up to the root
-        $segments = explode('/', $this->slug);
-        array_pop($segments); // Remove current segment
-
-        $ancestorPaths = [];
-        $currentPath = '';
-        foreach ($segments as $segment) {
-            $currentPath = $currentPath ? "{$currentPath}/{$segment}" : $segment;
-            $ancestorPaths[] = $currentPath;
-        }
+        $ancestorPaths = Path::ancestors($this->slug);
 
         if (empty($ancestorPaths)) {
             return collect();
@@ -93,12 +78,9 @@ class Entry extends Model
      */
     public function parent(): ?self
     {
-        if ($this->slug === '') {
-            return null;
-        }
+        $parentPath = Path::parent($this->slug);
 
-        $parentPath = dirname($this->slug);
-        if ($parentPath === '.') {
+        if (empty($parentPath)) {
             return null;
         }
 
@@ -112,14 +94,11 @@ class Entry extends Model
      */
     public function children(): Collection
     {
-        $prefix = $this->slug === '' ? '' : $this->slug.'/';
+        $allSlugs = static::where('type', $this->type)->pluck('slug')->all();
+        $childPaths = Path::children($this->slug, $allSlugs);
 
         $entries = static::where('type', $this->type)
-            ->where('slug', 'like', $prefix.'%')
-            ->where(function ($query) use ($prefix) {
-                $query->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix]);
-            })
-            ->where('slug', '!=', $this->slug)
+            ->whereIn('slug', $childPaths)
             ->get();
 
         return $this->orderEntriesNaturally($entries);
@@ -130,15 +109,14 @@ class Entry extends Model
      */
     public function descendants(): Collection
     {
-        if ($this->slug === '') {
-            $entries = static::where('type', $this->type)
-                ->where('slug', '!=', '')
-                ->get();
-        } else {
-            $entries = static::where('type', $this->type)
-                ->where('slug', 'like', $this->slug.'/%')
-                ->get();
-        }
+        $prefix = $this->slug === '' ? '' : $this->slug.'/';
+
+        $entries = static::where('type', $this->type)
+            ->where('slug', '!=', '')
+            ->when($this->slug !== '', function ($query) use ($prefix) {
+                $query->where('slug', 'like', $prefix.'%');
+            })
+            ->get();
 
         return $this->orderEntriesNaturally($entries);
     }
@@ -148,25 +126,11 @@ class Entry extends Model
      */
     public function siblings(): Collection
     {
-        if ($this->slug === '') {
-            return static::where('type', $this->type)
-                ->where('slug', 'not like', '%/%')
-                ->where('slug', '!=', '')
-                ->get();
-        }
-
-        $parentPath = dirname($this->slug);
-        if ($parentPath === '.') {
-            $parentPath = '';
-        }
-
-        $prefix = $parentPath === '' ? '' : $parentPath.'/';
+        $allSlugs = static::where('type', $this->type)->pluck('slug')->all();
+        $siblingPaths = Path::siblings($this->slug, $allSlugs);
 
         $entries = static::where('type', $this->type)
-            ->where('slug', '!=', $this->slug)  // Not the current entry
-            ->where('slug', '!=', $parentPath)  // Not the parent
-            ->where('slug', 'like', $prefix.'%')  // In the same directory
-            ->whereRaw('replace(slug, ?, "") not like "%/%"', [$prefix])  // Not in subdirectories
+            ->whereIn('slug', $siblingPaths)
             ->get();
 
         return $this->orderEntriesNaturally($entries);
@@ -185,12 +149,12 @@ class Entry extends Model
      */
     public function setSlugAttribute(string $value): void
     {
-        // First normalize the path
-        $normalized = $this->generateSlug($value);
+        // Use Path::toSlug() for normalization
+        $normalized = Path::toSlug($value);
 
         // Validate the normalized path
         $validator = Validator::make(
-            ['slug' => $normalized],  // Validate the normalized value
+            ['slug' => $normalized],
             ['slug' => [
                 'nullable',
                 new ValidPath,
@@ -210,7 +174,7 @@ class Entry extends Model
     public static function findByTypeAndSlug(string $type, string $slug): self
     {
         return static::where('type', $type)
-            ->where('slug', $slug)
+            ->where('slug', Path::toSlug($slug))
             ->firstOrFail();
     }
 

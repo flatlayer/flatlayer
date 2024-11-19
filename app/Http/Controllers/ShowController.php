@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ShowRequest;
 use App\Models\Entry;
 use App\Query\EntrySerializer;
+use App\Support\Path;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 
@@ -19,8 +20,8 @@ class ShowController extends Controller
      */
     public function show(ShowRequest $request, string $type, string $slug): JsonResponse
     {
-        // Clean the slug
-        $slug = trim($slug, '/');
+        // Normalize the slug using Path class
+        $slug = Path::toSlug($slug);
 
         // Handle potential index redirects
         if (! Str::endsWith($slug, '/index')) {

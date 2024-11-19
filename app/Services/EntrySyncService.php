@@ -197,7 +197,7 @@ class EntrySyncService
 
         foreach ($files as $relativePath => $file) {
             try {
-                $slug = $this->fileDiscovery->generateSlug($relativePath);
+                $slug = Path($relativePath);
                 $processedSlugs[] = $slug;
 
                 // Process the file using the disk

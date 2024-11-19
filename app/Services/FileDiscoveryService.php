@@ -2,15 +2,13 @@
 
 namespace App\Services;
 
-use App\Traits\GeneratesContentSlugs;
+use App\Support\Path;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class FileDiscoveryService
 {
-    use GeneratesContentSlugs;
-
     /**
      * Find all Markdown files in a disk, sorted by depth.
      * When a slug conflict occurs between a single file and an index file
@@ -33,7 +31,7 @@ class FileDiscoveryService
 
         foreach ($files as $path) {
             $relativePath = $this->normalizePath($path);
-            $slug = $this->generateSlug($relativePath);
+            $slug = Path::toSlug($relativePath);
 
             // If we've already seen this slug, we have a conflict
             if (isset($seenSlugs[$slug])) {
@@ -119,7 +117,7 @@ class FileDiscoveryService
      */
     public function getParentSlug(string $relativePath): ?string
     {
-        $slug = $this->generateSlug($relativePath);
+        $slug = Path::toSlug($relativePath);
 
         if ($slug === '') {
             return null;
@@ -137,7 +135,7 @@ class FileDiscoveryService
      */
     public function getAncestorSlugs(string $relativePath): array
     {
-        $slug = $this->generateSlug($relativePath);
+        $slug = Path::toSlug($relativePath);
 
         if (empty($slug)) {
             return [];
