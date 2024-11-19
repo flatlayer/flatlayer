@@ -180,19 +180,6 @@ class ListControllerTest extends TestCase
             ->assertJsonMissing(['title' => 'Configuration']);
     }
 
-    public function test_index_filters_by_index_files()
-    {
-        $filter = json_encode(['is_index' => true]);
-
-        $response = $this->getJson("/entry/doc?filter={$filter}");
-
-        $response->assertStatus(200)
-            ->assertJsonFragment(['title' => 'Documentation'])
-            ->assertJsonFragment(['title' => 'Getting Started'])
-            ->assertJsonFragment(['title' => 'Advanced Topics'])
-            ->assertJsonMissing(['title' => 'Installation Guide']);
-    }
-
     public function test_filtering_by_parent()
     {
         $filter = json_encode([

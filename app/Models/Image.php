@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Class Image
@@ -45,11 +45,11 @@ class Image extends Model
     ];
 
     /**
-     * Get the parent model (polymorphic).
+     * Get the parent entry
      */
-    public function model(): MorphTo
+    public function entry(): BelongsTo
     {
-        return $this->morphTo();
+        return $this->belongsTo(Entry::class);
     }
 
     /**

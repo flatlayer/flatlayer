@@ -5,26 +5,32 @@ namespace App\Http\Controllers;
 use App\Exceptions\ImageDimensionException;
 use App\Http\Requests\ImageTransformRequest;
 use App\Models\Image;
+use App\Services\DiskResolver;
 use App\Services\ImageTransformationService;
 use Illuminate\Http\JsonResponse;
 
 class ImageTransformController extends Controller
 {
     public function __construct(
-        protected ImageTransformationService $imageService
+        protected DiskResolver $diskResolver
     ) {}
 
     public function transform(ImageTransformRequest $request, int $id, string $extension)
     {
-        $media = Image::findOrFail($id);
+        $image = Image::with('entry')->findOrFail($id);
+        $entry = $image->entry;
+
+        // Resolve the disk based on entry type
+        $disk = $this->diskResolver->resolve(null, $entry->type);
+        $service = new ImageTransformationService($disk);
 
         try {
             $transform = $request->validated();
             $transform['fm'] = $extension;
 
-            $transformedImage = $this->imageService->transformImage($media->path, $transform);
+            $transformedImage = $service->transformImage($image->path, $transform);
 
-            return $this->imageService->createImageResponse($transformedImage, $extension);
+            return $service->createImageResponse($transformedImage, $extension);
         } catch (ImageDimensionException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
         } catch (\Exception $e) {
@@ -34,7 +40,7 @@ class ImageTransformController extends Controller
 
     public function metadata(int $id): JsonResponse
     {
-        $image = Image::findOrFail($id);
+        $image = Image::with('entry')->findOrFail($id);
 
         return new JsonResponse([
             'width' => $image->dimensions['width'],
