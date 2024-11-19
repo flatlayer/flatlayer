@@ -24,19 +24,10 @@ class DiskResolver
     public function resolve(string|array|Filesystem|null $disk, string $type): Filesystem
     {
         return match (true) {
-            // If already a Filesystem instance, return it directly
             $disk instanceof Filesystem => $disk,
-
-            // If string, treat as disk name
             is_string($disk) => $this->resolveFromString($disk),
-
-            // If array, treat as build configuration
             is_array($disk) => $this->resolveFromArray($disk),
-
-            // If null, get from repository configuration
             $disk === null => $this->resolveFromType($type),
-
-            // Should never reach this due to type hint, but good practice
             default => throw new InvalidArgumentException('Invalid disk specification'),
         };
     }
@@ -46,19 +37,17 @@ class DiskResolver
      */
     protected function resolveFromString(string $name): Filesystem
     {
-        $fullName = $name;
-        if (! str_contains($name, '.')) {
-            $fullName = "content.{$name}";
-        }
+        try {
+            $fullName = ! str_contains($name, '.') ? "content.{$name}" : $name;
 
-        if (! Config::has("filesystems.disks.{$fullName}")) {
-            if (! Config::has("filesystems.disks.{$name}")) {
+            return Storage::disk($fullName);
+        } catch (\Exception) {
+            try {
+                return Storage::disk($name);
+            } catch (\Exception) {
                 throw new InvalidArgumentException("Disk '{$name}' is not configured");
             }
-            $fullName = $name;
         }
-
-        return Storage::disk($fullName);
     }
 
     /**
@@ -84,6 +73,6 @@ class DiskResolver
 
         $diskName = Config::get("flatlayer.repositories.{$type}.disk");
 
-        return Storage::disk($diskName);
+        return $this->resolveFromString($diskName);
     }
 }

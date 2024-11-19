@@ -44,7 +44,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
 
             // Add to flatlayer config
             Config::set("flatlayer.repositories.{$type}", [
-                'disk' => $type,
+                'disk' => 'content.'.$type,
                 'webhook_url' => $config['webhook_url'] ?? null,
                 'pull' => $config['pull'] ?? false,
             ]);
