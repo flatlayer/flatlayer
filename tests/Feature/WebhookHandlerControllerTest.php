@@ -6,6 +6,7 @@ use App\Jobs\EntrySyncJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class WebhookHandlerControllerTest extends TestCase
@@ -17,8 +18,16 @@ class WebhookHandlerControllerTest extends TestCase
         parent::setUp();
         Queue::fake();
 
+        Storage::fake('content.docs');
+
         // Set webhook secret for testing
         Config::set('flatlayer.github.webhook_secret', 'test_webhook_secret');
+
+        Config::set('flatlayer.repositories.docs', [
+            'disk' => 'content.docs',
+            'webhook_url' => 'https://example.com/webhook',
+            'pull' => true,
+        ]);
     }
 
     public function test_webhook_requires_valid_signature()
@@ -105,7 +114,10 @@ class WebhookHandlerControllerTest extends TestCase
     {
         $payload = ['repository' => ['name' => 'test-repo']];
 
-        $response = $this->postJson('/webhook/docs', $payload);
+        $response = $this->postJson('/webhook/docs', $payload, [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
 
         $response->assertStatus(403)
             ->assertSeeText('Invalid signature');
@@ -113,13 +125,13 @@ class WebhookHandlerControllerTest extends TestCase
 
     public function test_webhook_handles_malformed_json_payload()
     {
-        $payload = 'invalid json';
+        $payload = ['invalid' => null];
         $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->withHeaders([
+            'Content-Type' => 'text/plain',
             'X-Hub-Signature-256' => $signature,
-            'Content-Type' => 'application/json',
-        ]);
+        ])->post('/webhook/docs', ['invalid']);
 
         $response->assertStatus(400);
     }

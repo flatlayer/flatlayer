@@ -21,7 +21,13 @@ class WebhookHandlerController extends Controller
                 return response()->json(['error' => 'Repository not found'], 404);
             }
 
-            if (! $this->validateRequest($request)) {
+            // Check for presence of webhook signature header before validating JSON
+            if (! $request->hasHeader('X-Hub-Signature-256')) {
+                return response()->json(['error' => 'Invalid signature'], 403);
+            }
+
+            // Validate request format
+            if (! $request->isJson()) {
                 return response()->json(['error' => 'Invalid request format'], 400);
             }
 
@@ -54,22 +60,6 @@ class WebhookHandlerController extends Controller
                 'error' => 'Error executing sync: '.$e->getMessage(),
             ], 500);
         }
-    }
-
-    /**
-     * Validate the incoming webhook request format.
-     */
-    private function validateRequest(Request $request): bool
-    {
-        if (! $request->isJson()) {
-            return false;
-        }
-
-        if (! $request->hasHeader('X-Hub-Signature-256')) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
