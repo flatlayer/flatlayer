@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Jobs\EntrySyncJob;
+use App\Services\EntrySyncService;
 use App\Services\SyncConfigurationService;
-use CzProject\GitPhp\Git;
 use Illuminate\Console\Command;
 
 class SyncCommand extends Command
@@ -20,12 +20,11 @@ class SyncCommand extends Command
 
     protected $description = 'Sync files from source folder to Entries, optionally pulling latest changes and triggering a webhook.';
 
-    protected SyncConfigurationService $syncConfigService;
-
-    public function __construct(SyncConfigurationService $syncConfigService)
-    {
+    public function __construct(
+        protected SyncConfigurationService $syncConfigService,
+        protected EntrySyncService $syncService
+    ) {
         parent::__construct();
-        $this->syncConfigService = $syncConfigService;
     }
 
     public function handle()
@@ -61,8 +60,8 @@ class SyncCommand extends Command
         }
 
         $job = new EntrySyncJob(
-            path: $fullPath,
             type: $type,
+            path: $fullPath,
             pattern: $pattern,
             shouldPull: $shouldPull,
             skipIfNoChanges: $skipIfNoChanges,
@@ -73,7 +72,7 @@ class SyncCommand extends Command
             dispatch($job);
             $this->info("EntrySyncJob for type '{$type}' has been dispatched to the queue.");
         } else {
-            $job->handle(app(Git::class));
+            $job->handle($this->syncService);
             $this->info("EntrySyncJob for type '{$type}' completed successfully.");
         }
 
