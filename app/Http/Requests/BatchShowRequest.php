@@ -38,6 +38,7 @@ class BatchShowRequest extends FormRequest
                         $sanitized = Path::toSlug($slug);
                         if ($sanitized !== $slug) {
                             $fail('Invalid path format.');
+
                             return;
                         }
                     }

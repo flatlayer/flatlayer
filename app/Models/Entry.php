@@ -28,7 +28,7 @@ class Entry extends Model
         'excerpt',
         'meta',
         'published_at',
-        'filename'
+        'filename',
     ];
 
     protected $casts = [

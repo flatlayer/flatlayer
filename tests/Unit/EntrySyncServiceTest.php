@@ -11,19 +11,22 @@ use CzProject\GitPhp\GitRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
 class EntrySyncServiceTest extends TestCase
 {
-    use RefreshDatabase, CreatesTestFiles;
+    use CreatesTestFiles, RefreshDatabase;
 
     protected EntrySyncService $service;
+
     protected $git;
+
     protected $gitRepo;
+
     protected $diskManager;
+
     protected array $logMessages = [];
 
     protected function setUp(): void
@@ -41,7 +44,7 @@ class EntrySyncServiceTest extends TestCase
         // Create the service with mocked dependencies
         $this->service = new EntrySyncService(
             $this->git,
-            new FileDiscoveryService(),
+            new FileDiscoveryService,
             $this->diskManager
         );
 
@@ -62,12 +65,12 @@ class EntrySyncServiceTest extends TestCase
         // Set up test files
         $this->createMarkdownFile('test1.md', [
             'title' => 'Test Post 1',
-            'type' => 'post'
+            'type' => 'post',
         ], 'Test content 1');
 
         $this->createMarkdownFile('test2.md', [
             'title' => 'Test Post 2',
-            'type' => 'post'
+            'type' => 'post',
         ], 'Test content 2');
 
         // Configure disk manager mock
@@ -92,11 +95,11 @@ class EntrySyncServiceTest extends TestCase
         // Verify database state
         $this->assertDatabaseHas('entries', [
             'title' => 'Test Post 1',
-            'type' => 'post'
+            'type' => 'post',
         ]);
         $this->assertDatabaseHas('entries', [
             'title' => 'Test Post 2',
-            'type' => 'post'
+            'type' => 'post',
         ]);
     }
 
@@ -115,7 +118,7 @@ class EntrySyncServiceTest extends TestCase
         $this->createMarkdownFile('test1.md', [
             'title' => 'Original Title',
             'type' => 'post',
-            'meta' => ['version' => '1.0']
+            'meta' => ['version' => '1.0'],
         ], 'Original content');
 
         $firstSyncResult = $this->service->sync('post', $this->disk);
@@ -136,7 +139,7 @@ class EntrySyncServiceTest extends TestCase
         $this->createMarkdownFile('test1.md', [
             'title' => 'Updated Title',
             'type' => 'post',
-            'meta' => ['version' => '2.0']
+            'meta' => ['version' => '2.0'],
         ], 'Updated content');
 
         // Perform second sync
@@ -180,7 +183,7 @@ class EntrySyncServiceTest extends TestCase
         // Create file only for the entry to keep
         $this->createMarkdownFile('test1.md', [
             'title' => 'Post to Keep',
-            'type' => 'post'
+            'type' => 'post',
         ], 'Content to keep');
 
         // Configure disk manager mock
@@ -246,7 +249,7 @@ class EntrySyncServiceTest extends TestCase
         // Create test file
         $this->createMarkdownFile('test1.md', [
             'title' => 'Test Post',
-            'type' => 'post'
+            'type' => 'post',
         ], 'Test content');
 
         // Perform sync with pull

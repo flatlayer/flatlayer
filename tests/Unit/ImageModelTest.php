@@ -11,7 +11,7 @@ use Tests\Traits\CreatesTestFiles;
 
 class ImageModelTest extends TestCase
 {
-    use RefreshDatabase, CreatesTestFiles;
+    use CreatesTestFiles, RefreshDatabase;
 
     protected Entry $entry;
 

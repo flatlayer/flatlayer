@@ -44,8 +44,9 @@ class EntrySyncService
         $changesDetected = true;
         if ($shouldPull && $this->isLocalDisk($disk)) {
             $changesDetected = $this->handleGitPull($disk);
-            if (!$changesDetected && $skipIfNoChanges) {
+            if (! $changesDetected && $skipIfNoChanges) {
                 Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
+
                 return [
                     'files_processed' => 0,
                     'entries_updated' => 0,
@@ -66,7 +67,7 @@ class EntrySyncService
      */
     protected function getDiskForType(string $type): Filesystem
     {
-        if (!$this->diskManager->hasRepository($type)) {
+        if (! $this->diskManager->hasRepository($type)) {
             throw new \RuntimeException("No repository configured for type: {$type}");
         }
 
@@ -80,6 +81,7 @@ class EntrySyncService
     {
         try {
             $root = $disk->path('');
+
             return file_exists($root) && is_dir($root);
         } catch (\Exception $e) {
             return false;
@@ -90,6 +92,7 @@ class EntrySyncService
      * Handle Git pull operations for local repositories.
      *
      * @return bool True if changes were detected, false otherwise
+     *
      * @throws GitException
      */
     protected function handleGitPull(Filesystem $disk): bool
@@ -189,7 +192,7 @@ class EntrySyncService
 
         // Find all markdown files using the disk
         $files = $this->fileDiscovery->findFiles($disk);
-        Log::info('Found ' . $files->count() . ' files to process');
+        Log::info('Found '.$files->count().' files to process');
 
         $existingSlugs = Entry::where('type', $type)->pluck('slug')->flip();
         $processedSlugs = [];
@@ -218,7 +221,7 @@ class EntrySyncService
                     Log::info("Created new content item: {$slug}");
                 }
             } catch (\Exception $e) {
-                Log::error("Error processing file {$relativePath}: " . $e->getMessage());
+                Log::error("Error processing file {$relativePath}: ".$e->getMessage());
                 if (config('flatlayer.sync.log_level') === 'debug') {
                     Log::debug($e->getTraceAsString());
                 }

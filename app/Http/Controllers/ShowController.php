@@ -8,7 +8,6 @@ use App\Models\Entry;
 use App\Query\EntrySerializer;
 use App\Support\Path;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 
 class ShowController extends Controller
 {
@@ -29,7 +28,7 @@ class ShowController extends Controller
             ->where('slug', $slug)
             ->first();
 
-        if (!$contentItem) {
+        if (! $contentItem) {
             return response()->json(['error' => 'No item found for the specified type and slug'], 404);
         }
 
@@ -84,7 +83,7 @@ class ShowController extends Controller
         }
 
         // Process and normalize all slugs
-        $processedSlugs = array_map(function($slug) {
+        $processedSlugs = array_map(function ($slug) {
             return Path::toSlug($slug);
         }, $slugs);
 
@@ -96,7 +95,7 @@ class ShowController extends Controller
         // If we haven't found all requested slugs, return 404
         $foundSlugs = $items->pluck('slug')->toArray();
         $missingSlugs = array_diff($processedSlugs, $foundSlugs);
-        if (!empty($missingSlugs)) {
+        if (! empty($missingSlugs)) {
             return response()->json(['error' => 'No items found for the specified type and slugs'], 404);
         }
 

@@ -8,7 +8,8 @@ use Tests\TestCase;
 
 class PathTest extends TestCase
 {
-    #[DataProvider('slugifyPathProvider')] public function test_to_slug_correctly_formats_paths(string $input, string $expected)
+    #[DataProvider('slugifyPathProvider')]
+    public function test_to_slug_correctly_formats_paths(string $input, string $expected)
     {
         $result = Path::toSlug($input);
         $this->assertEquals($expected, $result);
@@ -45,7 +46,8 @@ class PathTest extends TestCase
         ];
     }
 
-    #[DataProvider('isIndexProvider')] public function test_is_index_correctly_identifies_index_files(string $path, bool $expected)
+    #[DataProvider('isIndexProvider')]
+    public function test_is_index_correctly_identifies_index_files(string $path, bool $expected)
     {
         $result = Path::isIndex($path);
         $this->assertEquals($expected, $result);
@@ -64,7 +66,8 @@ class PathTest extends TestCase
         ];
     }
 
-    #[DataProvider('parentPathProvider')] public function test_parent_returns_correct_parent_path(string $path, string $expected)
+    #[DataProvider('parentPathProvider')]
+    public function test_parent_returns_correct_parent_path(string $path, string $expected)
     {
         $result = Path::parent($path);
         $this->assertEquals($expected, $result);
@@ -84,7 +87,8 @@ class PathTest extends TestCase
         ];
     }
 
-    #[DataProvider('ancestorPathsProvider')] public function test_ancestors_returns_correct_ancestor_paths(string $path, array $expected)
+    #[DataProvider('ancestorPathsProvider')]
+    public function test_ancestors_returns_correct_ancestor_paths(string $path, array $expected)
     {
         $result = Path::ancestors($path);
         $this->assertEquals($expected, $result);
@@ -95,32 +99,33 @@ class PathTest extends TestCase
         return [
             'single level' => [
                 'docs/file.md',
-                ['docs']
+                ['docs'],
             ],
             'multiple levels' => [
                 'docs/section/file.md',
-                ['docs', 'docs/section']
+                ['docs', 'docs/section'],
             ],
             'deeply nested' => [
                 'a/b/c/d/file.md',
-                ['a', 'a/b', 'a/b/c', 'a/b/c/d']
+                ['a', 'a/b', 'a/b/c', 'a/b/c/d'],
             ],
             'index file' => [
                 'docs/section/index.md',
-                ['docs']
+                ['docs'],
             ],
             'root file' => [
                 'file.md',
-                []
+                [],
             ],
             'empty path' => [
                 '',
-                []
+                [],
             ],
         ];
     }
 
-    #[DataProvider('siblingPathsProvider')] public function test_siblings_returns_correct_sibling_paths(string $path, array $allPaths, array $expected)
+    #[DataProvider('siblingPathsProvider')]
+    public function test_siblings_returns_correct_sibling_paths(string $path, array $allPaths, array $expected)
     {
         $result = Path::siblings($path, $allPaths);
         sort($result);
@@ -134,32 +139,33 @@ class PathTest extends TestCase
             'root level siblings' => [
                 'file1.md',
                 ['file1.md', 'file2.md', 'file3.md', 'dir/file4.md'],
-                ['file2.md', 'file3.md']
+                ['file2.md', 'file3.md'],
             ],
             'nested siblings' => [
                 'dir/file1.md',
                 ['dir/file1.md', 'dir/file2.md', 'dir/file3.md', 'dir/subdir/file4.md'],
-                ['dir/file2.md', 'dir/file3.md']
+                ['dir/file2.md', 'dir/file3.md'],
             ],
             'no siblings' => [
                 'unique/file.md',
                 ['unique/file.md', 'other/file.md'],
-                []
+                [],
             ],
             'index file siblings' => [
                 'dir/index.md',
                 ['dir/index.md', 'dir/file1.md', 'dir/file2.md', 'dir/subdir/file3.md'],
-                ['dir/file1.md', 'dir/file2.md']
+                ['dir/file1.md', 'dir/file2.md'],
             ],
             'empty directory' => [
                 '',
                 ['file1.md', 'file2.md', 'dir/file3.md'],
-                ['file1.md', 'file2.md']
+                ['file1.md', 'file2.md'],
             ],
         ];
     }
 
-    #[DataProvider('childrenPathsProvider')] public function test_children_returns_correct_child_paths(string $path, array $allPaths, array $expected)
+    #[DataProvider('childrenPathsProvider')]
+    public function test_children_returns_correct_child_paths(string $path, array $allPaths, array $expected)
     {
         $result = Path::children($path, $allPaths);
         sort($result);
@@ -173,22 +179,22 @@ class PathTest extends TestCase
             'root children' => [
                 '',
                 ['file1.md', 'file2.md', 'dir/file3.md', 'dir/subdir/file4.md'],
-                ['file1.md', 'file2.md']
+                ['file1.md', 'file2.md'],
             ],
             'directory children' => [
                 'dir',
                 ['dir/file1.md', 'dir/file2.md', 'dir/subdir/file3.md', 'other/file4.md'],
-                ['dir/file1.md', 'dir/file2.md']
+                ['dir/file1.md', 'dir/file2.md'],
             ],
             'nested directory children' => [
                 'dir/subdir',
                 ['dir/subdir/file1.md', 'dir/subdir/file2.md', 'dir/subdir/nested/file3.md'],
-                ['dir/subdir/file1.md', 'dir/subdir/file2.md']
+                ['dir/subdir/file1.md', 'dir/subdir/file2.md'],
             ],
             'no children' => [
                 'empty/dir',
                 ['other/file1.md', 'different/file2.md'],
-                []
+                [],
             ],
             'complex hierarchy' => [
                 'docs',
@@ -197,9 +203,9 @@ class PathTest extends TestCase
                     'docs/getting-started.md',
                     'docs/advanced/topic1.md',
                     'docs/advanced/topic2.md',
-                    'other/file.md'
+                    'other/file.md',
                 ],
-                ['docs/intro.md', 'docs/getting-started.md']
+                ['docs/intro.md', 'docs/getting-started.md'],
             ],
         ];
     }

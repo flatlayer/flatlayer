@@ -35,6 +35,7 @@ trait HasImages
     public function useImageDisk(Filesystem|string $disk): self
     {
         $this->imageDisk = is_string($disk) ? Storage::disk($disk) : $disk;
+
         return $this;
     }
 
@@ -54,6 +55,7 @@ trait HasImages
         if ($this->imageService === null) {
             $this->imageService = new ImageService($this->getImageDisk());
         }
+
         return $this->imageService;
     }
 
@@ -79,6 +81,7 @@ trait HasImages
     public function clearImageCollection(string $collectionName = 'default'): self
     {
         $this->images()->where('collection', $collectionName)->delete();
+
         return $this;
     }
 

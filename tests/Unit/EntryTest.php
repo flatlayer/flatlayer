@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
-use App\Rules\ValidPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

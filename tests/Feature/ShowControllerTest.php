@@ -65,7 +65,7 @@ class ShowControllerTest extends TestCase
                 'content',
                 'slug',
                 'meta',
-                'type'
+                'type',
             ])
             ->assertJsonPath('title', 'Getting Started')
             ->assertJsonPath('slug', 'docs/getting-started');
@@ -110,7 +110,7 @@ class ShowControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'title',
-                'meta' => ['section']
+                'meta' => ['section'],
             ])
             ->assertJsonPath('meta.section', 'guides');
     }

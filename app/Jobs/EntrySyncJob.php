@@ -17,27 +17,23 @@ class EntrySyncJob implements ShouldQueue
 
     /**
      * The number of times the job may be attempted.
-     *
-     * @var int
      */
     public int $tries = 3;
 
     /**
      * The number of seconds to wait before retrying the job.
-     *
-     * @var array
      */
     public array $backoff = [10, 60, 180];
 
     /**
      * Create a new job instance.
      *
-     * @param string $type The type of content being synced
-     * @param string|null $path Local path to the content repository
-     * @param string|null $pattern The glob pattern for finding content files
-     * @param bool $shouldPull Whether to pull latest changes from Git (default: false)
-     * @param bool $skipIfNoChanges Whether to skip processing if no changes detected (default: false)
-     * @param string|null $webhookUrl The URL to trigger after sync completion (default: null)
+     * @param  string  $type  The type of content being synced
+     * @param  string|null  $path  Local path to the content repository
+     * @param  string|null  $pattern  The glob pattern for finding content files
+     * @param  bool  $shouldPull  Whether to pull latest changes from Git (default: false)
+     * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected (default: false)
+     * @param  string|null  $webhookUrl  The URL to trigger after sync completion (default: null)
      */
     public function __construct(
         protected string $type,
@@ -96,6 +92,7 @@ class EntrySyncJob implements ShouldQueue
             // If sync was skipped due to no changes, return early
             if ($result['skipped']) {
                 Log::info("Sync skipped for type {$this->type} - no changes detected");
+
                 return;
             }
 

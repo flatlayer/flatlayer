@@ -15,15 +15,15 @@ class TagFilterTest extends TestCase
     {
         $post1 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-one'
+            'slug' => 'post-one',
         ]);
         $post2 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-two'
+            'slug' => 'post-two',
         ]);
         $post3 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-three'
+            'slug' => 'post-three',
         ]);
 
         $post1->attachTag('red');
@@ -46,19 +46,19 @@ class TagFilterTest extends TestCase
     {
         $post1 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-one'
+            'slug' => 'post-one',
         ]);
         $post2 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-two'
+            'slug' => 'post-two',
         ]);
         $post3 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-three'
+            'slug' => 'post-three',
         ]);
         $post4 = Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-four'
+            'slug' => 'post-four',
         ]);
 
         $post1->attachTags(['red', 'big']);
@@ -83,12 +83,12 @@ class TagFilterTest extends TestCase
     {
         Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-one'
+            'slug' => 'post-one',
         ])->attachTag('red');
 
         Entry::factory()->create([
             'type' => 'post',
-            'slug' => 'post-two'
+            'slug' => 'post-two',
         ])->attachTag('blue');
 
         $filters = ['$tags' => ['non_existent_tag']];

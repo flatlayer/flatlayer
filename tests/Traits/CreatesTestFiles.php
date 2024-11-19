@@ -76,7 +76,8 @@ trait CreatesTestFiles
             if (array_is_list($value)) {
                 // Format sequential array
                 $items = array_map(fn ($item) => self::formatYamlValue($item), $value);
-                return "[" . \implode(", ", $items) . "]";
+
+                return '['.\implode(', ', $items).']';
             }
 
             // Format associative array
@@ -85,6 +86,7 @@ trait CreatesTestFiles
                 $indentedValue = str_replace("\n", "\n  ", self::formatYamlValue($v));
                 $result .= "  {$k}: {$indentedValue}\n";
             }
+
             return rtrim($result);
         }
 
@@ -92,12 +94,14 @@ trait CreatesTestFiles
             // Handle multi-line strings
             if (str_contains($value, "\n")) {
                 $escaped = str_replace('"', '\"', $value);
+
                 return "\"{$escaped}\"";
             }
 
             // Handle strings containing special characters
             if (preg_match('/[:#\[\]{}%@&*!|<>=`\'"?,]/', $value)) {
                 $escaped = str_replace('"', '\"', $value);
+
                 return "\"{$escaped}\"";
             }
 
@@ -109,7 +113,7 @@ trait CreatesTestFiles
             return $value;
         }
 
-        throw new \InvalidArgumentException("Unsupported YAML value type: " . gettype($value));
+        throw new \InvalidArgumentException('Unsupported YAML value type: '.gettype($value));
     }
 
     /**
@@ -580,11 +584,11 @@ MD
             'meta' => [
                 'level1' => [
                     'level2' => [
-                        'level3' => 'deep value'
+                        'level3' => 'deep value',
                     ],
-                    'array' => [1, 2, 3]
-                ]
-            ]
+                    'array' => [1, 2, 3],
+                ],
+            ],
         ], 'Testing complex metadata');
     }
 

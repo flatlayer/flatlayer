@@ -8,8 +8,8 @@ class Path
      * Generate a slug from a file path.
      * This is the central place for all slug generation logic.
      *
-     * @param string $path The path to slugify
-     * @param bool $preserveExtension Whether to preserve the .md extension
+     * @param  string  $path  The path to slugify
+     * @param  bool  $preserveExtension  Whether to preserve the .md extension
      */
     public static function toSlug(string $path, bool $preserveExtension = false): string
     {
@@ -35,7 +35,7 @@ class Path
         // Remove leading and trailing slashes
         $path = trim($path, '/');
 
-        if (!$preserveExtension) {
+        if (! $preserveExtension) {
             // Remove .md extension anywhere in the path
             $path = preg_replace('/\.md(?:\/|$)/', '', $path);
         }
@@ -53,7 +53,7 @@ class Path
 
         // Handle segments individually
         $segments = explode('/', $path);
-        $segments = array_map(function($segment) {
+        $segments = array_map(function ($segment) {
             // Handle dot directory paths
             if ($segment === '.' || empty($segment)) {
                 return '';
@@ -70,7 +70,7 @@ class Path
         }, $segments);
 
         // Filter out empty segments and join
-        $segments = array_filter($segments, function($segment) {
+        $segments = array_filter($segments, function ($segment) {
             return $segment !== '';
         });
 
@@ -96,6 +96,7 @@ class Path
         }
 
         $parent = dirname($path);
+
         return $parent === '.' ? '' : $parent;
     }
 
@@ -117,7 +118,7 @@ class Path
         $ancestors = [];
         $currentPath = '';
         foreach ($parts as $segment) {
-            if (!empty($segment)) {
+            if (! empty($segment)) {
                 $currentPath = $currentPath ? "{$currentPath}/{$segment}" : $segment;
                 $ancestors[] = $currentPath;
             }
@@ -153,7 +154,7 @@ class Path
             $siblingPath = str_replace('\\', '/', trim($siblingPath, '/'));
 
             // Must be in same directory
-            if (!str_starts_with($siblingPath, $prefix)) {
+            if (! str_starts_with($siblingPath, $prefix)) {
                 return false;
             }
 
@@ -164,7 +165,8 @@ class Path
 
             // Must not be in a subdirectory
             $remaining = substr($siblingPath, strlen($prefix));
-            return !str_contains($remaining, '/');
+
+            return ! str_contains($remaining, '/');
         }));
     }
 
@@ -183,7 +185,7 @@ class Path
             $childPath = str_replace('\\', '/', trim($childPath, '/'));
 
             // Must be in the subdirectory
-            if (!str_starts_with($childPath, $prefix)) {
+            if (! str_starts_with($childPath, $prefix)) {
                 return false;
             }
 
@@ -194,7 +196,8 @@ class Path
 
             // Must be direct child (no further slashes after prefix)
             $remaining = substr($childPath, strlen($prefix));
-            return !str_contains($remaining, '/');
+
+            return ! str_contains($remaining, '/');
         }));
     }
 }

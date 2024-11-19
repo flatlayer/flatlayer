@@ -17,7 +17,9 @@ class EntrySyncJobTest extends TestCase
     use RefreshDatabase;
 
     private $syncService;
+
     private array $logMessages = [];
+
     private string $fakePath;
 
     protected function setUp(): void
@@ -66,7 +68,7 @@ class EntrySyncJobTest extends TestCase
 
         // Assert
         $this->assertTrue(in_array(
-            "Starting EntrySyncJob for type: post",
+            'Starting EntrySyncJob for type: post',
             $this->logMessages
         ));
     }
@@ -94,6 +96,7 @@ class EntrySyncJobTest extends TestCase
         // Assert
         Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['webhookUrl'] === 'https://example.com/webhook' &&
                 $config['contentType'] === 'post' &&
                 $config['payload']['status'] === 'completed' &&
@@ -125,6 +128,7 @@ class EntrySyncJobTest extends TestCase
 
         Queue::assertPushed(WebhookTriggerJob::class, function ($job) {
             $config = $job->getJobConfig();
+
             return $config['webhookUrl'] === 'https://example.com/webhook' &&
                 $config['contentType'] === 'post' &&
                 $config['payload']['status'] === 'failed' &&
@@ -141,7 +145,7 @@ class EntrySyncJobTest extends TestCase
             'entries_updated' => 0,
             'entries_created' => 0,
             'entries_deleted' => 0,
-            'skipped' => true
+            'skipped' => true,
         ]);
 
         // Act
@@ -156,7 +160,7 @@ class EntrySyncJobTest extends TestCase
         // Assert
         Queue::assertNotPushed(WebhookTriggerJob::class);
         $this->assertTrue(in_array(
-            "Sync skipped for type post - no changes detected",
+            'Sync skipped for type post - no changes detected',
             $this->logMessages
         ));
     }
@@ -182,11 +186,11 @@ class EntrySyncJobTest extends TestCase
 
         // Assert
         $this->assertTrue(in_array(
-            "Starting EntrySyncJob for type: post",
+            'Starting EntrySyncJob for type: post',
             $this->logMessages
         ));
         $this->assertTrue(in_array(
-            "Sync completed for type post",
+            'Sync completed for type post',
             $this->logMessages
         ));
     }
