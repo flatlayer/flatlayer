@@ -25,11 +25,11 @@ The `ImageService` handles image operations including:
 - Managing image metadata
 
 ```php
-use App\Services\ImageService;
+use App\Services\Media\MediaLibrary;
 
 class ImageController extends Controller
 {
-    public function __construct(protected ImageService $imageService) {}
+    public function __construct(protected MediaLibrary $imageService) {}
 
     public function addImage(Entry $entry, Request $request)
     {
@@ -51,12 +51,12 @@ Handles image transformations including:
 - Response generation
 
 ```php
-use App\Services\ImageTransformationService;
+use App\Services\Media\ImageTransformer;
 
 class ImageTransformController extends Controller
 {
     public function __construct(
-        protected ImageTransformationService $imageService
+        protected ImageTransformer $imageService
     ) {}
 
     public function transform(ImageTransformRequest $request, int $id, string $extension)

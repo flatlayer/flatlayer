@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Jobs\EntrySyncJob;
-use App\Services\DiskResolver;
-use App\Services\EntrySyncService;
+use App\Services\Content\ContentSyncManager;
+use App\Services\Storage\StorageResolver;
 use CzProject\GitPhp\Git;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -29,13 +29,13 @@ class EntrySyncCommandTest extends TestCase
         parent::setUp();
         Storage::fake('local');
 
-        $this->syncService = Mockery::mock(EntrySyncService::class);
+        $this->syncService = Mockery::mock(ContentSyncManager::class);
         $this->git = Mockery::mock(Git::class);
-        $this->diskResolver = Mockery::mock(DiskResolver::class);
+        $this->diskResolver = Mockery::mock(StorageResolver::class);
 
-        $this->app->instance(EntrySyncService::class, $this->syncService);
+        $this->app->instance(ContentSyncManager::class, $this->syncService);
         $this->app->instance(Git::class, $this->git);
-        $this->app->instance(DiskResolver::class, $this->diskResolver);
+        $this->app->instance(StorageResolver::class, $this->diskResolver);
 
         Queue::fake();
     }

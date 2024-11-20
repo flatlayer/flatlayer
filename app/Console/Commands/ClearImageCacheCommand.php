@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\ImageTransformationService;
+use App\Services\Media\ImageTransformer;
 use Illuminate\Console\Command;
 
 class ClearImageCacheCommand extends Command
@@ -11,7 +11,7 @@ class ClearImageCacheCommand extends Command
 
     protected $description = 'Clear image cache files older than the specified number of days';
 
-    public function __construct(protected ImageTransformationService $imageService)
+    public function __construct(protected ImageTransformer $imageService)
     {
         parent::__construct();
     }

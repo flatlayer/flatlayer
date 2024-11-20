@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Storage;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
-class DiskResolver
+class StorageResolver
 {
     /**
      * Resolve a disk from various input types.

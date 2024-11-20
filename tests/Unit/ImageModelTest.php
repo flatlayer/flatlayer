@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
-use App\Services\ImageService;
+use App\Services\Media\MediaLibrary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -151,7 +151,7 @@ class ImageModelTest extends TestCase
         $method = $reflection->getMethod('getImageService');
         $method->setAccessible(true);
 
-        /** @var ImageService $service */
+        /** @var MediaLibrary $service */
         $service = $method->invoke($this->entry);
 
         $reflection = new \ReflectionClass($service);

@@ -1,15 +1,16 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Markdown;
 
 use App\Models\Entry;
+use App\Services\Media\MediaLibrary;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Webuni\FrontMatter\FrontMatter;
 
-class MarkdownProcessingService
+class MarkdownProcessor
 {
     /**
      * Default fields that can be extracted from front matter.
@@ -23,8 +24,8 @@ class MarkdownProcessingService
     ];
 
     public function __construct(
-        protected readonly ImageService $imageService,
-        protected readonly Filesystem $disk
+        protected readonly MediaLibrary $imageService,
+        protected readonly Filesystem   $disk
     ) {}
 
     /**

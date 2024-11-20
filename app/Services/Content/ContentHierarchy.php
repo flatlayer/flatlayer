@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Content;
 
 use App\Models\Entry;
 use App\Support\Path;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 
-class HierarchyService
+class ContentHierarchy
 {
     /**
      * Convert a flat collection of entries into a hierarchical structure.

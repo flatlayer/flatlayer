@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
-use App\Services\HierarchyService;
+use App\Services\Content\ContentHierarchy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,12 +11,12 @@ class HierarchyServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected HierarchyService $service;
+    protected ContentHierarchy $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new HierarchyService;
+        $this->service = new ContentHierarchy;
         $this->createTestHierarchy();
     }
 

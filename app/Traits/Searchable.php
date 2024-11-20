@@ -2,7 +2,7 @@
 
 namespace App\Traits;
 
-use App\Services\SearchService;
+use App\Services\Content\ContentSearch;
 use DOMDocument;
 use DOMNode;
 use Illuminate\Database\Eloquent\Builder;
@@ -82,7 +82,7 @@ trait Searchable
      */
     public function updateSearchVector(): void
     {
-        $this->embedding = App::make(SearchService::class)->getEmbedding($this->toSearchableText());
+        $this->embedding = App::make(ContentSearch::class)->getEmbedding($this->toSearchableText());
     }
 
     /**
@@ -158,7 +158,7 @@ trait Searchable
         int $limit = 40,
         ?Builder $builder = null
     ): Collection {
-        return App::make(SearchService::class)->search($query, $limit, $builder ?? static::query());
+        return App::make(ContentSearch::class)->search($query, $limit, $builder ?? static::query());
     }
 
     /**

@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\HierarchyRequest;
-use App\Services\HierarchyService;
+use App\Services\Content\ContentHierarchy;
 use Illuminate\Http\JsonResponse;
 
 class HierarchyController extends Controller
 {
     public function __construct(
-        protected HierarchyService $hierarchyService
+        protected ContentHierarchy $hierarchyService
     ) {}
 
     public function index(HierarchyRequest $request, string $type): JsonResponse

@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Entry;
 use App\Models\Image;
-use App\Services\ImageTransformationService;
+use App\Services\Media\ImageTransformer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -20,7 +20,7 @@ class MediaTransformControllerTest extends TestCase
 
     protected Image $image;
 
-    protected ImageTransformationService $imageService;
+    protected ImageTransformer $imageService;
 
     protected function setUp(): void
     {
@@ -32,7 +32,7 @@ class MediaTransformControllerTest extends TestCase
             'disk' => 'content.post',
         ]);
 
-        $this->imageService = $this->app->make(ImageTransformationService::class);
+        $this->imageService = $this->app->make(ImageTransformer::class);
 
         // Create test image and entry
         $this->createImage('test.jpg', 800, 600);

@@ -5,14 +5,14 @@ namespace App\Http\Controllers;
 use App\Exceptions\ImageDimensionException;
 use App\Http\Requests\ImageTransformRequest;
 use App\Models\Image;
-use App\Services\DiskResolver;
-use App\Services\ImageTransformationService;
+use App\Services\Media\ImageTransformer;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Http\JsonResponse;
 
 class ImageTransformController extends Controller
 {
     public function __construct(
-        protected DiskResolver $diskResolver
+        protected StorageResolver $diskResolver
     ) {}
 
     public function transform(ImageTransformRequest $request, int $id, string $extension)
@@ -22,7 +22,7 @@ class ImageTransformController extends Controller
 
         // Resolve the disk based on entry type
         $disk = $this->diskResolver->resolve(null, $entry->type);
-        $service = new ImageTransformationService($disk);
+        $service = new ImageTransformer($disk);
 
         try {
             $transform = $request->validated();

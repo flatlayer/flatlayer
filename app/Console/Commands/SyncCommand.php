@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Jobs\EntrySyncJob;
-use App\Services\DiskResolver;
-use App\Services\EntrySyncService;
+use App\Services\Content\ContentSyncManager;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 
@@ -21,8 +21,8 @@ class SyncCommand extends Command
     protected $description = 'Sync files from source to Entries, optionally pulling latest changes and triggering a webhook.';
 
     public function __construct(
-        protected EntrySyncService $syncService,
-        protected DiskResolver $diskResolver,
+        protected ContentSyncManager $syncService,
+        protected StorageResolver    $diskResolver,
     ) {
         parent::__construct();
     }

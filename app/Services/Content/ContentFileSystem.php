@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Content;
 
 use App\Support\Path;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
-class FileDiscoveryService
+class ContentFileSystem
 {
     /**
      * Find all Markdown files in a disk, sorted by depth.

@@ -2,20 +2,20 @@
 
 namespace Tests\Unit;
 
-use App\Services\FileDiscoveryService;
+use App\Services\Content\ContentFileSystem;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FileDiscoveryServiceTest extends TestCase
 {
-    protected FileDiscoveryService $service;
+    protected ContentFileSystem $service;
 
     protected $disk;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new FileDiscoveryService;
+        $this->service = new ContentFileSystem;
         Storage::fake('test');
         $this->disk = Storage::disk('test');
     }

@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
-use App\Services\ImageService;
-use App\Services\MarkdownProcessingService;
+use App\Services\Markdown\MarkdownProcessor;
+use App\Services\Media\MediaLibrary;
 use App\Support\Path;
 use Carbon\Carbon;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -12,7 +12,7 @@ use Intervention\Image\ImageManager;
 
 trait HasMarkdown
 {
-    protected MarkdownProcessingService $markdownContentService;
+    protected MarkdownProcessor $markdownContentService;
 
     protected ?array $pendingTags = null;
 
@@ -23,12 +23,12 @@ trait HasMarkdown
      */
     protected function initializeMarkdownModel(Filesystem $disk): void
     {
-        $imageService = new ImageService(
+        $imageService = new MediaLibrary(
             disk: $disk,
             imageManager: new ImageManager(new Driver)
         );
 
-        $this->markdownContentService = new MarkdownProcessingService(
+        $this->markdownContentService = new MarkdownProcessor(
             imageService: $imageService,
             disk: $disk
         );
