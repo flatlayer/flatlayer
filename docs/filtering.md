@@ -1,265 +1,343 @@
-# Field Selection Documentation
+# Content Filtering API
 
 ## Overview
 
-Field Selection in Flatlayer CMS enables precise control over which fields are returned in API responses. Implemented through the `EntrySerializer` class, this feature allows clients to minimize payload size and optimize data transfer by specifying exactly which fields they need.
+The Filtering API in Flatlayer CMS provides a flexible query language for filtering content entries. Using a JSON-based syntax, it supports complex queries including nested conditions, meta field filtering, tag filtering, and full-text search.
 
-## Basic Structure
+## Query Structure
 
-Field selection uses a JSON array where each element can be:
-- A string (simple field name)
-- An array (field name with casting options)
+The filter parameter accepts a JSON object with various operators and conditions:
 
 ```json
-[
-    "field1",
-    "field2",
-    ["field3", "cast_type"],
-    ["nested.field", "cast_type"]
-]
-```
-
-## Simple Field Selection
-
-For basic field selection without casting:
-
-```json
-["id", "title", "published_at", "author"]
-```
-
-The `EntrySerializer` will include only these fields in the response.
-
-## Field Casting
-
-The system supports type casting through the `castValue` method:
-
-```json
-[
-    "id",
-    ["published_at", "date"],
-    ["view_count", "integer"],
-    ["is_featured", "boolean"]
-]
-```
-
-Supported cast types:
-- `"integer"` or `"int"`
-- `"float"` or `"double"`
-- `"boolean"` or `"bool"`
-- `"string"`
-- `"date"`
-- `"datetime"`
-- `"array"`
-
-Example implementation:
-```php
-protected function castValue(mixed $value, mixed $options = null): mixed
 {
-    if ($options === null || is_array($options)) {
-        return $value;
-    }
-
-    return match ($options) {
-        'int', 'integer' => (int) $value,
-        'float', 'double' => (float) $value,
-        'bool', 'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-        'string' => (string) $value,
-        'array' => is_array($value) ? $value : explode(',', $value),
-        'date' => $this->castToDate($value),
-        'datetime' => $this->castToDateTime($value),
-        default => is_callable($options) ? $options($value) : 
-            throw new InvalidCastException("Invalid cast option: $options")
-    };
+    "field": "value",
+    "field2": { "$operator": "value" },
+    "$or": [...],
+    "$and": [...],
+    "$tags": [...],
+    "$search": "query string"
 }
 ```
 
-## Meta Fields
+## Basic Filtering
 
-Access nested meta fields using dot notation:
-
-```json
-[
-    "id",
-    "title",
-    "meta.author",
-    ["meta.view_count", "integer"],
-    "meta.seo.description"
-]
+### Simple Equality
+```http
+GET /entry/post?filter={"type":"post"}
 ```
 
-The `EntrySerializer` handles nested meta field access:
-```php
-protected function getMetaValue(Entry $item, string $key, mixed $options = null): mixed
-{
-    $value = Arr::get($item->meta, $key);
+### Multiple Conditions
+```http
+GET /entry/post?filter={"type":"post","status":"published"}
+```
 
-    if ($value === null && !Arr::has($item->meta, $key)) {
-        return null;
+## Comparison Operators
+
+The following operators are supported:
+
+### Numeric Comparisons
+```http
+GET /entry/post?filter={
+    "meta.view_count": {
+        "$gt": 1000,
+        "$lte": 5000
     }
-
-    return $options !== null ? $this->castValue($value, $options) : $value;
 }
 ```
 
-## Images
+Available operators:
+- `$gt`: Greater than
+- `$gte`: Greater than or equal
+- `$lt`: Less than
+- `$lte`: Less than or equal
+- `$ne`: Not equal
 
-### Full Image Selection
-```json
-["id", "title", "images"]
+### String Operations
+```http
+GET /entry/post?filter={
+    "title": {
+        "$startsWith": "Getting",
+        "$endsWith": "Guide"
+    }
+}
 ```
 
-Returns all image collections with complete image data:
-```json
-{
-    "id": 1,
-    "title": "Example Post",
-    "images": {
-        "featured": [{
-            "id": 1,
-            "filename": "featured.jpg",
-            "extension": "jpg",
-            "width": 1200,
-            "height": 800,
-            "thumbhash": "abcdef1234567890",
-            "meta": {
-                "alt": "Featured image",
-                "caption": "Main featured image"
+Available operators:
+- `$startsWith`: Begins with
+- `$endsWith`: Ends with
+- `$contains`: Contains substring
+- `$like`: SQL LIKE pattern
+- `$notStartsWith`: Does not begin with
+- `$notEndsWith`: Does not end with
+
+### Array Operations
+```http
+GET /entry/post?filter={
+    "meta.categories": {
+        "$in": ["tech", "programming"]
+    }
+}
+```
+
+Available operators:
+- `$in`: Value in array
+- `$notIn`: Value not in array
+- `$contains`: Array contains value
+- `$notContains`: Array does not contain value
+
+### Null Checks
+```http
+GET /entry/post?filter={
+    "meta.review_date": {
+        "$exists": false
+    }
+}
+```
+
+Available operators:
+- `$exists`: Field exists (not null)
+- `$notExists`: Field does not exist (is null)
+
+## Logical Operators
+
+### AND Operations
+```http
+GET /entry/post?filter={
+    "$and": [
+        {
+            "type": "post"
+        },
+        {
+            "published_at": {
+                "$lte": "2024-01-01"
             }
-        }],
-        "gallery": [
-            // ... gallery images
-        ]
+        }
+    ]
+}
+```
+
+### OR Operations
+```http
+GET /entry/post?filter={
+    "$or": [
+        {
+            "meta.category": "tech"
+        },
+        {
+            "meta.category": "programming"
+        }
+    ]
+}
+```
+
+### Combined Operations
+```http
+GET /entry/post?filter={
+    "$and": [
+        {
+            "type": "post"
+        },
+        {
+            "$or": [
+                {
+                    "meta.category": "tech"
+                },
+                {
+                    "meta.difficulty": "beginner"
+                }
+            ]
+        }
+    ]
+}
+```
+
+## Meta Field Filtering
+
+### Simple Meta Field
+```http
+GET /entry/post?filter={
+    "meta.author": "John Doe"
+}
+```
+
+### Nested Meta Fields
+```http
+GET /entry/post?filter={
+    "meta.seo.keywords": {
+        "$contains": "javascript"
     }
 }
 ```
 
-### Collection-Specific Selection
-```json
-["id", "title", "images.featured"]
-```
-
-Returns images from a specific collection:
-```json
-{
-    "id": 1,
-    "title": "Example Post",
-    "images": {
-        "featured": [{
-            "id": 1,
-            "filename": "featured.jpg",
-            "extension": "jpg",
-            "width": 1200,
-            "height": 800,
-            "thumbhash": "abcdef1234567890",
-            "meta": {
-                "alt": "Featured image"
-            }
-        }]
+### Multiple Meta Conditions
+```http
+GET /entry/post?filter={
+    "meta.difficulty": "advanced",
+    "meta.estimated_time": {
+        "$lte": 60
     }
 }
 ```
 
-## Tags
+## Tag Filtering
 
-Tag selection automatically converts to tag names:
-
-```json
-["id", "title", "tags"]
+### Filter by Tags
+```http
+GET /entry/post?filter={
+    "$tags": ["programming", "javascript"]
+}
 ```
 
-Implementation:
-```php
-protected function getFieldValue(Entry $item, string $field, mixed $options = null): mixed
+### Combined with Other Filters
+```http
+GET /entry/post?filter={
+    "$tags": ["programming"],
+    "meta.difficulty": "beginner"
+}
+```
+
+## Path-Based Filtering
+
+### Hierarchical Queries
+```http
+GET /entry/doc?filter={
+    "slug": {
+        "$startsWith": "docs/getting-started"
+    }
+}
+```
+
+### Relationship Filters
+```http
+GET /entry/doc?filter={
+    "$hierarchy": {
+        "descendants": "docs/tutorials",
+        "siblings": "docs/getting-started/installation"
+    }
+}
+```
+
+Available path operators:
+- `$isChildOf`: Direct child of path
+- `$isDescendantOf`: Any descendant of path
+- `$isSiblingOf`: Sibling of path
+- `$hasParent`: Has specified parent
+
+## Full-Text Search
+
+### Basic Search
+```http
+GET /entry/post?filter={
+    "$search": "getting started with javascript"
+}
+```
+
+### Combined with Filters
+```http
+GET /entry/post?filter={
+    "$search": "javascript tutorial",
+    "meta.difficulty": "beginner",
+    "$tags": ["programming"]
+}
+```
+
+## Sorting
+
+### Basic Sorting
+```http
+GET /entry/post?filter={
+    "$order": {
+        "published_at": "desc"
+    }
+}
+```
+
+### Multiple Fields
+```http
+GET /entry/post?filter={
+    "$order": {
+        "meta.category": "asc",
+        "published_at": "desc"
+    }
+}
+```
+
+## Error Responses
+
+### Invalid Filter Syntax
+```http
+Status: 400 Bad Request
+
 {
-    return match (true) {
-        $field === 'tags' => $item->tags->pluck('name')->toArray(),
-        $field === 'images' => $this->getImages($item),
-        $field === 'meta' => $this->getAllMetaValues($item, $options),
-        default => $this->getDefaultFieldValue($item, $field, $options)
-    };
+    "error": "Invalid filter syntax"
 }
 ```
 
-## Default Field Sets
-
-The `EntrySerializer` defines default field sets:
-
-```php
-private readonly array $defaultFields = [
-    'id', 'type', 'title', 'slug', 'content', 'excerpt', 
-    'published_at', 'meta', 'tags', 'images'
-];
-
-private readonly array $defaultSummaryFields = [
-    'id', 'type', 'title', 'slug', 'excerpt', 
-    'published_at', 'tags', 'images'
-];
-
-private readonly array $defaultDetailFields = [
-    'id', 'type', 'title', 'slug', 'content', 
-    'excerpt', 'published_at', 'meta', 'tags', 'images'
-];
-```
-
-## API Usage
-
-### List View
+### Invalid Operator
 ```http
-GET /entry/post?fields=["id","title","excerpt","images.thumbnail"]
-```
+Status: 400 Bad Request
 
-### Detail View
-```http
-GET /entry/post/my-post?fields=["id","title","content",["published_at","date"],"images","meta","tags"]
-```
-
-### With Filtering
-```http
-GET /entry/post?fields=["id","title",["published_at","date"]]&filter={"status":"published"}
-```
-
-## Error Handling
-
-The system includes comprehensive error handling:
-
-```php
-try {
-    $result = $this->convertToArray($item, $fields);
-} catch (InvalidCastException|CastException $e) {
-    throw $e;
-} catch (Exception $e) {
-    throw new QueryException(
-        'Error converting Entry to array: '.$e->getMessage(),
-        0,
-        $e
-    );
+{
+    "error": "Invalid operator: $invalidOp"
 }
 ```
 
-Specific exceptions:
-- `InvalidCastException`: Invalid cast type specified
-- `CastException`: Error during value casting
-- `QueryException`: General conversion errors
+### Invalid Field Reference
+```http
+Status: 400 Bad Request
+
+{
+    "error": "Invalid field reference: nonexistent.field"
+}
+```
 
 ## Performance Considerations
 
-1. **Field Selection**
-    - Select only required fields
-    - Use summary fields for list views
-    - Use detail fields for single-item views
+1. **Index Usage**
+    - Meta field queries utilize database-specific JSON indexing
+    - Path-based queries use specialized path indexes
+    - Full-text search uses vector indexes where available
 
-2. **Image Handling**
-    - Select specific image collections when possible
-    - Use thumbnail collections for list views
-    - Request full image data only when needed
+2. **Query Optimization**
+    - Use specific field filters instead of full-text search when possible
+    - Prefer direct field matches over pattern matching
+    - Use tag filtering instead of meta field arrays when appropriate
 
-3. **Meta Fields**
-    - Select specific meta fields rather than entire meta object
-    - Use nested field selection for deep meta structures
-    - Consider flattening frequently accessed meta fields
+3. **Result Limits**
+    - Default limit: 100 items
+    - Maximum limit: 1000 items
+    - Use pagination for large result sets
 
-4. **Caching**
-    - The serializer includes internal caching for expensive operations
-    - Use appropriate cache strategies for frequently accessed field combinations
+## Combined Example
 
-By using field selection effectively, you can optimize your API responses for both performance and bandwidth efficiency while maintaining clean, type-safe data handling.
+A complex query combining multiple filter types:
+
+```http
+GET /entry/post?filter={
+    "$and": [
+        {
+            "type": "tutorial",
+            "published_at": {
+                "$lte": "2024-01-01"
+            }
+        },
+        {
+            "$or": [
+                {
+                    "meta.difficulty": "beginner"
+                },
+                {
+                    "meta.category": "getting-started"
+                }
+            ]
+        }
+    ],
+    "$tags": ["javascript", "programming"],
+    "$search": "async await promises",
+    "$order": {
+        "published_at": "desc"
+    }
+}
+```
+
+This documentation covers the complete filtering capabilities of the Flatlayer CMS API. Each filter type is designed to work efficiently with the underlying database structure while providing powerful query capabilities.

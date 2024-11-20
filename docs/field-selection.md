@@ -1,203 +1,310 @@
-# Field Selection Documentation
+# Field Selection API
 
 ## Overview
 
-The Field Selection feature in Flatlayer CMS allows API consumers to specify exactly which fields they want to retrieve from the content entries. This functionality enables clients to request only the data they need, potentially reducing payload size and improving application performance.
+The Field Selection API enables precise control over which fields are returned in API responses. By specifying exact fields needed, clients can minimize response payload size and optimize data transfer.
 
-## Basic Structure
+## Field Specification
 
-Field selection is specified using a JSON array. Each element in the array can be either a string (representing a simple field name) or an array (representing a field with additional options).
+### Basic Syntax
 
-```json
-[
-    "field1",
-    "field2",
-    ["field3", <options>],
-    ["nested.field", <options>]
-]
+Field selection is specified using a JSON array in the `fields` parameter:
+
+```http
+GET /entry/post?fields=["id","title","slug"]
 ```
 
-## Simple Field Selection
-
-To select fields without any special formatting or options, simply include the field names as strings in the array:
-
+Response:
 ```json
-["id", "title", "published_at", "author"]
+{
+    "data": [
+        {
+            "id": 1,
+            "title": "Example Post",
+            "slug": "example-post"
+        }
+    ]
+}
 ```
 
-This will return only the specified fields for each item in the result set.
+### Field Types
 
-## Field Selection with Options
+Each element in the fields array can be:
+1. A simple string for basic fields
+2. An array containing field name and cast type
+3. A dot-notation string for nested fields
 
-For fields that require special formatting or additional options, use an array with two elements:
+## Available Fields
 
-1. The field name (string)
-2. The options (string for simple casting)
+### Standard Fields
+- `id`: Entry ID
+- `type`: Content type
+- `title`: Entry title
+- `slug`: URL slug
+- `content`: Main content
+- `excerpt`: Short excerpt
+- `published_at`: Publication date
+- `meta`: Metadata object
+- `tags`: Array of tags
+- `images`: Image collections
 
-### Simple Casting
+### Nested Meta Fields
 
-For basic type casting, provide the desired type as a string:
+Access nested meta fields using dot notation:
 
+```http
+GET /entry/post?fields=["meta.author","meta.category"]
+```
+
+Response:
 ```json
-[
-    "id",
+{
+    "data": [
+        {
+            "meta": {
+                "author": "John Doe",
+                "category": "Technology"
+            }
+        }
+    ]
+}
+```
+
+### Image Collections
+
+Select all image collections:
+```http
+GET /entry/post?fields=["images"]
+```
+
+Response:
+```json
+{
+    "data": [
+        {
+            "images": {
+                "featured": [{
+                    "id": 1,
+                    "filename": "featured.jpg",
+                    "extension": "jpg",
+                    "width": 1200,
+                    "height": 800,
+                    "thumbhash": "abcdef1234567890",
+                    "meta": {
+                        "alt": "Featured image"
+                    }
+                }],
+                "gallery": [
+                    // ... gallery images
+                ]
+            }
+        }
+    ]
+}
+```
+
+Select specific collection:
+```http
+GET /entry/post?fields=["images.featured"]
+```
+
+Response:
+```json
+{
+    "data": [
+        {
+            "images": {
+                "featured": [{
+                    "id": 1,
+                    "filename": "featured.jpg",
+                    "extension": "jpg",
+                    "width": 1200,
+                    "height": 800,
+                    "thumbhash": "abcdef1234567890",
+                    "meta": {
+                        "alt": "Featured image"
+                    }
+                }]
+            }
+        }
+    ]
+}
+```
+
+## Field Casting
+
+Use array syntax to specify field casting:
+
+```http
+GET /entry/post?fields=[
     ["published_at", "date"],
-    ["views_count", "integer"],
+    ["view_count", "integer"],
     ["is_featured", "boolean"]
 ]
 ```
 
-Supported cast types:
-- `"integer"` or `"int"`
-- `"float"` or `"double"`
-- `"boolean"` or `"bool"`
-- `"string"`
-- `"date"`
-- `"datetime"`
-- `"array"`
+### Available Cast Types
+- `integer` or `int`
+- `float` or `double`
+- `boolean` or `bool`
+- `string`
+- `date`
+- `datetime`
+- `array`
 
-## Nested Fields
+### Cast Type Examples
 
-To select nested fields (particularly useful for `meta` fields), use dot notation:
+Date casting:
+```http
+GET /entry/post?fields=[["published_at", "date"]]
+```
+Response:
+```json
+{
+    "data": [
+        {
+            "published_at": "2024-01-01"
+        }
+    ]
+}
+```
 
+Numeric casting:
+```http
+GET /entry/post?fields=[["meta.view_count", "integer"]]
+```
+Response:
+```json
+{
+    "data": [
+        {
+            "meta": {
+                "view_count": 1234
+            }
+        }
+    ]
+}
+```
+
+## Default Field Sets
+
+If no fields are specified, the system uses predefined sets:
+
+### List View Defaults
 ```json
 [
     "id",
-    "title",
-    "meta.description",
-    ["meta.view_count", "integer"]
+    "type",
+    "title", 
+    "slug",
+    "excerpt",
+    "published_at",
+    "tags",
+    "images"
 ]
 ```
 
-## Images
-
-There are two ways to select images:
-
-1. Select all images:
-   ```json
-   ["id", "title", "images"]
-   ```
-   This will return an object containing all image collections, with each image including its full data set.
-
-2. Select images from a specific collection:
-   ```json
-   ["id", "title", "images.featured"]
-   ```
-   This will return an array of images from the specified collection (in this case, "featured").
-
-Example response for all images:
-```json
-{
-  "id": 1,
-  "title": "Example Post",
-  "images": {
-    "featured": [
-      {
-        "id": 1,
-        "filename": "featured-image.jpg",
-        "extension": "jpg",
-        "width": 1200,
-        "height": 800,
-        "thumbhash": "abcdef1234567890",
-        "meta": {
-          "alt": "Featured image description",
-          "caption": "Image caption"
-        }
-      }
-    ],
-    "gallery": [
-      {
-        "id": 2,
-        "filename": "gallery-image-1.jpg",
-        "extension": "jpg",
-        "width": 800,
-        "height": 600,
-        "thumbhash": "0987654321fedcba",
-        "meta": {
-          "alt": "Gallery image 1 description"
-        }
-      },
-      {
-        "id": 3,
-        "filename": "gallery-image-2.png",
-        "extension": "png",
-        "width": 1000,
-        "height": 750,
-        "thumbhash": "1a2b3c4d5e6f7g8h",
-        "meta": {
-          "alt": "Gallery image 2 description"
-        }
-      }
-    ]
-  }
-}
-```
-
-Example response for a specific image collection:
-```json
-{
-  "id": 1,
-  "title": "Example Post",
-  "images.featured": [
-    {
-      "id": 1,
-      "filename": "featured-image.jpg",
-      "extension": "jpg",
-      "width": 1200,
-      "height": 800,
-      "thumbhash": "abcdef1234567890",
-      "meta": {
-        "alt": "Featured image description",
-        "caption": "Image caption"
-      }
-    }
-  ]
-}
-```
-
-## Tags
-
-Tags are automatically included as an array of tag names when the "tags" field is selected:
-
+### Detail View Defaults
 ```json
 [
-  "id",
-  "title",
-  "tags"
+    "id",
+    "type",
+    "title",
+    "slug",
+    "content",
+    "excerpt",
+    "published_at",
+    "meta",
+    "tags",
+    "images"
 ]
 ```
 
-## Combining with Filtering
+## Error Responses
 
-Field selection can be combined with filtering in API requests. Use the `fields` parameter for field selection and the `filter` parameter for filtering:
-
+### Invalid Field Name
+```http
+Status: 400 Bad Request
 ```
-GET /api/content?fields=["id","title",["published_at","date"],"images.featured"]&filter={"published_at":{"$gte":"2023-01-01"},"$orderBy":{"published_at":"desc"}}
-```
-
-This request would return content items published since January 1, 2023, ordered by publish date descending, including only the id, title, formatted publish date, and featured images.
-
-## Usage in List vs Detail Views
-
-- In list views (when requesting multiple items), you might want to select fewer fields to reduce payload size:
-
-```
-GET /api/content?fields=["id","title","excerpt","images.thumbnail"]
+```json
+{
+    "error": "Invalid field name: invalid_field"
+}
 ```
 
-- In detail views (when requesting a single item), you might select more fields:
-
+### Invalid Cast Type
+```http
+Status: 400 Bad Request
 ```
-GET /api/content/my-blog-post?fields=["id","title","content",["published_at","date"],"images","meta.author","meta.category","tags"]
+```json
+{
+    "error": "Invalid cast type: invalid_type"
+}
 ```
 
-By using field selection effectively, you can optimize your API requests to retrieve exactly the data you need.
+### Invalid Field Selection Syntax
+```http
+Status: 400 Bad Request
+```
+```json
+{
+    "error": "Invalid field selection format"
+}
+```
 
-## Default Fields
+## Complex Examples
 
-If no fields are specified, the system will use default field sets:
+### Combined Fields with Casting
+```http
+GET /entry/post?fields=[
+    "id",
+    "title",
+    ["published_at", "date"],
+    "meta.author",
+    ["meta.view_count", "integer"],
+    "images.featured",
+    "tags"
+]
+```
 
-- For list views: id, type, title, slug, excerpt, published_at, tags, and images
-- For detail views: id, type, title, slug, content, excerpt, published_at, meta, tags, and images
+### With Filtering and Pagination
+```http
+GET /entry/post?fields=[
+    "title",
+    ["published_at", "date"],
+    "meta.category"
+]&filter={
+    "meta.category": "technology"
+}&page=1&per_page=20
+```
 
-You can override these defaults by specifying your own field selection.
+## Performance Considerations
+
+1. **Response Size**
+    - Select only needed fields
+    - Use specific image collections instead of all images
+    - Consider using excerpts instead of full content in lists
+
+2. **Query Optimization**
+    - Group related fields together
+    - Use appropriate cast types
+    - Minimize nested field depth
+
+## Best Practices
+
+1. **Field Selection**
+    - Use minimal fields for list views
+    - Request full data only for detail views
+    - Group related fields together
+
+2. **Image Handling**
+    - Request specific image collections when possible
+    - Use thumbnails for list views
+    - Request full image data only when needed
+
+3. **Meta Fields**
+    - Request specific meta fields rather than entire meta object
+    - Use nested field notation for deep meta structures
+    - Consider field casting for proper data types
+
+By following these guidelines and using field selection appropriately, you can optimize your API responses for both performance and data efficiency.

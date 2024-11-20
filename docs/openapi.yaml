@@ -1,0 +1,540 @@
+openapi: 3.1.0
+info:
+  title: Flatlayer CMS API
+  description: |
+    API documentation for Flatlayer CMS, a Git-based headless CMS with AI-powered search capabilities.
+
+    Key features:
+    - Content management through Git repositories
+    - Advanced filtering and querying
+    - AI-powered vector search
+    - Image transformation and optimization
+    - Hierarchical content navigation
+  version: '1.0.0'
+  contact:
+    name: Flatlayer Team
+    url: https://flatlayer.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.flatlayer.io/v1
+    description: Production server
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Entries
+    description: Operations for managing content entries
+  - name: Images
+    description: Operations for image transformation and metadata
+  - name: Hierarchy
+    description: Operations for hierarchical content navigation
+  - name: Webhooks
+    description: Webhook endpoints for content synchronization
+
+paths:
+  /entry/{type}:
+    get:
+      tags:
+        - Entries
+      summary: List entries of a specific type
+      description: Retrieve a paginated list of entries with optional filtering and field selection
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Content type (e.g., 'post', 'doc')
+        - name: filter
+          in: query
+          schema:
+            type: string
+            format: json
+          description: JSON filter criteria for querying entries
+        - name: fields
+          in: query
+          schema:
+            type: string
+            format: json
+          description: JSON array of fields to include in the response
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+          description: Number of items per page
+      responses:
+        '200':
+          description: Successfully retrieved entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryListResponse'
+        '404':
+          description: Content type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /entry/{type}/{slug}:
+    get:
+      tags:
+        - Entries
+      summary: Get a single entry
+      description: Retrieve a specific entry by its type and slug
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fields
+          in: query
+          schema:
+            type: string
+            format: json
+          description: JSON array of fields to include
+        - name: includes
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of additional data to include (hierarchy,sequence,timeline)
+        - name: navigation_fields
+          in: query
+          schema:
+            type: string
+            format: json
+          description: Fields to include in navigation entries
+      responses:
+        '200':
+          description: Successfully retrieved entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryDetail'
+        '404':
+          description: Entry not found
+
+  /entry/batch/{type}:
+    get:
+      tags:
+        - Entries
+      summary: Batch retrieve entries
+      description: Retrieve multiple entries of the same type in a single request
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slugs
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of entry slugs
+        - name: fields
+          in: query
+          schema:
+            type: string
+            format: json
+          description: JSON array of fields to include
+      responses:
+        '200':
+          description: Successfully retrieved entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Entry'
+        '404':
+          description: One or more entries not found
+
+  /hierarchy/{type}:
+    get:
+      tags:
+        - Hierarchy
+      summary: Get content hierarchy
+      description: Retrieve the hierarchical structure of content
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: root
+          in: query
+          schema:
+            type: string
+          description: Root path to start hierarchy from
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+          description: Maximum depth of hierarchy to retrieve
+        - name: fields
+          in: query
+          schema:
+            type: string
+            format: json
+          description: Fields to include in hierarchy nodes
+        - name: sort
+          in: query
+          schema:
+            type: string
+            format: json
+          description: Sorting criteria for hierarchy nodes
+      responses:
+        '200':
+          description: Successfully retrieved hierarchy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyResponse'
+        '404':
+          description: Content type not found
+
+  /hierarchy/{type}/{path}:
+    get:
+      tags:
+        - Hierarchy
+      summary: Find node in hierarchy
+      description: Find a specific node and its ancestry in the content hierarchy
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fields
+          in: query
+          schema:
+            type: string
+            format: json
+      responses:
+        '200':
+          description: Successfully found node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+        '404':
+          description: Node not found
+
+  /image/{id}.{extension}:
+    get:
+      tags:
+        - Images
+      summary: Transform image
+      description: Transform and optimize an image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: extension
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [jpg, jpeg, png, webp, gif]
+        - name: w
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Desired width in pixels
+        - name: h
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Desired height in pixels
+        - name: q
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 90
+          description: JPEG/WebP quality (1-100)
+      responses:
+        '200':
+          description: Successfully transformed image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid transformation parameters
+        '404':
+          description: Image not found
+
+  /image/{id}/metadata:
+    get:
+      tags:
+        - Images
+      summary: Get image metadata
+      description: Retrieve metadata for an image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully retrieved metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageMetadata'
+        '404':
+          description: Image not found
+
+  /webhook/{type}:
+    post:
+      tags:
+        - Webhooks
+      summary: Handle content webhook
+      description: Handle webhook notifications for content updates
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+          description: GitHub webhook signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Webhook received and sync initiated
+        '400':
+          description: Invalid request format
+        '403':
+          description: Invalid signature
+        '404':
+          description: Repository not found
+
+components:
+  schemas:
+    Entry:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        content:
+          type: string
+        excerpt:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            type: string
+        images:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Image'
+
+    EntryDetail:
+      allOf:
+        - $ref: '#/components/schemas/Entry'
+        - type: object
+          properties:
+            hierarchy:
+              $ref: '#/components/schemas/HierarchyInfo'
+            sequence:
+              $ref: '#/components/schemas/NavigationInfo'
+            timeline:
+              $ref: '#/components/schemas/NavigationInfo'
+
+    EntryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+        pagination:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            total_pages:
+              type: integer
+            per_page:
+              type: integer
+
+    Image:
+      type: object
+      properties:
+        id:
+          type: integer
+        extension:
+          type: string
+        filename:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        thumbhash:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+
+    ImageMetadata:
+      type: object
+      properties:
+        width:
+          type: integer
+        height:
+          type: integer
+        mime_type:
+          type: string
+        size:
+          type: integer
+        filename:
+          type: string
+        thumbhash:
+          type: string
+
+    HierarchyResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyNode'
+        meta:
+          type: object
+          properties:
+            type:
+              type: string
+            root:
+              type: string
+            depth:
+              type: integer
+            total_nodes:
+              type: integer
+
+    HierarchyNode:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyNode'
+
+    HierarchyInfo:
+      type: object
+      properties:
+        ancestors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+        siblings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+        parent:
+          $ref: '#/components/schemas/Entry'
+
+    NavigationInfo:
+      type: object
+      properties:
+        previous:
+          $ref: '#/components/schemas/Entry'
+        next:
+          $ref: '#/components/schemas/Entry'
+        position:
+          type: object
+          properties:
+            current:
+              type: integer
+            total:
+              type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

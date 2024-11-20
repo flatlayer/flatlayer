@@ -1,100 +1,116 @@
-# Markdown Sync Process Guide
+# Content Synchronization Guide
 
-Flatlayer CMS provides a flexible synchronization mechanism to keep your content up-to-date with your content sources. This guide explains how the markdown synchronization process works, focusing on the SyncConfigurationService, environment-based configuration, and Git integration.
+Flatlayer CMS provides a robust content synchronization system that automatically processes Markdown files from configured content repositories. This guide explains how content synchronization works and how to configure it properly.
 
 ## Overview
 
-The markdown sync process allows you to automatically update your Flatlayer CMS content from various sources. This process involves:
+The content synchronization system:
+- Automatically discovers and processes all `.md` files in configured directories
+- Integrates with Laravel's filesystem abstraction for flexible storage options
+- Supports local directories and S3 storage
+- Provides Git integration for version control
+- Includes webhook support for automated updates
 
-1. SyncConfigurationService for managing sync configurations
-2. Environment-based Configuration for easy setup
-3. Git Integration for version control (optional)
-4. GitHub Webhook support for automatic updates (optional)
-5. EntrySyncJob for reliable processing
+## Configuration
 
-## Environment-based Configuration
+### Repository Configuration
 
-Sync configurations are stored in environment variables using the following format:
-
-```
-FLATLAYER_SYNC_{TYPE}_{SETTING}="value"
-```
-
-Where:
-- `{TYPE}` is the content type (e.g., POSTS, PAGES, etc.)
-- `{SETTING}` is one of PATH, PATTERN, WEBHOOK, or PULL
-
-Example configuration:
-```env
-# Blog Posts Configuration
-FLATLAYER_SYNC_POSTS_PATH="/path/to/posts"
-FLATLAYER_SYNC_POSTS_PATTERN="*.md"
-FLATLAYER_SYNC_POSTS_WEBHOOK="http://example.com/webhook/posts"
-FLATLAYER_SYNC_POSTS_PULL=true
-
-# Documentation Pages Configuration
-FLATLAYER_SYNC_DOCS_PATH="/path/to/docs"
-FLATLAYER_SYNC_DOCS_PATTERN="**/*.md"
-FLATLAYER_SYNC_DOCS_WEBHOOK="http://example.com/webhook/docs"
-FLATLAYER_SYNC_DOCS_PULL=true
-```
-
-## Git Integration
-
-Flatlayer CMS supports two methods of Git authentication:
-
-### Token-based Authentication
+Flatlayer uses environment variables to configure content repositories. Each repository requires at minimum a path configuration:
 
 ```env
+# Basic local repository
+CONTENT_REPOSITORY_DOCS_PATH=/path/to/docs
+CONTENT_REPOSITORY_DOCS_DRIVER=local
+
+# S3-based repository
+CONTENT_REPOSITORY_BLOG_PATH=posts
+CONTENT_REPOSITORY_BLOG_DRIVER=s3
+CONTENT_REPOSITORY_BLOG_KEY=your-aws-key
+CONTENT_REPOSITORY_BLOG_SECRET=your-aws-secret
+CONTENT_REPOSITORY_BLOG_REGION=us-west-2
+CONTENT_REPOSITORY_BLOG_BUCKET=your-bucket
+```
+
+Available configuration options:
+- `PATH`: Directory path (required)
+- `DRIVER`: Storage driver (`local` or `s3`, defaults to `local`)
+- `WEBHOOK_URL`: URL to notify after sync completion (optional)
+- `PULL`: Whether to pull Git changes before sync (optional, defaults to false)
+
+Additional S3-specific options:
+- `KEY`: AWS access key ID
+- `SECRET`: AWS secret access key
+- `REGION`: AWS region
+- `BUCKET`: S3 bucket name
+- `URL`: Custom S3 URL (optional)
+- `ENDPOINT`: Custom S3 endpoint (optional)
+- `USE_PATH_STYLE_ENDPOINT`: Use path-style endpoints (optional)
+
+### Git Integration
+
+To use Git integration, configure the authentication settings:
+
+```env
+# Git Configuration
+GITHUB_WEBHOOK_SECRET=your_webhook_secret
+
+# Git Authentication Settings
 FLATLAYER_GIT_AUTH_METHOD=token
 FLATLAYER_GIT_USERNAME=your_username
 FLATLAYER_GIT_TOKEN=your_token
-```
 
-### SSH-based Authentication
-
-```env
+# OR for SSH authentication
 FLATLAYER_GIT_AUTH_METHOD=ssh
-FLATLAYER_GIT_SSH_KEY_PATH=/path/to/key
-```
+FLATLAYER_GIT_SSH_KEY_PATH=/path/to/ssh/key
 
-Additional Git configuration options:
-```env
+# Additional Git settings
 FLATLAYER_GIT_COMMIT_NAME="Flatlayer CMS"
 FLATLAYER_GIT_COMMIT_EMAIL=cms@flatlayer.io
 FLATLAYER_GIT_TIMEOUT=60
-FLATLAYER_GIT_RETRY_ATTEMPTS=3
-FLATLAYER_GIT_RETRY_DELAY=5
 ```
 
-## GitHub Webhook Setup
+## Content Processing
 
-To enable automatic content updates when your repository changes:
+### File Discovery
 
-1. Go to your GitHub repository's Settings > Webhooks > Add webhook
-2. Configure the webhook:
-    - Payload URL: `https://your-domain.com/webhook/{type}`
-    - Content Type: `application/json`
-    - Secret: Generate a secure secret and add it to your `.env`:
-      ```env
-      GITHUB_WEBHOOK_SECRET=your_webhook_secret
-      ```
-    - Events: Select "Just the push event"
+Flatlayer automatically:
+- Recursively scans configured directories for `.md` files
+- Handles nested directory structures
+- Maintains proper ordering with index files
+- Resolves slug conflicts
 
-## Content Synchronization
+For example, given this structure:
+```
+docs/
+├── index.md
+├── getting-started/
+│   ├── index.md
+│   ├── installation.md
+│   └── configuration.md
+└── advanced/
+    ├── index.md
+    └── deployment.md
+```
 
-### Manual Sync
+The system will:
+1. Process all `.md` files
+2. Create appropriate slugs (`docs`, `docs/getting-started`, etc.)
+3. Handle index files properly (`index.md` becomes parent slug)
+4. Maintain hierarchical relationships
 
-Use the Artisan command to trigger a manual sync:
+### Synchronization Methods
+
+#### Manual Sync
+
+Use the Artisan command:
 
 ```bash
 # Basic sync
-php artisan flatlayer:sync --type=posts
+php artisan flatlayer:sync --type=docs
 
-# Advanced options
-php artisan flatlayer:sync --type=posts \
-  --path=/custom/path \
-  --pattern="**/*.md" \
+# Advanced usage
+php artisan flatlayer:sync --type=docs \
+  --disk=custom.disk \
   --pull \
   --skip \
   --dispatch \
@@ -102,144 +118,112 @@ php artisan flatlayer:sync --type=posts \
 ```
 
 Command options:
-- `--type`: Content type to sync (required)
-- `--path`: Override the configured content path
-- `--pattern`: Override the file matching pattern
-- `--pull`: Pull latest changes from Git repository
-- `--skip`: Skip sync if no changes detected
-- `--dispatch`: Run sync in background queue
-- `--webhook`: Trigger webhook after sync completion
+- `--type`: Repository type to sync (required)
+- `--disk`: Override the configured disk
+- `--pull`: Pull latest Git changes
+- `--skip`: Skip if no changes detected
+- `--dispatch`: Run in background queue
+- `--webhook`: Custom webhook URL
 
-### Automatic Sync via Webhooks
+#### GitHub Webhook Integration
 
-When configured, the GitHub webhook will automatically trigger a sync when changes are pushed to your repository. The sync process:
+1. Add webhook in GitHub repository settings:
+    - URL: `https://your-domain.com/webhook/{type}`
+    - Content type: `application/json`
+    - Secret: Your `GITHUB_WEBHOOK_SECRET` value
+    - Events: Push event only
 
-1. Verifies the webhook signature using your `GITHUB_WEBHOOK_SECRET`
-2. Pulls the latest changes from your repository (if `PULL=true`)
-3. Processes all Markdown files matching your configured pattern
-4. Triggers your configured webhook URL after completion (if set)
+2. Configure webhook in your environment:
+```env
+# Required for webhook authentication
+GITHUB_WEBHOOK_SECRET=your_secret
 
-## Content Processing
+# Repository configuration
+CONTENT_REPOSITORY_DOCS_WEBHOOK_URL=https://example.com/webhook/callback
+CONTENT_REPOSITORY_DOCS_PULL=true
+```
 
-The sync process handles:
-
-### Markdown Files
-- Processes YAML front matter for metadata
-- Extracts titles and slugs
-- Parses Markdown content
-- Handles draft/published status
-- Supports MDX-style components within content
-
-### Media Files
-- Processes images referenced in Markdown
-- Generates optimized versions and thumbnails
-- Handles image collections defined in front matter
-- Creates thumbhash previews for progressive loading
-- Supports responsive image sizes
-
-### Tags and Categories
-- Extracts and syncs tags from front matter
-- Maintains tag relationships
-- Updates tag counts and metadata
-- Supports both simple and nested taxonomies
+When a webhook is received:
+1. Signature is verified using webhook secret
+2. Changes are pulled if `PULL=true`
+3. Content is synchronized
+4. Webhook URL is notified if configured
 
 ## Best Practices
 
-1. **Content Organization**
-    - Use consistent file naming conventions
-    - Organize files in logical directories
-    - Keep media files close to their content
-    - Use descriptive image filenames
+### Repository Organization
 
-2. **Git Usage**
-    - Use meaningful commit messages
-    - Keep repositories focused on specific content types
-    - Consider using branches for draft content
-    - Regular backups of your database
-    - Use `.gitignore` for excluding generated files
+- Use consistent directory structure
+- Place related content in subdirectories
+- Use meaningful file names
+- Keep media files near their content
+- Use index.md for section landing pages
 
-3. **Configuration Management**
-    - Use environment-specific configs
-    - Securely manage webhook secrets
-    - Monitor webhook logs
-    - Set appropriate timeouts for large repos
-    - Regularly rotate webhook secrets
+### Performance
 
-4. **Performance Optimization**
-    - Use appropriate file patterns
-    - Implement caching strategies
-    - Configure queue workers for background processing
-    - Monitor sync job durations
-    - Use batch processing for large imports
+- Use background queues for large repositories
+- Set appropriate Git timeouts
+- Configure webhook retry settings
+
+### Security
+
+- Use secure webhook secrets
+- Use read-only Git tokens
+- Configure appropriate S3 bucket permissions
+- Regularly rotate credentials
 
 ## Troubleshooting
 
-1. **Webhook Issues**
-    - Verify webhook secret in both GitHub and `.env`
-    - Check webhook payload delivery in GitHub
-    - Ensure correct content type (`application/json`)
-    - Monitor Laravel logs for webhook errors
-    - Check webhook IP allowlist settings
+### Common Issues
 
-2. **Git Integration Issues**
-    - Verify authentication credentials
-    - Check file permissions
-    - Ensure SSH keys are properly configured
-    - Monitor Git operation timeouts
-    - Verify Git LFS settings if using large media files
+1. **File Permission Problems**
+    - Check directory permissions
+    - Verify Laravel worker permissions
+    - Ensure Git can access repositories
 
-3. **Sync Issues**
-    - Check file permissions on content directories
-    - Verify file patterns are correct
-    - Monitor Laravel logs for sync errors
-    - Check queue worker status if using dispatch
-    - Verify database connection settings
+2. **Webhook Failures**
+    - Verify webhook secret
+    - Check GitHub webhook logs
+    - Monitor Laravel logs
+    - Confirm correct content type
 
-4. **Content Processing Issues**
+3. **Git Integration Issues**
+    - Validate authentication settings
+    - Check SSH key permissions
+    - Verify repository access
+    - Monitor timeout settings
+
+4. **Content Processing Errors**
     - Validate front matter syntax
-    - Check image file paths
-    - Verify character encoding
-    - Monitor media processing errors
-    - Check image optimization settings
+    - Check file encodings
+    - Verify media file paths
+    - Monitor Laravel logs
 
-## Advanced Configuration
+### Configuration Settings
 
-### Sync Options
+These are all available configuration options from `config/flatlayer.php`:
 
-```env
-# Default sync settings
-FLATLAYER_SYNC_DEFAULT_PATTERN="*.md"
-FLATLAYER_SYNC_BATCH_SIZE=100
-FLATLAYER_SYNC_CACHE_DURATION=3600
-FLATLAYER_SYNC_LOG_LEVEL=info
+```php
+'sync' => [
+    // Default sync settings
+    'default_pattern' => env('FLATLAYER_SYNC_DEFAULT_PATTERN', '*.md'),
+    'batch_size' => env('FLATLAYER_SYNC_BATCH_SIZE', 100),
+    'log_level' => env('FLATLAYER_SYNC_LOG_LEVEL', 'info'),
+],
+
+'git' => [
+    'auth_method' => env('FLATLAYER_GIT_AUTH_METHOD', 'token'),
+    'username' => env('FLATLAYER_GIT_USERNAME'),
+    'token' => env('FLATLAYER_GIT_TOKEN'),
+    'ssh_key_path' => env('FLATLAYER_GIT_SSH_KEY_PATH'),
+    'commit_name' => env('FLATLAYER_GIT_COMMIT_NAME', 'Flatlayer CMS'),
+    'commit_email' => env('FLATLAYER_GIT_COMMIT_EMAIL', 'cms@flatlayer.io'),
+    'timeout' => env('FLATLAYER_GIT_TIMEOUT', 60),
+    'retry_attempts' => env('FLATLAYER_GIT_RETRY_ATTEMPTS', 3),
+    'retry_delay' => env('FLATLAYER_GIT_RETRY_DELAY', 5),
+],
+
+'github' => [
+    'webhook_secret' => env('GITHUB_WEBHOOK_SECRET'),
+],
 ```
-
-### Queue Configuration
-
-For background processing:
-```env
-QUEUE_CONNECTION=database
-DB_QUEUE_TABLE=jobs
-DB_QUEUE=default
-DB_QUEUE_RETRY_AFTER=90
-```
-
-### Error Handling
-
-Configure error reporting:
-```env
-LOG_CHANNEL=stack
-LOG_LEVEL=debug
-LOG_STACK=daily
-```
-
-### Vector Search Configuration
-
-For content search functionality:
-```env
-OPENAI_API_KEY=your_api_key
-OPENAI_ORGANIZATION=your_org_id
-OPENAI_SEARCH_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-By following these guidelines and properly configuring the markdown sync process, you can ensure that your Flatlayer CMS always reflects the latest content from your designated sources while maintaining reliability and performance.
