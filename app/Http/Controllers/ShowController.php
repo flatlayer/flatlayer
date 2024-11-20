@@ -17,6 +17,12 @@ class ShowController extends Controller
 
     /**
      * Show a single content entry.
+     *
+     * @param  ShowRequest  $request  The validated request
+     * @param  string  $type  Content type (e.g., 'post', 'doc')
+     * @param  string  $slug  Content path/identifier
+     *
+     * @throws \Exception
      */
     public function show(ShowRequest $request, string $type, string $slug): JsonResponse
     {
@@ -35,37 +41,50 @@ class ShowController extends Controller
         $fields = $request->getFields();
         $result = $this->arrayConverter->toDetailArray($contentItem, $fields);
 
-        // Add hierarchical navigation data if requested
-        if ($request->includes('navigation')) {
-            $result['navigation'] = [
+        // Get navigation fields
+        $navFields = $request->getNavigationFields();
+
+        // Add hierarchical structure if requested
+        if ($request->includes('hierarchy')) {
+            $result['hierarchy'] = [
                 'ancestors' => $contentItem->ancestors()
-                    ->map(fn ($entry) => [
-                        'title' => $entry->title,
-                        'slug' => $entry->slug,
-                    ]),
+                    ->map(fn ($entry) => $this->arrayConverter->toSummaryArray($entry, $navFields)),
                 'siblings' => $contentItem->siblings()
-                    ->map(fn ($entry) => [
-                        'title' => $entry->title,
-                        'slug' => $entry->slug,
-                    ]),
+                    ->map(fn ($entry) => $this->arrayConverter->toSummaryArray($entry, $navFields)),
                 'children' => $contentItem->children()
-                    ->map(fn ($entry) => [
-                        'title' => $entry->title,
-                        'slug' => $entry->slug,
-                    ]),
+                    ->map(fn ($entry) => $this->arrayConverter->toSummaryArray($entry, $navFields)),
             ];
 
-            // For index pages, include parent navigation
             if ($contentItem->is_index) {
                 $parent = $contentItem->parent();
                 if ($parent) {
-                    $result['navigation']['parent'] = [
-                        'title' => $parent->title,
-                        'slug' => $parent->slug,
-                        'is_index' => $parent->is_index,
-                    ];
+                    $result['hierarchy']['parent'] = $this->arrayConverter->toSummaryArray($parent, $navFields);
                 }
             }
+        }
+
+        // Add structural sequence navigation if requested
+        if ($request->includes('sequence')) {
+            $navigation = $contentItem->getNavigation('hierarchical');
+            $result['sequence'] = [
+                'previous' => $navigation['previous'] ?
+                    $this->arrayConverter->toSummaryArray($navigation['previous'], $navFields) : null,
+                'next' => $navigation['next'] ?
+                    $this->arrayConverter->toSummaryArray($navigation['next'], $navFields) : null,
+                'position' => $navigation['position'],
+            ];
+        }
+
+        // Add chronological timeline navigation if requested
+        if ($request->includes('timeline')) {
+            $navigation = $contentItem->getNavigation('chronological');
+            $result['timeline'] = [
+                'previous' => $navigation['previous'] ?
+                    $this->arrayConverter->toSummaryArray($navigation['previous'], $navFields) : null,
+                'next' => $navigation['next'] ?
+                    $this->arrayConverter->toSummaryArray($navigation['next'], $navFields) : null,
+                'position' => $navigation['position'],
+            ];
         }
 
         return response()->json($result);
@@ -73,6 +92,11 @@ class ShowController extends Controller
 
     /**
      * Show multiple content entries in a single request.
+     *
+     * @param  BatchShowRequest  $request  The validated request
+     * @param  string  $type  Content type (e.g., 'post', 'doc')
+     *
+     * @throws \Exception
      */
     public function batch(BatchShowRequest $request, string $type): JsonResponse
     {

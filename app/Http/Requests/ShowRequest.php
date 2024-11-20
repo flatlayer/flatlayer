@@ -10,6 +10,28 @@ use Illuminate\Validation\Rule;
 
 class ShowRequest extends FormRequest
 {
+    /**
+     * The features that can be included in the response.
+     * - hierarchy: Includes hierarchical structure (ancestors, siblings, children)
+     * - sequence: Includes next/previous navigation based on document structure
+     * - timeline: Includes next/previous navigation based on publication dates
+     *
+     * @var array<string>
+     */
+    protected const ALLOWED_INCLUDES = ['hierarchy', 'sequence', 'timeline'];
+
+    /**
+     * Default fields to include in navigation entries
+     *
+     * @var array<string>
+     */
+    protected const DEFAULT_NAVIGATION_FIELDS = ['title', 'slug', 'excerpt'];
+
+    /**
+     * The features requested to be included in the response.
+     *
+     * @var array<string>
+     */
     protected array $includedFeatures = [];
 
     /**
@@ -43,7 +65,21 @@ class ShowRequest extends FormRequest
                 'sometimes',
                 Rule::when(is_string($this->input('fields')), 'json'),
             ],
-            'includes' => 'sometimes|string',
+            'navigation_fields' => [
+                'sometimes',
+                Rule::when(is_string($this->input('navigation_fields')), 'json'),
+            ],
+            'includes' => [
+                'sometimes',
+                'string',
+                function ($attribute, $value, $fail) {
+                    $requestedIncludes = array_filter(explode(',', $value));
+                    $invalidIncludes = array_diff($requestedIncludes, self::ALLOWED_INCLUDES);
+                    if (! empty($invalidIncludes)) {
+                        $fail('Invalid include values: '.implode(', ', $invalidIncludes));
+                    }
+                },
+            ],
         ];
     }
 
@@ -56,6 +92,7 @@ class ShowRequest extends FormRequest
         $this->merge(['slug' => $this->route('slug')]);
 
         $this->decodeJsonInput('fields');
+        $this->decodeJsonInput('navigation_fields');
 
         if ($this->has('includes')) {
             $this->includedFeatures = array_filter(explode(',', $this->input('includes')));
@@ -84,6 +121,7 @@ class ShowRequest extends FormRequest
     {
         return [
             'fields.json' => 'The fields must be a valid JSON string.',
+            'navigation_fields.json' => 'The navigation fields must be a valid JSON string.',
             'includes.string' => 'The includes parameter must be a comma-separated string.',
         ];
     }
@@ -114,5 +152,18 @@ class ShowRequest extends FormRequest
     public function getFields(): array
     {
         return $this->input('fields', []);
+    }
+
+    /**
+     * Get the fields to use for navigation entries.
+     * Always includes title, slug, and excerpt.
+     *
+     * @return array<string>
+     */
+    public function getNavigationFields(): array
+    {
+        $fields = $this->input('navigation_fields', []);
+
+        return array_unique([...self::DEFAULT_NAVIGATION_FIELDS, ...$fields]);
     }
 }
