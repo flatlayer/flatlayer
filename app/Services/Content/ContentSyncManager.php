@@ -20,7 +20,7 @@ class ContentSyncManager
     private const CHUNK_SIZE = 100;
 
     public function __construct(
-        protected readonly Git               $git,
+        protected readonly Git $git,
         protected readonly ContentFileSystem $fileDiscovery,
         protected readonly StorageResolver $diskResolver
     ) {}

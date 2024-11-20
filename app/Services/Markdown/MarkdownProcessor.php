@@ -25,7 +25,7 @@ class MarkdownProcessor
 
     public function __construct(
         protected readonly MediaLibrary $imageService,
-        protected readonly Filesystem   $disk
+        protected readonly Filesystem $disk
     ) {}
 
     /**

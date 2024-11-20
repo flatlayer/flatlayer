@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Content;
 
 use App\Models\Entry;
 use App\Services\Content\ContentHierarchy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class HierarchyServiceTest extends TestCase
+class ContentHierarchyTest extends TestCase
 {
     use RefreshDatabase;
 

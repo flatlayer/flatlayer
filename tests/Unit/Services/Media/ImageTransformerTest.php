@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Media;
 
 use App\Exceptions\ImageDimensionException;
 use App\Services\Media\ImageTransformer;
@@ -10,7 +10,7 @@ use Intervention\Image\ImageManager;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class ImageTransformationServiceTest extends TestCase
+class ImageTransformerTest extends TestCase
 {
     use CreatesTestFiles;
 

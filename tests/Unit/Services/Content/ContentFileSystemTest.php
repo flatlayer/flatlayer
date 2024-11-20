@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Content;
 
 use App\Services\Content\ContentFileSystem;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-class FileDiscoveryServiceTest extends TestCase
+class ContentFileSystemTest extends TestCase
 {
     protected ContentFileSystem $service;
 

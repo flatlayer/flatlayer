@@ -220,14 +220,21 @@ MD;
      */
     protected function createImageHandlingCases(): void
     {
+        // Create the directory structure first
         $this->disk->makeDirectory('images');
+        $this->disk->makeDirectory('images/nested');
 
-        // Create test images
+        // Create all required test images
         $imageSpecs = [
             'square.jpg' => [800, 800],
             'portrait.jpg' => [600, 800],
             'landscape.jpg' => [800, 600],
             'nested/external.jpg' => [400, 300],
+            'gallery1.jpg' => [800, 600],
+            'gallery2.jpg' => [800, 600],
+            'thumb1.png' => [150, 150],
+            'thumb2.png' => [150, 150],
+            'featured.jpg' => [1200, 630],
         ];
 
         foreach ($imageSpecs as $name => [$width, $height]) {
@@ -241,11 +248,11 @@ MD;
             <<<'MD'
 # Images in markdown
 
-![First Image](images/square.jpg)
+![First Image](square.jpg)
 
-![Second Image](images/portrait.jpg)
+![Second Image](portrait.jpg)
 
-![Third Image](images/landscape.jpg)
+![Third Image](landscape.jpg)
 MD
         );
 
@@ -255,21 +262,20 @@ MD
             [
                 'type' => 'post',
                 'images' => [
-                    'featured' => 'images/square.jpg',
-                    'gallery' => ['images/portrait.jpg', 'images/landscape.jpg'],
+                    'featured' => 'square.jpg',
+                    'gallery' => ['portrait.jpg', 'landscape.jpg'],
                 ],
             ],
             <<<'MD'
 # Mixed Image References
 
-Featured image: ![Featured](images/square.jpg)
-Gallery image: ![Gallery](images/portrait.jpg)
+Featured image: ![Featured](square.jpg)
+Gallery image: ![Gallery](portrait.jpg)
 External image: ![External](https://example.com/image.jpg)
 MD
         );
 
         // Relative paths
-        $this->disk->makeDirectory('images/nested');
         $this->createMarkdownFile(
             'images/nested/relative-paths.md',
             ['type' => 'post'],

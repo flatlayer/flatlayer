@@ -4,6 +4,7 @@ namespace App\Services\Media;
 
 use App\Models\Entry;
 use App\Models\Image;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
 use Thumbhash\Thumbhash;
+
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
@@ -112,7 +114,7 @@ class MediaLibrary
             try {
                 $imagePath = $this->resolveMediaPath($src, $relativePath);
 
-                if (!$this->storage->exists($imagePath)) {
+                if (! $this->storage->exists($imagePath)) {
                     return $matches[0];
                 }
 
@@ -177,7 +179,7 @@ class MediaLibrary
      */
     public function getFileInfo(string $path): array
     {
-        if (!$this->storage->exists($path)) {
+        if (! $this->storage->exists($path)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 

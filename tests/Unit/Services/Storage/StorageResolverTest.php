@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Storage;
 
 use App\Services\Storage\StorageResolver;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Tests\TestCase;
 
-class DiskResolverTest extends TestCase
+class StorageResolverTest extends TestCase
 {
     private StorageResolver $resolver;
 

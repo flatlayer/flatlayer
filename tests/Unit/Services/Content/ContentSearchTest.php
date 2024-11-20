@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Content;
 
 use App\Models\Entry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class SearchableTest extends TestCase
+class ContentSearchTest extends TestCase
 {
     use RefreshDatabase;
 

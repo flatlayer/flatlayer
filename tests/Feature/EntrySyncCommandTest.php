@@ -6,6 +6,7 @@ use App\Jobs\EntrySyncJob;
 use App\Services\Content\ContentSyncManager;
 use App\Services\Storage\StorageResolver;
 use CzProject\GitPhp\Git;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -27,12 +28,22 @@ class EntrySyncCommandTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
 
+        // Create local disk first
+        Storage::fake('local');
+        $this->localDisk = Storage::disk('local');
+
+        // Create mocks
         $this->syncService = Mockery::mock(ContentSyncManager::class);
         $this->git = Mockery::mock(Git::class);
         $this->diskResolver = Mockery::mock(StorageResolver::class);
 
+        // Set up default disk resolver behavior
+        $this->diskResolver->shouldReceive('resolve')
+            ->byDefault()
+            ->andReturn($this->localDisk);
+
+        // Bind instances
         $this->app->instance(ContentSyncManager::class, $this->syncService);
         $this->app->instance(Git::class, $this->git);
         $this->app->instance(StorageResolver::class, $this->diskResolver);
@@ -55,9 +66,15 @@ class EntrySyncCommandTest extends TestCase
 
         $this->createTestFiles();
 
+        $localDisk = Storage::disk('local');
+
         $this->diskResolver->shouldReceive('resolve')
             ->with('content.post', 'post')
-            ->andReturn(Storage::disk('local'));
+            ->andReturn($localDisk);
+
+        $this->diskResolver->shouldReceive('resolve')
+            ->with(Mockery::type(Filesystem::class), Mockery::any())
+            ->andReturn($localDisk);
 
         $this->syncService->shouldReceive('sync')
             ->once()

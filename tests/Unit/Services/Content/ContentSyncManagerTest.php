@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Content;
 
 use App\Models\Entry;
 use App\Services\Content\ContentFileSystem;
@@ -15,7 +15,7 @@ use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class EntrySyncServiceTest extends TestCase
+class ContentSyncManagerTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 

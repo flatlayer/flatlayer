@@ -49,7 +49,6 @@ class MediaStorage
      *
      * @param  Filesystem|string  $disk  The disk to use
      * @param  string  $type  Optional content type for disk resolution
-     * @return self
      *
      * @throws \InvalidArgumentException If disk cannot be resolved
      */
@@ -69,7 +68,7 @@ class MediaStorage
     {
         $path = $this->normalizePath($path);
 
-        if (!$this->exists($path)) {
+        if (! $this->exists($path)) {
             throw new RuntimeException("File not found: {$path}");
         }
 
@@ -97,7 +96,7 @@ class MediaStorage
     {
         $path = $this->normalizePath($path);
 
-        if (!$this->exists($path)) {
+        if (! $this->exists($path)) {
             throw new RuntimeException("File not found: {$path}");
         }
 
@@ -113,7 +112,7 @@ class MediaStorage
     {
         $path = $this->normalizePath($path);
 
-        if (!$this->exists($path)) {
+        if (! $this->exists($path)) {
             throw new RuntimeException("File not found: {$path}");
         }
 
@@ -129,7 +128,7 @@ class MediaStorage
     {
         $path = $this->normalizePath($path);
 
-        if (!$this->exists($path)) {
+        if (! $this->exists($path)) {
             throw new RuntimeException("File not found: {$path}");
         }
 
@@ -152,7 +151,7 @@ class MediaStorage
         $contentPath = trim($contentPath, '/');
 
         // Handle absolute paths (no ../ or ./)
-        if (!str_starts_with($mediaPath, './') && !str_starts_with($mediaPath, '../')) {
+        if (! str_starts_with($mediaPath, './') && ! str_starts_with($mediaPath, '../')) {
             if ($this->exists($mediaPath)) {
                 return $mediaPath;
             }
@@ -160,10 +159,20 @@ class MediaStorage
 
         // Handle relative paths
         $contentDir = dirname($contentPath);
+
+        // Special handling for parent directory references
+        while (str_starts_with($mediaPath, '../')) {
+            $mediaPath = substr($mediaPath, 3);
+            $contentDir = dirname($contentDir);
+        }
+
+        // Remove any ./ references
+        $mediaPath = str_replace('./', '', $mediaPath);
+
         $resolvedPath = $contentDir === '.' ? $mediaPath : "{$contentDir}/{$mediaPath}";
         $normalizedPath = $this->normalizePath($resolvedPath);
 
-        if (!$this->exists($normalizedPath)) {
+        if (! $this->exists($normalizedPath)) {
             throw new RuntimeException(sprintf(
                 'Media file not found: %s (relative to %s)',
                 $mediaPath,

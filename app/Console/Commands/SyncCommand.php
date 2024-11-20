@@ -22,7 +22,7 @@ class SyncCommand extends Command
 
     public function __construct(
         protected ContentSyncManager $syncService,
-        protected StorageResolver    $diskResolver,
+        protected StorageResolver $diskResolver,
     ) {
         parent::__construct();
     }

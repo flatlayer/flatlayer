@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Media;
 
 use App\Models\Entry;
 use App\Services\Media\MediaLibrary;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class ImageModelTest extends TestCase
+class MediaLibraryTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 
@@ -155,10 +155,17 @@ class ImageModelTest extends TestCase
         $service = $method->invoke($this->entry);
 
         $reflection = new \ReflectionClass($service);
-        $property = $reflection->getProperty('disk');
+        $property = $reflection->getProperty('storage');
         $property->setAccessible(true);
 
-        $this->assertSame($customDisk, $property->getValue($service));
+        /** @var MediaStorage $storage */
+        $storage = $property->getValue($service);
+
+        $storageReflection = new \ReflectionClass($storage);
+        $diskProperty = $storageReflection->getProperty('disk');
+        $diskProperty->setAccessible(true);
+
+        $this->assertSame($customDisk, $diskProperty->getValue($storage));
     }
 
     public function test_use_image_disk_accepts_string()
