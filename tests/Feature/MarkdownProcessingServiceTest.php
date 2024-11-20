@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Entry;
-use App\Services\ImageService;
-use App\Services\MarkdownProcessingService;
+use App\Services\Markdown\MarkdownProcessor;
+use App\Services\Media\MediaLibrary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
@@ -16,9 +16,9 @@ class MarkdownProcessingServiceTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 
-    protected MarkdownProcessingService $service;
+    protected MarkdownProcessor $service;
 
-    protected ImageService $imageService;
+    protected MediaLibrary $imageService;
 
     protected Entry $entry;
 
@@ -27,12 +27,12 @@ class MarkdownProcessingServiceTest extends TestCase
         parent::setUp();
         $this->setupTestFiles();
 
-        $this->imageService = new ImageService(
+        $this->imageService = new MediaLibrary(
             disk: $this->disk,
             imageManager: new ImageManager(new Driver)
         );
 
-        $this->service = new MarkdownProcessingService(
+        $this->service = new MarkdownProcessor(
             imageService: $this->imageService,
             disk: $this->disk
         );

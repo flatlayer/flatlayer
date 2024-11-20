@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Media;
 
 use App\Models\Entry;
 use App\Models\Image;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
@@ -17,12 +17,20 @@ use Thumbhash\Thumbhash;
 use function Thumbhash\extract_size_and_pixels_with_gd;
 use function Thumbhash\extract_size_and_pixels_with_imagick;
 
-class ImageService
+class MediaLibrary
 {
+    protected readonly MediaStorage $storage;
+
     public function __construct(
-        private readonly Filesystem $disk,
+        Filesystem $disk,
         private readonly ImageManager $imageManager = new ImageManager(new Driver),
-    ) {}
+    ) {
+        $this->storage = new MediaStorage(
+            resolver: app(StorageResolver::class),
+            type: 'default',
+            disk: $disk
+        );
+    }
 
     /**
      * Add an image to a model.
@@ -106,7 +114,7 @@ class ImageService
             try {
                 $imagePath = $this->resolveMediaPath($src, $relativePath);
 
-                if (! $this->disk->exists($imagePath)) {
+                if (! $this->storage->exists($imagePath)) {
                     return $matches[0];
                 }
 
@@ -171,19 +179,17 @@ class ImageService
      */
     public function getFileInfo(string $path): array
     {
-        $relativePath = $this->getRelativePath($path);
-
-        if (! $this->disk->exists($relativePath)) {
+        if (! $this->storage->exists($path)) {
             throw new RuntimeException("File does not exist or is not readable: $path");
         }
 
         try {
-            $imageContents = $this->disk->get($relativePath);
+            $imageContents = $this->storage->get($path);
             $image = $this->imageManager->read($imageContents);
 
             return [
-                'size' => $this->disk->size($relativePath),
-                'mime_type' => $this->disk->mimeType($relativePath),
+                'size' => $this->storage->size($path),
+                'mime_type' => $this->storage->mimeType($path),
                 'dimensions' => [
                     'width' => $image->width(),
                     'height' => $image->height(),
@@ -239,25 +245,7 @@ class ImageService
      */
     public function resolveMediaPath(string $mediaItem, string $contentPath): string
     {
-        // Start by trimming slashes from both paths
-        $mediaItem = trim($mediaItem, '/');
-        $contentPath = trim($contentPath, '/');
-
-        // If dealing with a relative path, resolve it against the content directory
-        if (str_starts_with($mediaItem, './') || str_starts_with($mediaItem, '../')) {
-            $contentDir = dirname($contentPath);
-            $mediaItem = $contentDir.'/'.$mediaItem;
-        }
-
-        if (! $this->disk->exists($mediaItem)) {
-            throw new RuntimeException(sprintf(
-                'Media file not found: %s (relative to %s)',
-                $mediaItem,
-                $contentPath
-            ));
-        }
-
-        return $mediaItem;
+        return $this->storage->resolveRelativePath($mediaItem, $contentPath);
     }
 
     /**
@@ -282,20 +270,5 @@ class ImageService
         ));
 
         return "<ResponsiveImage {$encodedProps} />";
-    }
-
-    /**
-     * Convert a path to a relative path for storage operations.
-     */
-    protected function getRelativePath(string $path): string
-    {
-        // Remove storage path prefix if present
-        $storagePath = $this->disk->path('');
-        if (str_starts_with($path, $storagePath)) {
-            return substr($path, strlen($storagePath));
-        }
-
-        // Normalize path
-        return trim($path, '/');
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Content;
 
 use App\Models\Entry;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,7 +11,7 @@ use MathPHP\Statistics\Distance;
 use OpenAI\Laravel\Facades\OpenAI;
 use Pgvector\Vector;
 
-class SearchService
+class ContentSearch
 {
     /**
      * Perform a search query.

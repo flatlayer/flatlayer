@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Markdown;
 
 use App\Models\Entry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class MarkdownModelTest extends TestCase
+class MarkdownProcessorTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase, WithFaker;
 

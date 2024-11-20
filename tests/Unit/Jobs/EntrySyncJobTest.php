@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Jobs;
 
 use App\Jobs\EntrySyncJob;
 use App\Jobs\WebhookTriggerJob;
-use App\Services\EntrySyncService;
+use App\Services\Content\ContentSyncManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -28,8 +28,8 @@ class EntrySyncJobTest extends TestCase
         Queue::fake();
         $this->disk = Storage::fake('test');
 
-        $this->syncService = Mockery::mock(EntrySyncService::class);
-        $this->app->instance(EntrySyncService::class, $this->syncService);
+        $this->syncService = Mockery::mock(ContentSyncManager::class);
+        $this->app->instance(ContentSyncManager::class, $this->syncService);
 
         Log::listen(function ($message) {
             $this->logMessages[] = $message->message;

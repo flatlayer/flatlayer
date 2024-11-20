@@ -1,27 +1,27 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Media;
 
 use App\Exceptions\ImageDimensionException;
-use App\Services\ImageTransformationService;
+use App\Services\Media\ImageTransformer;
 use Illuminate\Http\Response;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class ImageTransformationServiceTest extends TestCase
+class ImageTransformerTest extends TestCase
 {
     use CreatesTestFiles;
 
-    protected ImageTransformationService $service;
+    protected ImageTransformer $service;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->setupTestFiles();
 
-        $this->service = new ImageTransformationService(
+        $this->service = new ImageTransformer(
             disk: $this->disk,
             manager: new ImageManager(new Driver)
         );

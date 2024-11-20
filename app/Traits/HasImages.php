@@ -3,7 +3,7 @@
 namespace App\Traits;
 
 use App\Models\Image;
-use App\Services\ImageService;
+use App\Services\Media\MediaLibrary;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 trait HasImages
 {
-    protected ?ImageService $imageService = null;
+    protected ?MediaLibrary $imageService = null;
 
     protected ?Filesystem $imageDisk = null;
 
@@ -50,10 +50,10 @@ trait HasImages
     /**
      * Get the image service instance.
      */
-    protected function getImageService(): ImageService
+    protected function getImageService(): MediaLibrary
     {
         if ($this->imageService === null) {
-            $this->imageService = new ImageService($this->getImageDisk());
+            $this->imageService = new MediaLibrary($this->getImageDisk());
         }
 
         return $this->imageService;

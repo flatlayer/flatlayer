@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Content;
 
 use App\Models\Entry;
+use App\Services\Storage\StorageResolver;
 use App\Support\Path;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitException;
@@ -11,7 +12,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
-class EntrySyncService
+class ContentSyncManager
 {
     /**
      * The chunk size for bulk operations.
@@ -20,8 +21,8 @@ class EntrySyncService
 
     public function __construct(
         protected readonly Git $git,
-        protected readonly FileDiscoveryService $fileDiscovery,
-        protected readonly DiskResolver $diskResolver
+        protected readonly ContentFileSystem $fileDiscovery,
+        protected readonly StorageResolver $diskResolver
     ) {}
 
     /**

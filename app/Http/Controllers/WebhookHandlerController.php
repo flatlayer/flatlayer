@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\EntrySyncJob;
-use App\Services\DiskResolver;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class WebhookHandlerController extends Controller
 {
     public function __construct(
-        protected DiskResolver $diskResolver
+        protected StorageResolver $diskResolver
     ) {}
 
     public function handle(Request $request, string $type)

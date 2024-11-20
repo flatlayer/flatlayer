@@ -1,20 +1,29 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Media;
 
 use App\Exceptions\ImageDimensionException;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Config;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 
-class ImageTransformationService
+class ImageTransformer
 {
+    protected readonly MediaStorage $storage;
+
     public function __construct(
-        private readonly Filesystem $disk,
+        Filesystem $disk,
         private readonly ImageManager $manager = new ImageManager(new Driver)
-    ) {}
+    ) {
+        $this->storage = new MediaStorage(
+            resolver: app(StorageResolver::class),
+            type: 'default',
+            disk: $disk
+        );
+    }
 
     /**
      * Transform an image based on the given parameters.
@@ -26,12 +35,12 @@ class ImageTransformationService
      */
     public function transformImage(string $path, array $params): string
     {
-        if (! $this->disk->exists($path)) {
+        if (! $this->storage->exists($path)) {
             throw new \RuntimeException("Image not found: {$path}");
         }
 
-        // Read the image content from the disk
-        $image = $this->manager->read($this->disk->get($path));
+        // Read the image content from storage
+        $image = $this->manager->read($this->storage->get($path));
 
         $this->applyTransformations($image, $params);
 
@@ -133,11 +142,11 @@ class ImageTransformationService
      */
     public function getImageMetadata(string $path): array
     {
-        if (! $this->disk->exists($path)) {
+        if (! $this->storage->exists($path)) {
             throw new \RuntimeException("Image not found: {$path}");
         }
 
-        $image = $this->manager->read($this->disk->get($path));
+        $image = $this->manager->read($this->storage->get($path));
 
         return [
             'width' => $image->width(),
@@ -175,11 +184,11 @@ class ImageTransformationService
     }
 
     /**
-     * Check if a path exists in the disk.
+     * Check if a path exists in the storage.
      */
     public function exists(string $path): bool
     {
-        return $this->disk->exists($path);
+        return $this->storage->exists($path);
     }
 
     /**
@@ -187,7 +196,7 @@ class ImageTransformationService
      */
     public function getSize(string $path): ?int
     {
-        return $this->disk->exists($path) ? $this->disk->size($path) : null;
+        return $this->storage->exists($path) ? $this->storage->size($path) : null;
     }
 
     /**
@@ -195,6 +204,6 @@ class ImageTransformationService
      */
     public function getMimeType(string $path): ?string
     {
-        return $this->disk->exists($path) ? $this->disk->mimeType($path) : null;
+        return $this->storage->exists($path) ? $this->storage->mimeType($path) : null;
     }
 }

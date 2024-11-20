@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Content;
 
 use App\Models\Entry;
-use App\Services\DiskResolver;
-use App\Services\EntrySyncService;
-use App\Services\FileDiscoveryService;
+use App\Services\Content\ContentFileSystem;
+use App\Services\Content\ContentSyncManager;
+use App\Services\Storage\StorageResolver;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,11 +15,11 @@ use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class EntrySyncServiceTest extends TestCase
+class ContentSyncManagerTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 
-    protected EntrySyncService $service;
+    protected ContentSyncManager $service;
 
     protected $git;
 
@@ -39,15 +39,15 @@ class EntrySyncServiceTest extends TestCase
         $this->gitRepo = Mockery::mock(GitRepository::class);
 
         // Mock DiskResolver
-        $this->diskResolver = Mockery::mock(DiskResolver::class);
+        $this->diskResolver = Mockery::mock(StorageResolver::class);
         $this->diskResolver->shouldReceive('resolve')
             ->byDefault()
             ->andReturn($this->disk);
 
         // Create the service with mocked dependencies
-        $this->service = new EntrySyncService(
+        $this->service = new ContentSyncManager(
             $this->git,
-            new FileDiscoveryService,
+            new ContentFileSystem,
             $this->diskResolver
         );
 

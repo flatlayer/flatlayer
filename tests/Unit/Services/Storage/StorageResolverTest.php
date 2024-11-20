@@ -1,22 +1,22 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Services\Storage;
 
-use App\Services\DiskResolver;
+use App\Services\Storage\StorageResolver;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Tests\TestCase;
 
-class DiskResolverTest extends TestCase
+class StorageResolverTest extends TestCase
 {
-    private DiskResolver $resolver;
+    private StorageResolver $resolver;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resolver = new DiskResolver;
+        $this->resolver = new StorageResolver;
 
         // Clear any existing disk configurations
         Config::set('filesystems.disks', []);

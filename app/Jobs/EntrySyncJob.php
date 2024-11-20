@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\EntrySyncService;
+use App\Services\Content\ContentSyncManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,7 +47,7 @@ class EntrySyncJob implements ShouldQueue
      *
      * @throws \Exception If synchronization fails
      */
-    public function handle(EntrySyncService $syncService): void
+    public function handle(ContentSyncManager $syncService): void
     {
         try {
             Log::info("Starting EntrySyncJob for type: {$this->type}");
