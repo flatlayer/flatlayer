@@ -33,7 +33,7 @@ trait HasNavigation
     protected function getChronologicalNavigation(): array
     {
         // If the current entry isn't published, return empty navigation
-        if (!$this->published_at) {
+        if (! $this->published_at) {
             return [
                 'previous' => null,
                 'next' => null,
@@ -75,7 +75,7 @@ trait HasNavigation
      */
     protected function getHierarchicalNavigation(): array
     {
-        // Get all siblings including current entry
+        // Get immediate siblings of the current entry
         $siblings = $this->getSiblingsWithSelf();
 
         // Order siblings by nav_order if available, then by title
@@ -88,13 +88,20 @@ trait HasNavigation
             return ['previous' => null, 'next' => null, 'position' => null];
         }
 
+        // For first item in siblings list, get previous from parent
         $previous = $currentIndex > 0
             ? $siblings[$currentIndex - 1]
             : $this->getPreviousFromParent();
 
+        // For last item in siblings list, get next from parent
         $next = $currentIndex < $siblings->count() - 1
             ? $siblings[$currentIndex + 1]
             : $this->getNextFromParent();
+
+        // If we're at a root node, get the first child as next
+        if ($this->isRootNode() && ! $next) {
+            $next = $this->getFirstChild();
+        }
 
         return [
             'previous' => $previous,
@@ -107,11 +114,59 @@ trait HasNavigation
     }
 
     /**
+     * Check if this is a root level node.
+     */
+    protected function isRootNode(): bool
+    {
+        return ! str_contains($this->slug, '/');
+    }
+
+    /**
+     * Get the first child of the specified parent.
+     */
+    protected function getFirstChild(?Model $parent = null): ?Model
+    {
+        $prefix = $parent ? $parent->slug.'/' : $this->slug.'/';
+
+        return static::query()
+            ->where('type', $this->type)
+            ->where(function (Builder $query) use ($prefix) {
+                $query->where('slug', 'like', $prefix.'%')
+                    ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
+            })
+            ->orderBy('meta->nav_order', 'asc')
+            ->orderBy('title', 'asc')
+            ->first();
+    }
+
+    /**
      * Get siblings including the current entry.
      */
     protected function getSiblingsWithSelf(): Collection
     {
-        return $this->siblings()->push($this);
+        // Get the parent path from the current slug
+        $parentPath = dirname($this->slug);
+        $prefix = $parentPath === '.' ? '' : $parentPath.'/';
+
+        // Get all entries at the same level
+        $siblings = static::query()
+            ->where('type', $this->type)
+            ->where(function (Builder $query) use ($prefix) {
+                if (empty($prefix)) {
+                    $query->whereRaw("slug not like '%/%'");
+                } else {
+                    $query->where('slug', 'like', $prefix.'%')
+                        ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
+                }
+            })
+            ->get();
+
+        // Add current entry if not already in collection
+        if (! $siblings->contains(fn ($item) => $item->id === $this->id)) {
+            $siblings->push($this);
+        }
+
+        return $siblings->unique('id');
     }
 
     /**
@@ -124,14 +179,15 @@ trait HasNavigation
             $navOrder = $entry->meta['nav_order'] ?? PHP_FLOAT_MAX;
 
             // Convert to float for consistent sorting
-            if (is_numeric($navOrder)) {
-                $navOrder = (float) $navOrder;
-            } else {
-                $navOrder = PHP_FLOAT_MAX;
-            }
+            $navOrder = match (true) {
+                is_numeric($navOrder) => (float) $navOrder,
+                default => PHP_FLOAT_MAX
+            };
 
-            // Use title as secondary sort
-            return [$navOrder, $entry->title ?? ''];
+            // Use title as secondary sort, with nullsafe operator
+            $title = $entry->title ?? '';
+
+            return [$navOrder, $title];
         })->values();
     }
 
@@ -140,37 +196,75 @@ trait HasNavigation
      */
     protected function getNextFromParent(): ?Model
     {
-        $parent = $this->parent();
-        if (!$parent) {
+        // Get parent path from slug
+        $parentPath = dirname($this->slug);
+        if ($parentPath === '.') {
             return null;
         }
 
-        // If we have a parent, get its siblings
-        $parentSiblings = $parent->getSiblingsWithSelf();
-        $parentSiblings = $this->orderSiblingsForNavigation($parentSiblings);
+        // Get the parent
+        $parent = static::query()
+            ->where('type', $this->type)
+            ->where('slug', $parentPath)
+            ->first();
 
+        if (! $parent) {
+            return null;
+        }
+
+        // Get parent's siblings
+        $parentSiblings = static::query()
+            ->where('type', $this->type)
+            ->where(function (Builder $query) use ($parent) {
+                $grandParentPath = dirname($parent->slug);
+                $prefix = $grandParentPath === '.' ? '' : $grandParentPath.'/';
+
+                if (empty($prefix)) {
+                    $query->whereRaw("slug not like '%/%'");
+                } else {
+                    $query->where('slug', 'like', $prefix.'%')
+                        ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
+                }
+            })
+            ->get();
+
+        $parentSiblings = $this->orderSiblingsForNavigation($parentSiblings);
         $parentIndex = $parentSiblings->search(fn ($item) => $item->id === $parent->id);
 
-        if ($parentIndex < $parentSiblings->count() - 1) {
-            // Get the next parent's first child
+        if ($parentIndex !== false && $parentIndex < $parentSiblings->count() - 1) {
+            // Get the next parent
             $nextParent = $parentSiblings[$parentIndex + 1];
 
-            // Get all children ordered by nav_order and title
-            $children = static::query()
-                ->where('type', $this->type)
-                ->where(function (Builder $query) use ($nextParent) {
-                    $prefix = $nextParent->slug === '' ? '' : $nextParent->slug . '/';
-                    $query->where('slug', 'like', $prefix . '%')
-                        ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
-                })
-                ->orderBy('meta->nav_order', 'asc')
-                ->orderBy('title', 'asc')
-                ->get();
+            // When moving between sections, prefer the section header (parent)
+            // over its first child
+            if ($this->isLastChild($parent)) {
+                return $nextParent;
+            }
 
-            return $children->first() ?? $nextParent;
+            // If we're not the last child, get the first child of the next section
+            return $this->getFirstChild($nextParent);
         }
 
         return null;
+    }
+
+    /**
+     * Check if this entry is the last child of its parent.
+     */
+    protected function isLastChild(Model $parent): bool
+    {
+        $siblings = static::query()
+            ->where('type', $this->type)
+            ->where(function (Builder $query) use ($parent) {
+                $prefix = $parent->slug.'/';
+                $query->where('slug', 'like', $prefix.'%')
+                    ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
+            })
+            ->orderBy('meta->nav_order', 'desc')
+            ->orderBy('title', 'desc')
+            ->get();
+
+        return $siblings->first()?->id === $this->id;
     }
 
     /**
@@ -179,35 +273,11 @@ trait HasNavigation
     protected function getPreviousFromParent(): ?Model
     {
         $parent = $this->parent();
-        if (!$parent) {
+        if (! $parent) {
             return null;
         }
 
-        // If we have a parent, get its siblings
-        $parentSiblings = $parent->getSiblingsWithSelf();
-        $parentSiblings = $this->orderSiblingsForNavigation($parentSiblings);
-
-        $parentIndex = $parentSiblings->search(fn ($item) => $item->id === $parent->id);
-
-        if ($parentIndex > 0) {
-            // Get the previous parent's last child
-            $previousParent = $parentSiblings[$parentIndex - 1];
-
-            // Get all children ordered by nav_order and title
-            $children = static::query()
-                ->where('type', $this->type)
-                ->where(function (Builder $query) use ($previousParent) {
-                    $prefix = $previousParent->slug === '' ? '' : $previousParent->slug . '/';
-                    $query->where('slug', 'like', $prefix . '%')
-                        ->whereRaw("replace(slug, ?, '') not like '%/%'", [$prefix]);
-                })
-                ->orderBy('meta->nav_order', 'desc')
-                ->orderBy('title', 'desc')
-                ->get();
-
-            return $children->first() ?? $previousParent;
-        }
-
+        // Return the parent if we're the first sibling
         return $parent;
     }
 }

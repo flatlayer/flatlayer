@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\Entry;
-use App\Traits\HasNavigation;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -25,18 +24,21 @@ class NavigationTraitTest extends TestCase
         Entry::factory()->create([
             'type' => 'post',
             'title' => 'First Post',
+            'slug' => 'first-post',
             'published_at' => Carbon::parse('2024-01-01'),
         ]);
 
         Entry::factory()->create([
             'type' => 'post',
             'title' => 'Second Post',
+            'slug' => 'second-post',
             'published_at' => Carbon::parse('2024-01-15'),
         ]);
 
         Entry::factory()->create([
             'type' => 'post',
             'title' => 'Third Post',
+            'slug' => 'third-post',
             'published_at' => Carbon::parse('2024-02-01'),
         ]);
 
@@ -44,6 +46,7 @@ class NavigationTraitTest extends TestCase
         Entry::factory()->create([
             'type' => 'post',
             'title' => 'Draft Post',
+            'slug' => 'draft-post',
             'published_at' => null,
         ]);
 
@@ -51,6 +54,7 @@ class NavigationTraitTest extends TestCase
         Entry::factory()->create([
             'type' => 'page',
             'title' => 'Different Type',
+            'slug' => 'different-type',
             'published_at' => Carbon::parse('2024-01-10'),
         ]);
     }
