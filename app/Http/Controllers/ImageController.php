@@ -9,7 +9,7 @@ use App\Services\Media\ImageTransformer;
 use App\Services\Storage\StorageResolver;
 use Illuminate\Http\JsonResponse;
 
-class ImageTransformController extends Controller
+class ImageController extends Controller
 {
     public function __construct(
         protected StorageResolver $diskResolver

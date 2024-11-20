@@ -12,7 +12,7 @@ use Intervention\Image\ImageManager;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
-class MediaTransformControllerTest extends TestCase
+class ImageControllerTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 

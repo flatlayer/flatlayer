@@ -1,10 +1,10 @@
 <?php
 
 use App\Http\Controllers\HierarchyController;
-use App\Http\Controllers\ImageTransformController;
+use App\Http\Controllers\ImageController;
 use App\Http\Controllers\ListController;
 use App\Http\Controllers\ShowController;
-use App\Http\Controllers\WebhookHandlerController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -27,10 +27,10 @@ Route::get('/hierarchy/{type}/{path}', [HierarchyController::class, 'find'])
     ->name('hierarchy.find');
 
 // Image transform route
-Route::get('/image/{id}.{extension}', [ImageTransformController::class, 'transform'])->name('image.transform');
-Route::get('/image/{id}/metadata', [ImageTransformController::class, 'metadata'])->name('image.metadata');
+Route::get('/image/{id}.{extension}', [ImageController::class, 'transform'])->name('image.transform');
+Route::get('/image/{id}/metadata', [ImageController::class, 'metadata'])->name('image.metadata');
 
 // Webhook route
-Route::post('/webhook/{type}', [WebhookHandlerController::class, 'handle'])
+Route::post('/webhook/{type}', [WebhookController::class, 'handle'])
     ->middleware('throttle:10,1')
     ->name('webhook.handle');
