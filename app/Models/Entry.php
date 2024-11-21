@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Query\EntrySerializer;
 use App\Rules\ValidPath;
+use App\Services\Markdown\StructureExtractor;
 use App\Support\Path;
 use App\Traits\HasImages;
 use App\Traits\HasMarkdown;
@@ -50,6 +51,13 @@ class Entry extends Model
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<string>
+     */
+    protected $appends = ['is_index'];
+
+    /**
      * Set the slug attribute with validation and normalization.
      */
     public function setSlugAttribute(string $value): void
@@ -77,6 +85,27 @@ class Entry extends Model
     public function getIsIndexAttribute(): bool
     {
         return basename($this->filename) === 'index.md';
+    }
+
+    /**
+     * Get the content structure attribute.
+     */
+    public function getContentStructureAttribute(): array
+    {
+        return app(StructureExtractor::class)->extract(
+            $this->content ?? ''
+        );
+    }
+
+    /**
+     * Get a flattened version of the content structure.
+     */
+    public function getFlatContentStructureAttribute(): array
+    {
+        return app(StructureExtractor::class)->extract(
+            $this->content ?? '',
+            ['flatten' => true]
+        );
     }
 
     /**
