@@ -12,7 +12,7 @@ class StructureExtractorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->extractor = new StructureExtractor();
+        $this->extractor = new StructureExtractor;
     }
 
     public function test_extracts_basic_structure()
@@ -124,9 +124,9 @@ MD;
         $content = "# First Title\nSome content\n## Second Title";
 
         // Let's break down the offset calculation:
-        $firstLineLength = strlen("# First Title");  // 12 chars
+        $firstLineLength = strlen('# First Title');  // 12 chars
         $firstLineEnd = 1;  // \n character
-        $secondLineLength = strlen("Some content");  // 12 chars
+        $secondLineLength = strlen('Some content');  // 12 chars
         $secondLineEnd = 1;  // \n character
         $expectedOffset = $firstLineLength + $firstLineEnd + $secondLineLength + $secondLineEnd;  // 27
 

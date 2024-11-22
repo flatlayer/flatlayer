@@ -16,7 +16,7 @@ class ContentHierarchyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ContentHierarchy;
+        $this->service = app(ContentHierarchy::class);
         $this->createTestHierarchy();
     }
 
@@ -234,5 +234,41 @@ class ContentHierarchyTest extends TestCase
         $this->assertEquals('Index Page', $hierarchy[0]['title']);
         $this->assertCount(1, $hierarchy[0]['children']);
         $this->assertEquals('Child Page', $hierarchy[0]['children'][0]['title']);
+    }
+
+    /**
+     * Add these tests after test_handles_meta_field_selection() and before test_respects_index_files()
+     */
+    public function test_applies_different_fields_for_child_nodes()
+    {
+        $hierarchy = $this->service->buildHierarchy('docs', null, [
+            'fields' => ['title', 'slug', 'meta'],
+            'navigation_fields' => ['title', 'slug'], // Simpler fields for children
+        ]);
+
+        // Check root node has all fields
+        $this->assertArrayHasKey('meta', $hierarchy[0]);
+        $this->assertArrayHasKey('title', $hierarchy[0]);
+        $this->assertArrayHasKey('slug', $hierarchy[0]);
+
+        // Check child node has only navigation fields
+        $child = $hierarchy[0]['children'][0];
+        $this->assertArrayHasKey('title', $child);
+        $this->assertArrayHasKey('slug', $child);
+        $this->assertArrayNotHasKey('meta', $child);
+    }
+
+    public function test_navigation_fields_fallback_to_main_fields()
+    {
+        $hierarchy = $this->service->buildHierarchy('docs', null, [
+            'fields' => ['title', 'slug', 'meta'],
+            // No navigation_fields specified, should use main fields
+        ]);
+
+        // Check child nodes inherited main fields
+        $child = $hierarchy[0]['children'][0];
+        $this->assertArrayHasKey('meta', $child);
+        $this->assertArrayHasKey('title', $child);
+        $this->assertArrayHasKey('slug', $child);
     }
 }

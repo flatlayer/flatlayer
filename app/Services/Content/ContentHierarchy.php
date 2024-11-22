@@ -3,12 +3,17 @@
 namespace App\Services\Content;
 
 use App\Models\Entry;
+use App\Query\EntrySerializer;
 use App\Support\Path;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 
 class ContentHierarchy
 {
+    public function __construct(
+        protected readonly EntrySerializer $serializer
+    ) {}
+
     /**
      * Convert a flat collection of entries into a hierarchical structure.
      *
@@ -17,6 +22,7 @@ class ContentHierarchy
      * @param  array  $options  Additional options for hierarchy generation
      *                          - depth: Maximum depth to traverse (null for unlimited)
      *                          - fields: Array of fields to include in node data
+     *                          - navigation_fields: Array of fields for child nodes
      *                          - sort: Sort nodes by field/direction, e.g. ['title' => 'asc']
      * @return array Hierarchical structure of entries
      *
@@ -104,8 +110,13 @@ class ContentHierarchy
         }
 
         $nodes = $entries->map(function ($entry) use ($grouped, $options, $depth) {
-            $node = $this->createNode($entry, $options);
+            // Use navigation_fields for child nodes if specified, otherwise use main fields
+            $fields = $depth === 0 ? ($options['fields'] ?? []) : ($options['navigation_fields'] ?? $options['fields'] ?? []);
 
+            // Create node using serializer for consistent field handling
+            $node = $this->serializer->toArray($entry, $fields);
+
+            // Process children if they exist
             $children = $grouped->get($entry->slug, collect());
             if ($children->isNotEmpty()) {
                 if (isset($options['sort'])) {
@@ -127,30 +138,6 @@ class ContentHierarchy
         }
 
         return $nodes->values()->all();
-    }
-
-    /**
-     * Create a node from an entry.
-     *
-     * @param  Entry  $entry  The entry to create node from
-     * @param  array  $options  Node creation options
-     * @return array Node data
-     */
-    protected function createNode(Entry $entry, array $options): array
-    {
-        $fields = $options['fields'] ?? ['id', 'title', 'slug', 'meta'];
-
-        $node = [];
-        foreach ($fields as $field) {
-            if (str_starts_with($field, 'meta.')) {
-                $metaKey = substr($field, 5);
-                $node['meta'][$metaKey] = data_get($entry->meta, $metaKey);
-            } else {
-                $node[$field] = $entry->$field;
-            }
-        }
-
-        return $node;
     }
 
     /**

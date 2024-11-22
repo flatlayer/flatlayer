@@ -9,11 +9,11 @@ class StructureExtractor
     /**
      * Extract a hierarchical structure from markdown content.
      *
-     * @param string $content The markdown content
-     * @param array $options Additional options
-     *                      - max_depth: Maximum heading level to include (1-6, default: 6)
-     *                      - min_depth: Minimum heading level to start from (1-6, default: 1)
-     *                      - flatten: Return flat array instead of hierarchy (default: false)
+     * @param  string  $content  The markdown content
+     * @param  array  $options  Additional options
+     *                          - max_depth: Maximum heading level to include (1-6, default: 6)
+     *                          - min_depth: Minimum heading level to start from (1-6, default: 1)
+     *                          - flatten: Return flat array instead of hierarchy (default: false)
      * @return array<int, array{
      *   title: string,
      *   level: int,
@@ -43,8 +43,9 @@ class StructureExtractor
         $position = 0;
 
         foreach ($lines as $lineNum => $line) {
-            if (!$this->isHeading($line)) {
+            if (! $this->isHeading($line)) {
                 $position += strlen($line) + 1;
+
                 continue;
             }
 
@@ -53,6 +54,7 @@ class StructureExtractor
             // Skip if outside depth range
             if ($level < $minDepth || $level > $maxDepth) {
                 $position += strlen($line) + 1;
+
                 continue;
             }
 
@@ -96,9 +98,10 @@ class StructureExtractor
     protected function parseHeading(string $line): array
     {
         preg_match('/^(#{1,6})\s+(.+)$/', $line, $matches);
+
         return [
             strlen($matches[1]),
-            trim($matches[2])
+            trim($matches[2]),
         ];
     }
 
@@ -117,6 +120,7 @@ class StructureExtractor
         }
 
         $anchors[$anchor] = true;
+
         return $anchor;
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class HierarchyRequest extends FormRequest
 {
@@ -20,12 +21,14 @@ class HierarchyRequest extends FormRequest
             'depth' => 'sometimes|integer|min:1|max:10',
             'fields' => [
                 'sometimes',
-                'array',
-                'min:1',
+                Rule::when(is_string($this->input('fields')), 'json'),
             ],
             'fields.*' => [
                 'string',
-                'regex:/^(id|title|slug|is_index|meta\..+)$/',
+            ],
+            'navigation_fields' => [
+                'sometimes',
+                Rule::when(is_string($this->input('navigation_fields')), 'json'),
             ],
             'sort' => 'sometimes|array',
             'sort.*' => 'in:asc,desc',
@@ -34,8 +37,22 @@ class HierarchyRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->mergeIfJson('fields');
+        $this->decodeJsonInput('fields');
+        $this->decodeJsonInput('navigation_fields');
         $this->mergeIfJson('sort');
+    }
+
+    /**
+     * Decode JSON input if it's a string.
+     */
+    private function decodeJsonInput(string $field): void
+    {
+        if ($this->has($field) && is_string($this->input($field))) {
+            $decoded = json_decode($this->input($field), true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $this->merge([$field => $decoded]);
+            }
+        }
     }
 
     private function mergeIfJson(string $field): void
@@ -51,7 +68,8 @@ class HierarchyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fields.*.regex' => 'Invalid field specified. Allowed fields: id, title, slug, is_index, meta.*',
+            'fields.json' => 'The fields must be a valid JSON string.',
+            'navigation_fields.json' => 'The navigation fields must be a valid JSON string.',
             'sort.*.in' => 'Sort direction must be either "asc" or "desc"',
         ];
     }
@@ -63,11 +81,38 @@ class HierarchyRequest extends FormRequest
         ], 400));
     }
 
+    /**
+     * Get the fields array from the request.
+     *
+     * @return array<string, mixed>
+     */
+    public function getFields(): array
+    {
+        return $this->input('fields', []);
+    }
+
+    /**
+     * Get the fields to use for navigation entries.
+     * These are separate from the main fields and are used for ancestry, siblings, etc.
+     *
+     * @return array<string>
+     */
+    public function getNavigationFields(): array
+    {
+        return $this->input('navigation_fields', []);
+    }
+
+    /**
+     * Get all hierarchy options including fields.
+     *
+     * @return array<string, mixed>
+     */
     public function getOptions(): array
     {
         return array_filter([
             'depth' => $this->input('depth'),
-            'fields' => $this->input('fields'),
+            'fields' => $this->getFields(),
+            'navigation_fields' => $this->getNavigationFields(),
             'sort' => $this->input('sort'),
         ]);
     }
