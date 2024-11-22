@@ -26,8 +26,6 @@ return new class extends Migration
             // Add a vector column for search functionality
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $table->vector('embedding', 1536)->nullable();
-                // Add a GiST index for path-based queries
-                DB::statement('CREATE INDEX entries_slug_path_gist ON entries USING gist (type, slug gist_trgm_ops)');
             } else {
                 $table->text('embedding')->nullable();
             }

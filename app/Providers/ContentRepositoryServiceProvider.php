@@ -95,7 +95,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
      */
     protected function buildRepositoryConfig(string $type): array
     {
-        $prefix = "CONTENT_REPOSITORY_{$type}_";
+        $prefix = "CONTENT_REPOSITORY_" . strtoupper($type) . '_';
         $config = [];
 
         // Required configuration
@@ -106,7 +106,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
         $config['webhook_url'] = $_ENV["{$prefix}WEBHOOK_URL"] ?? null;
         $config['pull'] = isset($_ENV["{$prefix}PULL"]) ?
             filter_var($_ENV["{$prefix}PULL"], FILTER_VALIDATE_BOOLEAN) :
-            false;
+            true;
 
         // S3-specific configuration
         if ($config['driver'] === 's3') {
