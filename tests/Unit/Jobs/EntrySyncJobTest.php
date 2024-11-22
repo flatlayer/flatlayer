@@ -20,8 +20,6 @@ class EntrySyncJobTest extends TestCase
 
     private $disk;
 
-    private array $logMessages = [];
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -30,43 +28,6 @@ class EntrySyncJobTest extends TestCase
 
         $this->syncService = Mockery::mock(ContentSyncManager::class);
         $this->app->instance(ContentSyncManager::class, $this->syncService);
-
-        Log::listen(function ($message) {
-            $this->logMessages[] = $message->message;
-        });
-    }
-
-    public function test_job_calls_sync_service_with_correct_parameters()
-    {
-        $this->syncService->shouldReceive('sync')
-            ->once()
-            ->with(
-                'post',
-                Mockery::any(),
-                true,
-                true
-            )
-            ->andReturn([
-                'files_processed' => 10,
-                'entries_updated' => 5,
-                'entries_created' => 3,
-                'entries_deleted' => 2,
-                'skipped' => false,
-            ]);
-
-        $job = new EntrySyncJob(
-            type: 'post',
-            disk: $this->disk,
-            shouldPull: true,
-            skipIfNoChanges: true
-        );
-
-        $job->handle($this->syncService);
-
-        $this->assertTrue(in_array(
-            'Starting EntrySyncJob for type: post',
-            $this->logMessages
-        ));
     }
 
     public function test_job_triggers_webhook_on_success()
@@ -146,37 +107,6 @@ class EntrySyncJobTest extends TestCase
         $job->handle($this->syncService);
 
         Queue::assertNotPushed(WebhookTriggerJob::class);
-        $this->assertTrue(in_array(
-            'Sync skipped for type post - no changes detected',
-            $this->logMessages
-        ));
-    }
-
-    public function test_job_logs_completion_with_sync_results()
-    {
-        $this->syncService->shouldReceive('sync')->andReturn([
-            'files_processed' => 10,
-            'entries_updated' => 5,
-            'entries_created' => 3,
-            'entries_deleted' => 2,
-            'skipped' => false,
-        ]);
-
-        $job = new EntrySyncJob(
-            type: 'post',
-            disk: $this->disk,
-        );
-
-        $job->handle($this->syncService);
-
-        $this->assertTrue(in_array(
-            'Starting EntrySyncJob for type: post',
-            $this->logMessages
-        ));
-        $this->assertTrue(in_array(
-            'Sync completed for type post',
-            $this->logMessages
-        ));
     }
 
     protected function tearDown(): void

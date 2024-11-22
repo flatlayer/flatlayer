@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\EntrySyncJob;
+use App\Services\Content\ContentFileSystem;
 use App\Services\Content\ContentSyncManager;
 use App\Services\Storage\StorageResolver;
 use CzProject\GitPhp\Git;
@@ -13,13 +14,14 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 class EntrySyncCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $syncService;
+    protected $syncManager;
 
     protected $git;
 
@@ -34,7 +36,7 @@ class EntrySyncCommandTest extends TestCase
         $this->localDisk = Storage::disk('local');
 
         // Create mocks
-        $this->syncService = Mockery::mock(ContentSyncManager::class);
+        $this->syncManager = Mockery::mock(ContentSyncManager::class);
         $this->git = Mockery::mock(Git::class);
         $this->diskResolver = Mockery::mock(StorageResolver::class);
 
@@ -44,7 +46,7 @@ class EntrySyncCommandTest extends TestCase
             ->andReturn($this->localDisk);
 
         // Bind instances
-        $this->app->instance(ContentSyncManager::class, $this->syncService);
+        $this->app->instance(ContentSyncManager::class, $this->syncManager);
         $this->app->instance(Git::class, $this->git);
         $this->app->instance(StorageResolver::class, $this->diskResolver);
 
@@ -76,7 +78,7 @@ class EntrySyncCommandTest extends TestCase
             ->with(Mockery::type(Filesystem::class), Mockery::any())
             ->andReturn($localDisk);
 
-        $this->syncService->shouldReceive('sync')
+        $this->syncManager->shouldReceive('sync')
             ->once()
             ->andReturn([
                 'files_processed' => 2,
@@ -104,7 +106,7 @@ class EntrySyncCommandTest extends TestCase
             ->with('content.post', 'post')
             ->andReturn(Storage::disk('local'));
 
-        $this->syncService->shouldReceive('sync')
+        $this->syncManager->shouldReceive('sync')
             ->once()
             ->andReturn([
                 'files_processed' => 2,
@@ -126,13 +128,15 @@ class EntrySyncCommandTest extends TestCase
     {
         $this->createTestFiles();
 
-        $this->diskResolver->shouldReceive('resolve')
+        $this->syncManager->shouldReceive('sync')
             ->twice()
-            ->with('local', 'post')
-            ->andReturn(Storage::disk('local'));
-
-        $this->syncService->shouldReceive('sync')
-            ->twice()
+            ->with(
+                'post',
+                'local',
+                Mockery::any(),
+                Mockery::any(),
+                Mockery::any()
+            )
             ->andReturn([
                 'files_processed' => 2,
                 'entries_updated' => 1,
@@ -189,17 +193,14 @@ class EntrySyncCommandTest extends TestCase
     {
         $this->createTestFiles();
 
-        $this->diskResolver->shouldReceive('resolve')
-            ->with('local', 'post')
-            ->andReturn(Storage::disk('local'));
-
-        $this->syncService->shouldReceive('sync')
+        $this->syncManager->shouldReceive('sync')
             ->once()
             ->with(
-                'post',
-                Mockery::type('Illuminate\Contracts\Filesystem\Filesystem'),
-                true,
-                false,
+                'post',              // type
+                'local',            // disk
+                true,              // shouldPull
+                false,             // skipIfNoChanges
+                Mockery::type('Closure')  // progressCallback
             )
             ->andReturn([
                 'files_processed' => 2,
@@ -220,9 +221,13 @@ class EntrySyncCommandTest extends TestCase
 
     public function test_sync_command_with_dispatch_option()
     {
+        // Make sure Queue facade is fresh
+        Queue::fake();
+
         Config::set('flatlayer.repositories.post', [
             'disk' => 'content.post',
             'webhook_url' => 'http://example.com/webhook',
+            'pull' => true,
         ]);
 
         Config::set('filesystems.disks.content.post', [
@@ -230,14 +235,19 @@ class EntrySyncCommandTest extends TestCase
             'root' => Storage::path('posts'),
         ]);
 
-        $this->diskResolver->shouldReceive('resolve')
-            ->with('content.post', 'post')
-            ->andReturn(Storage::disk('local'));
+        // Use the real ContentSyncManager
+        $this->app->instance(ContentSyncManager::class, new ContentSyncManager(
+            $this->git,
+            new ContentFileSystem,
+            $this->diskResolver
+        ));
 
+        // Let's also dump output to see what's happening
+        $output = new BufferedOutput();
         $exitCode = Artisan::call('flatlayer:sync', [
             '--type' => 'post',
             '--dispatch' => true,
-        ]);
+        ], $output);
 
         $this->assertEquals(0, $exitCode);
 
@@ -245,7 +255,10 @@ class EntrySyncCommandTest extends TestCase
             $config = $job->getJobConfig();
 
             return $config['type'] === 'post'
-                && $config['webhookUrl'] === 'http://example.com/webhook';
+                && $config['disk'] === 'content.post'
+                && $config['webhookUrl'] === 'http://example.com/webhook'
+                && $config['shouldPull'] === false
+                && $config['skipIfNoChanges'] === false;
         });
     }
 

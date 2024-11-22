@@ -5,11 +5,13 @@ namespace App\Services\Content;
 use App\Models\Entry;
 use App\Services\Storage\StorageResolver;
 use App\Support\Path;
+use Closure;
 use CzProject\GitPhp\Git;
 use CzProject\GitPhp\GitException;
 use CzProject\GitPhp\GitRepository;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
 class ContentSyncManager
@@ -26,7 +28,7 @@ class ContentSyncManager
     ) {}
 
     /**
-     * Perform content synchronization.
+     * Perform content synchronization with optional progress reporting.
      *
      * @param  string  $type  Content type to sync
      * @param  string|array|Filesystem|null  $disk  The disk to use:
@@ -36,6 +38,8 @@ class ContentSyncManager
      *                                              - null: Get using type
      * @param  bool  $shouldPull  Whether to pull latest changes from Git
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected
+     * @param  Closure|null  $progressCallback  Optional callback for progress updates:
+     *                                         function(string $message, ?int $current = null, ?int $total = null): void
      * @return array{
      *     files_processed: int,
      *     entries_updated: int,
@@ -50,9 +54,10 @@ class ContentSyncManager
         string $type,
         string|array|Filesystem|null $disk = null,
         bool $shouldPull = false,
-        bool $skipIfNoChanges = false
+        bool $skipIfNoChanges = false,
+        ?Closure $progressCallback = null
     ): array {
-        Log::info("Starting content sync for type: {$type}");
+        $this->logProgress("Starting content sync for type: {$type}", $progressCallback);
 
         // Get the disk using the resolver
         $disk = $this->diskResolver->resolve($disk, $type);
@@ -60,10 +65,11 @@ class ContentSyncManager
         // Handle Git operations if needed and disk is local
         $changesDetected = true;
         if ($shouldPull && $this->isLocalDisk($disk)) {
+            $this->logProgress('Checking Git repository for changes...', $progressCallback);
             $changesDetected = $this->handleGitPull($disk);
-            if (! $changesDetected && $skipIfNoChanges) {
-                Log::info('No changes detected and skipIfNoChanges is true. Skipping sync.');
 
+            if (!$changesDetected && $skipIfNoChanges) {
+                $this->logProgress('No changes detected and skipIfNoChanges is true. Skipping sync.', $progressCallback);
                 return [
                     'files_processed' => 0,
                     'entries_updated' => 0,
@@ -74,7 +80,7 @@ class ContentSyncManager
             }
         }
 
-        return $this->processContent($type, $disk);
+        return $this->processContent($type, $disk, $progressCallback);
     }
 
     /**
@@ -84,7 +90,6 @@ class ContentSyncManager
     {
         try {
             $root = $disk->path('');
-
             return file_exists($root) && is_dir($root);
         } catch (\Exception $e) {
             return false;
@@ -113,7 +118,7 @@ class ContentSyncManager
             Log::info("Current commit hash before pull: {$beforeHash}");
 
             // Get timeout for Git operations
-            $timeout = config('flatlayer.git.timeout', 60);
+            $timeout = Config::get('flatlayer.git.timeout', 60);
 
             // Pass timeout to pull command
             $repo->pull(['timeout' => $timeout]);
@@ -126,6 +131,7 @@ class ContentSyncManager
             Log::info($changesDetected ? 'Changes detected during pull' : 'No changes detected during pull');
 
             return $changesDetected;
+
         } catch (GitException $e) {
             Log::error("Error during Git pull: {$e->getMessage()}");
             Log::error($e->getTraceAsString());
@@ -140,20 +146,20 @@ class ContentSyncManager
      */
     protected function configureGitAuth(GitRepository $repo): void
     {
-        $authMethod = config('flatlayer.git.auth_method', 'token');
+        $authMethod = Config::get('flatlayer.git.auth_method', 'token');
 
         try {
             // Set commit identity
             $repo->setIdentity(
-                config('flatlayer.git.commit_name', 'Flatlayer CMS'),
-                config('flatlayer.git.commit_email', 'cms@flatlayer.io')
+                Config::get('flatlayer.git.commit_name', 'Flatlayer CMS'),
+                Config::get('flatlayer.git.commit_email', 'cms@flatlayer.io')
             );
 
             // Configure authentication
             switch ($authMethod) {
                 case 'token':
-                    $username = config('flatlayer.git.username');
-                    $token = config('flatlayer.git.token');
+                    $username = Config::get('flatlayer.git.username');
+                    $token = Config::get('flatlayer.git.token');
 
                     if ($username && $token) {
                         $repo->setAuthentication($username, $token);
@@ -162,7 +168,7 @@ class ContentSyncManager
                     break;
 
                 case 'ssh':
-                    $sshKeyPath = config('flatlayer.git.ssh_key_path');
+                    $sshKeyPath = Config::get('flatlayer.git.ssh_key_path');
                     if ($sshKeyPath && file_exists($sshKeyPath)) {
                         $repo->setSSHKey($sshKeyPath);
                         Log::info('Git authentication configured using SSH key');
@@ -189,18 +195,19 @@ class ContentSyncManager
      *     skipped: bool
      * }
      */
-    protected function processContent(string $type, Filesystem $disk): array
+    protected function processContent(string $type, Filesystem $disk, ?Closure $progressCallback): array
     {
-        Log::info('Starting content file processing');
+        $this->logProgress('Starting content file processing', $progressCallback);
 
         // Find all markdown files using the disk
         $files = $this->fileDiscovery->findFiles($disk);
-        Log::info('Found '.$files->count().' files to process');
+        $this->logProgress('Found '.$files->count().' files to process', $progressCallback, 0, $files->count());
 
         $existingSlugs = Entry::where('type', $type)->pluck('slug')->flip();
         $processedSlugs = [];
         $updatedCount = 0;
         $createdCount = 0;
+        $processed = 0;
 
         foreach ($files as $relativePath => $file) {
             try {
@@ -218,21 +225,25 @@ class ContentSyncManager
 
                 if ($existingSlugs->has($slug)) {
                     $updatedCount++;
-                    Log::info("Updated content item: {$slug}");
+                    $this->logProgress("Updated content item: {$slug}", $progressCallback, ++$processed, $files->count());
                 } else {
                     $createdCount++;
-                    Log::info("Created new content item: {$slug}");
+                    $this->logProgress("Created new content item: {$slug}", $progressCallback, ++$processed, $files->count());
                 }
             } catch (\Exception $e) {
                 Log::error("Error processing file {$relativePath}: ".$e->getMessage());
-                if (config('flatlayer.sync.log_level') === 'debug') {
+                $this->logProgress("Error processing file: {$relativePath}", $progressCallback, ++$processed, $files->count());
+
+                if (Config::get('flatlayer.sync.log_level') === 'debug') {
                     Log::debug($e->getTraceAsString());
                 }
             }
         }
 
-        $deletedCount = $this->deleteRemovedEntries($type, $existingSlugs, $processedSlugs);
-        Log::info("Content sync completed for type: {$type}");
+        $this->logProgress('Processing deletions...', $progressCallback);
+        $deletedCount = $this->deleteRemovedEntries($type, $existingSlugs, $processedSlugs, $progressCallback);
+
+        $this->logProgress("Content sync completed for type: {$type}", $progressCallback);
 
         return [
             'files_processed' => $files->count(),
@@ -248,21 +259,42 @@ class ContentSyncManager
      *
      * @return int The number of deleted entries
      */
-    private function deleteRemovedEntries(string $type, Collection $existingSlugs, array $processedSlugs): int
-    {
+    private function deleteRemovedEntries(
+        string $type,
+        Collection $existingSlugs,
+        array $processedSlugs,
+        ?Closure $progressCallback
+    ): int {
         $slugsToDelete = $existingSlugs->diffKeys(array_flip($processedSlugs));
         $deleteCount = $slugsToDelete->count();
-        Log::info("Deleting {$deleteCount} content items that no longer have corresponding files");
+
+        if ($deleteCount === 0) {
+            return 0;
+        }
+
+        $this->logProgress("Deleting {$deleteCount} content items that no longer have corresponding files", $progressCallback);
 
         $totalDeleted = 0;
-        $batchSize = config('flatlayer.sync.batch_size', self::CHUNK_SIZE);
+        $batchSize = Config::get('flatlayer.sync.batch_size', self::CHUNK_SIZE);
 
-        $slugsToDelete->chunk($batchSize)->each(function ($chunk) use (&$totalDeleted, $type) {
+        $slugsToDelete->chunk($batchSize)->each(function ($chunk) use (&$totalDeleted, $type, $deleteCount, $progressCallback) {
             $deletedCount = Entry::where('type', $type)->whereIn('slug', $chunk->keys())->delete();
             $totalDeleted += $deletedCount;
-            Log::info("Deleted {$deletedCount} content items");
+            $this->logProgress("Deleted {$totalDeleted} of {$deleteCount} content items", $progressCallback, $totalDeleted, $deleteCount);
         });
 
         return $totalDeleted;
+    }
+
+    /**
+     * Log progress both to the logger and through the callback if provided.
+     */
+    protected function logProgress(string $message, ?Closure $progressCallback = null, ?int $current = null, ?int $total = null): void
+    {
+        Log::info($message);
+
+        if ($progressCallback) {
+            $progressCallback($message, $current, $total);
+        }
     }
 }

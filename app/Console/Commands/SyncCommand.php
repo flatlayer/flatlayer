@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Jobs\EntrySyncJob;
 use App\Services\Content\ContentSyncManager;
-use App\Services\Storage\StorageResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
+use Symfony\Component\Console\Helper\ProgressBar;
 
 class SyncCommand extends Command
 {
@@ -20,9 +20,10 @@ class SyncCommand extends Command
 
     protected $description = 'Sync files from source to Entries, optionally pulling latest changes and triggering a webhook.';
 
+    private ?ProgressBar $progressBar = null;
+
     public function __construct(
-        protected ContentSyncManager $syncService,
-        protected StorageResolver $diskResolver,
+        protected ContentSyncManager $syncManager
     ) {
         parent::__construct();
     }
@@ -31,69 +32,99 @@ class SyncCommand extends Command
     {
         $type = $this->option('type');
 
-        if (! $type) {
+        if (!$type) {
             $this->error("The '--type' option is required.");
-
             return Command::FAILURE;
         }
 
         try {
-            // If disk is specified, use it directly
-            if ($diskName = $this->option('disk')) {
-                // Try to resolve the disk
-                try {
-                    $disk = $this->diskResolver->resolve($diskName, $type);
-                    $webhookUrl = $this->option('webhook');
-                    $shouldPull = $this->option('pull');
-                } catch (\InvalidArgumentException $e) {
-                    $this->error("Invalid disk specified: {$diskName}");
+            if ($this->option('dispatch')) {
+                $config = Config::get("flatlayer.repositories.{$type}", []);
 
-                    return Command::FAILURE;
+                // Handle dispatched job
+                dispatch(new EntrySyncJob(
+                    type: $type,
+                    disk: $this->option('disk') ?? $config['disk'] ?? null,
+                    shouldPull: $this->getOptionOrConfig('pull', $config, false),
+                    skipIfNoChanges: $this->getOptionOrConfig('skip', $config, false),
+                    webhookUrl: $this->option('webhook') ?? $config['webhook_url'] ?? null
+                ));
+
+                $this->info("EntrySyncJob for type '{$type}' has been dispatched to the queue.");
+                if ($this->option('webhook')) {
+                    $this->info("Webhook URL set: {$this->option('webhook')}");
                 }
-            }
-            // Otherwise use repository configuration
-            else {
-                if (! Config::has("flatlayer.repositories.{$type}")) {
-                    $this->error("No repository configuration found for type: {$type}");
-
-                    return Command::FAILURE;
-                }
-
-                $config = Config::get("flatlayer.repositories.{$type}");
-                $disk = $this->diskResolver->resolve($config['disk'], $type);
-                $shouldPull = $this->option('pull') ?? $config['pull'] ?? false;
-                $webhookUrl = $this->option('webhook') ?? $config['webhook_url'] ?? null;
+                return Command::SUCCESS;
             }
 
-            $skipIfNoChanges = $this->option('skip') ?? false;
-
-            $job = new EntrySyncJob(
+            // Execute sync with progress reporting
+            $result = $this->syncManager->sync(
                 type: $type,
-                disk: $disk,
-                shouldPull: $shouldPull,
-                skipIfNoChanges: $skipIfNoChanges,
-                webhookUrl: $webhookUrl
+                disk: $this->option('disk'),
+                shouldPull: $this->option('pull'),
+                skipIfNoChanges: $this->option('skip'),
+                progressCallback: $this->handleProgress(...)
             );
 
-            if ($this->option('dispatch')) {
-                dispatch($job);
-                $this->info("EntrySyncJob for type '{$type}' has been dispatched to the queue.");
-            } else {
-                $job->handle($this->syncService);
-                $this->info("EntrySyncJob for type '{$type}' completed successfully.");
+            if ($result['skipped']) {
+                $this->info("Sync skipped - no changes detected");
+                return Command::SUCCESS;
             }
 
-            if ($webhookUrl) {
-                $this->info("Webhook URL set: {$webhookUrl}");
-            }
-
+            $this->finishProgress();
+            $this->displayResults($result);
             return Command::SUCCESS;
 
         } catch (\Exception $e) {
             $this->error("Error running sync: {$e->getMessage()}");
-            $this->error($e->getTraceAsString());
-
             return Command::FAILURE;
         }
+    }
+
+    public function handleProgress(string $message, ?int $current = null, ?int $total = null): void
+    {
+        if ($total && !$this->progressBar) {
+            $this->progressBar = $this->output->createProgressBar($total);
+            $this->progressBar->setFormat(" %current%/%max% [%bar%] %percent:3s%% -- %message%");
+        }
+
+        if ($this->progressBar) {
+            $this->progressBar->setMessage($message);
+            if ($current !== null) {
+                $this->progressBar->setProgress($current);
+            }
+        } else {
+            $this->info($message);
+        }
+    }
+
+    protected function finishProgress(): void
+    {
+        if ($this->progressBar) {
+            $this->progressBar->finish();
+            $this->output->newLine(2);
+        }
+    }
+
+    protected function displayResults(array $result): void
+    {
+        $this->table(
+            ['Metric', 'Count'],
+            [
+                ['Files Processed', $result['files_processed']],
+                ['Entries Created', $result['entries_created']],
+                ['Entries Updated', $result['entries_updated']],
+                ['Entries Deleted', $result['entries_deleted']],
+            ]
+        );
+    }
+
+    protected function getOptionOrConfig(string $option, array $config, mixed $default): mixed
+    {
+        if ($this->hasOption($option) && $this->option($option) !== null) {
+            return $this->option($option);
+        }
+
+        return $config[$option] ?? $default;
     }
 }
