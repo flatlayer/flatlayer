@@ -19,9 +19,13 @@ class ContentSyncManagerTest extends TestCase
     use CreatesTestFiles, RefreshDatabase;
 
     protected ContentSyncManager $service;
+
     protected $git;
+
     protected $gitRepo;
+
     protected $diskResolver;
+
     protected array $progressMessages = [];
 
     protected function setUp(): void
@@ -58,7 +62,7 @@ class ContentSyncManagerTest extends TestCase
         $this->createMarkdownFile('test2.md', ['title' => 'Test 2', 'type' => 'post'], 'Content 2');
 
         // Track progress messages
-        $progressCallback = function($message, $current = null, $total = null) {
+        $progressCallback = function ($message, $current = null, $total = null) {
             $this->progressMessages[] = compact('message', 'current', 'total');
         };
 

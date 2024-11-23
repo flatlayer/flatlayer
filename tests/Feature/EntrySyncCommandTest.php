@@ -243,7 +243,7 @@ class EntrySyncCommandTest extends TestCase
         ));
 
         // Let's also dump output to see what's happening
-        $output = new BufferedOutput();
+        $output = new BufferedOutput;
         $exitCode = Artisan::call('flatlayer:sync', [
             '--type' => 'post',
             '--dispatch' => true,

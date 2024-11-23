@@ -39,7 +39,7 @@ class ContentSyncManager
      * @param  bool  $shouldPull  Whether to pull latest changes from Git
      * @param  bool  $skipIfNoChanges  Whether to skip processing if no changes detected
      * @param  Closure|null  $progressCallback  Optional callback for progress updates:
-     *                                         function(string $message, ?int $current = null, ?int $total = null): void
+     *                                          function(string $message, ?int $current = null, ?int $total = null): void
      * @return array{
      *     files_processed: int,
      *     entries_updated: int,
@@ -68,8 +68,9 @@ class ContentSyncManager
             $this->logProgress('Checking Git repository for changes...', $progressCallback);
             $changesDetected = $this->handleGitPull($disk);
 
-            if (!$changesDetected && $skipIfNoChanges) {
+            if (! $changesDetected && $skipIfNoChanges) {
                 $this->logProgress('No changes detected and skipIfNoChanges is true. Skipping sync.', $progressCallback);
+
                 return [
                     'files_processed' => 0,
                     'entries_updated' => 0,
@@ -90,6 +91,7 @@ class ContentSyncManager
     {
         try {
             $root = $disk->path('');
+
             return file_exists($root) && is_dir($root);
         } catch (\Exception $e) {
             return false;
@@ -207,6 +209,7 @@ class ContentSyncManager
         $processedSlugs = [];
         $updatedCount = 0;
         $createdCount = 0;
+        $unchangedCount = 0;
         $processed = 0;
 
         foreach ($files as $relativePath => $file) {
@@ -214,22 +217,38 @@ class ContentSyncManager
                 $slug = Path::toSlug($relativePath);
                 $processedSlugs[] = $slug;
 
-                // Process the file using the disk
-                $item = Entry::syncFromMarkdown($disk, $relativePath, $type, true);
+                // First sync without auto-save to check for changes
+                $item = Entry::syncFromMarkdown($disk, $relativePath, $type, false);
+                $isNew = ! $existingSlugs->has($slug);
 
-                // Ensure the correct slug is set
-                if ($item->slug !== $slug) {
-                    $item->slug = $slug;
+                if ($isNew) {
                     $item->save();
-                }
-
-                if ($existingSlugs->has($slug)) {
-                    $updatedCount++;
-                    $this->logProgress("Updated content item: {$slug}", $progressCallback, ++$processed, $files->count());
-                } else {
                     $createdCount++;
                     $this->logProgress("Created new content item: {$slug}", $progressCallback, ++$processed, $files->count());
+                } else {
+                    // For existing items, check if we need to save
+                    $originalItem = Entry::where('type', $type)->where('slug', $slug)->first();
+                    $needsUpdate = false;
+
+                    // Compare relevant fields
+                    $fieldsToCompare = ['title', 'content', 'excerpt', 'meta', 'published_at'];
+                    foreach ($fieldsToCompare as $field) {
+                        if ($item->$field != $originalItem->$field) {
+                            $needsUpdate = true;
+                            break;
+                        }
+                    }
+
+                    if ($needsUpdate) {
+                        $item->save();
+                        $updatedCount++;
+                        $this->logProgress("Updated content item: {$slug}", $progressCallback, ++$processed, $files->count());
+                    } else {
+                        $unchangedCount++;
+                        $this->logProgress("Skipped unchanged content item: {$slug}", $progressCallback, ++$processed, $files->count());
+                    }
                 }
+
             } catch (\Exception $e) {
                 Log::error("Error processing file {$relativePath}: ".$e->getMessage());
                 $this->logProgress("Error processing file: {$relativePath}", $progressCallback, ++$processed, $files->count());
@@ -250,6 +269,7 @@ class ContentSyncManager
             'entries_updated' => $updatedCount,
             'entries_created' => $createdCount,
             'entries_deleted' => $deletedCount,
+            'entries_unchanged' => $unchangedCount,
             'skipped' => false,
         ];
     }

@@ -15,6 +15,7 @@ class EntrySyncJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public array $backoff = [10, 60, 180];
 
     public function __construct(
@@ -35,7 +36,7 @@ class EntrySyncJob implements ShouldQueue
                 skipIfNoChanges: $this->skipIfNoChanges
             );
 
-            if (!$result['skipped'] && $this->webhookUrl) {
+            if (! $result['skipped'] && $this->webhookUrl) {
                 dispatch(new WebhookTriggerJob(
                     webhookUrl: $this->webhookUrl,
                     contentType: $this->type,

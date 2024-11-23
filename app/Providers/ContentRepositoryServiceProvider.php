@@ -95,7 +95,7 @@ class ContentRepositoryServiceProvider extends ServiceProvider
      */
     protected function buildRepositoryConfig(string $type): array
     {
-        $prefix = "CONTENT_REPOSITORY_" . strtoupper($type) . '_';
+        $prefix = 'CONTENT_REPOSITORY_'.strtoupper($type).'_';
         $config = [];
 
         // Required configuration

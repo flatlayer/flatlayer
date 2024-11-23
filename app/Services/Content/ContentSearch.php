@@ -3,6 +3,8 @@
 namespace App\Services\Content;
 
 use App\Models\Entry;
+use GregPriday\LaravelRetry\Facades\Retry;
+use GregPriday\LaravelRetry\Strategies\GuzzleResponseStrategy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -85,11 +87,19 @@ class ContentSearch
      */
     public function getEmbedding(string $text): array
     {
-        $response = OpenAI::embeddings()->create([
-            'model' => config('flatlayer.search.openai.embedding'),
-            'input' => $text,
-        ]);
+        // Set up the retry strategy specifically for OpenAI rate limits
+        $strategy = new GuzzleResponseStrategy(
+            maxDelay: 60
+        );
 
-        return $response->embeddings[0]->embedding;
+        return Retry::withStrategy($strategy)
+            ->maxRetries(3)
+            ->run(function () use ($text) {
+                return OpenAI::embeddings()->create([
+                    'model' => config('flatlayer.search.openai.embedding'),
+                    'input' => $text,
+                ]);
+            })
+            ->value()->embeddings[0]->embedding;
     }
 }

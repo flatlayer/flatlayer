@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\EntrySyncJob;
 use App\Services\Content\ContentSyncManager;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Symfony\Component\Console\Helper\ProgressBar;
 
@@ -16,24 +17,29 @@ class SyncCommand extends Command
                             {--pull : Pull latest changes from Git repository before syncing}
                             {--skip : Skip syncing if no changes are detected}
                             {--dispatch : Dispatch the job to the queue}
-                            {--webhook= : URL of the webhook to trigger after sync}';
+                            {--webhook= : URL of the webhook to trigger after sync}
+                            {--detailed : Show detailed information about each processed entry}';
 
     protected $description = 'Sync files from source to Entries, optionally pulling latest changes and triggering a webhook.';
 
     private ?ProgressBar $progressBar = null;
 
+    private Collection $detailedOutput;
+
     public function __construct(
         protected ContentSyncManager $syncManager
     ) {
         parent::__construct();
+        $this->detailedOutput = collect();
     }
 
     public function handle()
     {
         $type = $this->option('type');
 
-        if (!$type) {
+        if (! $type) {
             $this->error("The '--type' option is required.");
+
             return Command::FAILURE;
         }
 
@@ -54,6 +60,7 @@ class SyncCommand extends Command
                 if ($this->option('webhook')) {
                     $this->info("Webhook URL set: {$this->option('webhook')}");
                 }
+
                 return Command::SUCCESS;
             }
 
@@ -67,25 +74,43 @@ class SyncCommand extends Command
             );
 
             if ($result['skipped']) {
-                $this->info("Sync skipped - no changes detected");
+                $this->info('Sync skipped - no changes detected');
+
                 return Command::SUCCESS;
             }
 
             $this->finishProgress();
             $this->displayResults($result);
+
+            // Show detailed output if requested
+            if ($this->option('detailed')) {
+                $this->displayDetailedResults();
+            }
+
             return Command::SUCCESS;
 
         } catch (\Exception $e) {
             $this->error("Error running sync: {$e->getMessage()}");
+
             return Command::FAILURE;
         }
     }
 
     public function handleProgress(string $message, ?int $current = null, ?int $total = null): void
     {
-        if ($total && !$this->progressBar) {
+        // If we're showing detailed output, capture entry-specific messages
+        if ($this->option('detailed') && str_contains($message, 'content item:')) {
+            preg_match('/(\w+) content item: (.+)$/', $message, $matches);
+            if (isset($matches[1], $matches[2])) {
+                $action = strtolower($matches[1]);
+                $slug = trim($matches[2]);
+                $this->detailedOutput->push(['action' => $action, 'slug' => $slug]);
+            }
+        }
+
+        if ($total && ! $this->progressBar) {
             $this->progressBar = $this->output->createProgressBar($total);
-            $this->progressBar->setFormat(" %current%/%max% [%bar%] %percent:3s%% -- %message%");
+            $this->progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% -- %message%');
         }
 
         if ($this->progressBar) {
@@ -116,6 +141,34 @@ class SyncCommand extends Command
                 ['Entries Updated', $result['entries_updated']],
                 ['Entries Deleted', $result['entries_deleted']],
             ]
+        );
+    }
+
+    protected function displayDetailedResults(): void
+    {
+        if ($this->detailedOutput->isEmpty()) {
+            return;
+        }
+
+        $this->newLine();
+        $this->info('Detailed Entry Status:');
+        $this->newLine();
+
+        $rows = $this->detailedOutput->map(function ($item) {
+            $status = match ($item['action']) {
+                'new' => '🟢 New',
+                'updated' => '🟡 Modified',
+                'unchanged' => '⚪️ Unchanged',
+                'deleted' => '🔴 Deleted',
+                default => '❔ Unknown'
+            };
+
+            return [$status, $item['slug']];
+        });
+
+        $this->table(
+            ['Status', 'Slug'],
+            $rows->toArray()
         );
     }
 
