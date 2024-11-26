@@ -25,6 +25,8 @@ servers:
     description: Local development server
 
 tags:
+  - name: Health
+    description: Health check endpoints
   - name: Entries
     description: Operations for managing content entries
   - name: Images
@@ -35,11 +37,32 @@ tags:
     description: Webhook endpoints for content synchronization
 
 paths:
-  /entry/{type}:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running
+      responses:
+        '200':
+          description: API is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  version:
+                    type: string
+                    example: "1.0"
+
+  /entries/{type}/list:
     get:
       tags:
         - Entries
-      summary: List entries of a specific type
+      summary: List entries
       description: Retrieve a paginated list of entries with optional filtering and field selection
       parameters:
         - name: type
@@ -89,23 +112,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /entry/{type}/{slug}:
+  /entries/{type}/show/{path}:
     get:
       tags:
         - Entries
-      summary: Get a single entry
-      description: Retrieve a specific entry by its type and slug
+      summary: Get single entry
+      description: Retrieve a specific entry by its type and path
       parameters:
         - name: type
           in: path
           required: true
           schema:
             type: string
-        - name: slug
+          description: Content type (e.g., 'post', 'doc')
+        - name: path
           in: path
-          required: true
+          required: false
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9\-_/]*$'
+          description: Entry path (optional, returns root entry if omitted)
         - name: fields
           in: query
           schema:
@@ -133,7 +159,7 @@ paths:
         '404':
           description: Entry not found
 
-  /entry/batch/{type}:
+  /entries/{type}/batch:
     get:
       tags:
         - Entries
@@ -145,6 +171,7 @@ paths:
           required: true
           schema:
             type: string
+          description: Content type (e.g., 'post', 'doc')
         - name: slugs
           in: query
           required: true
@@ -172,7 +199,7 @@ paths:
         '404':
           description: One or more entries not found
 
-  /hierarchy/{type}:
+  /entries/{type}/hierarchy:
     get:
       tags:
         - Hierarchy
@@ -184,6 +211,7 @@ paths:
           required: true
           schema:
             type: string
+          description: Content type (e.g., 'post', 'doc')
         - name: root
           in: query
           schema:
@@ -224,46 +252,7 @@ paths:
         '404':
           description: Content type not found
 
-  /hierarchy/{type}/{path}:
-    get:
-      tags:
-        - Hierarchy
-      summary: Find node in hierarchy
-      description: Find a specific node and its ancestry in the content hierarchy
-      parameters:
-        - name: type
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: path
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: fields
-          in: query
-          schema:
-            type: string
-            format: json
-          description: Fields to include in root node and similar-level nodes
-        - name: navigation_fields
-          in: query
-          schema:
-            type: string
-            format: json
-          description: Fields to include in child nodes and deeper levels
-      responses:
-        '200':
-          description: Successfully found node
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HierarchyNode'
-        '404':
-          description: Node not found
-
-  /image/{id}.{extension}:
+  /images/{id}.{extension}:
     get:
       tags:
         - Images
@@ -275,12 +264,14 @@ paths:
           required: true
           schema:
             type: integer
+          description: Image ID
         - name: extension
           in: path
           required: true
           schema:
             type: string
             enum: [jpg, jpeg, png, webp, gif]
+          description: Desired output format
         - name: w
           in: query
           schema:
@@ -314,7 +305,7 @@ paths:
         '404':
           description: Image not found
 
-  /image/{id}/metadata:
+  /images/{id}/metadata:
     get:
       tags:
         - Images
@@ -326,6 +317,7 @@ paths:
           required: true
           schema:
             type: integer
+          description: Image ID
       responses:
         '200':
           description: Successfully retrieved metadata
@@ -336,7 +328,7 @@ paths:
         '404':
           description: Image not found
 
-  /webhook/{type}:
+  /webhooks/{type}:
     post:
       tags:
         - Webhooks
@@ -362,13 +354,6 @@ paths:
             raw request body, using the webhook secret as the key.
             Format: sha256=<hex_digest>
           example: "sha256=c35828b08aa5d8c2d9e48c1abd0a2dedfe4404ad71e03d3f4cfa14910ff24ad3"
-      requestBody:
-        description: GitHub webhook payload
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WebhookPayload'
       responses:
         '202':
           description: Webhook received and sync initiated
@@ -398,6 +383,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   schemas:
@@ -407,7 +398,6 @@ components:
         Represents a content entry in the CMS. Fields can be selected using the `fields` parameter
         in various endpoints. Some fields are computed and only available when specifically requested.
       properties:
-        # Basic Fields
         id:
           type: integer
           description: Unique identifier for the entry
@@ -436,140 +426,31 @@ components:
           format: date-time
           description: Publication date and time
           example: "2024-01-01T10:00:00Z"
-
-        # Computed Fields
         is_index:
           type: boolean
           description: Indicates if this is an index file (e.g., index.md)
           example: true
-        content_structure:
-          type: array
-          description: Hierarchical representation of content headings and their positions
-          items:
-            $ref: '#/components/schemas/ContentStructureItem'
-        flat_content_structure:
-          type: array
-          description: |
-            Flattened version of content_structure where each heading includes a
-            reference to its parent heading via parent_anchor
-          items:
-            $ref: '#/components/schemas/FlatContentStructureItem'
-
-        # Relationship Fields
         meta:
           type: object
-          description: |
-            Custom metadata fields. Can be accessed using dot notation in fields parameter
-            (e.g., "meta.author", "meta.category")
+          description: Custom metadata fields
           additionalProperties: true
           example:
             author: "John Doe"
             category: "tutorials"
             nav_order: 1
-            reading_time: 5
-            difficulty: "beginner"
         tags:
           type: array
           description: Array of tag names associated with the entry
           items:
             type: string
-          example: [ "tutorial", "beginner", "installation" ]
+          example: ["tutorial", "beginner", "installation"]
         images:
           type: object
-          description: |
-            Images grouped by collection. Each collection (e.g., "featured", "gallery")
-            contains an array of image objects.
+          description: Images grouped by collection
           additionalProperties:
             type: array
             items:
               $ref: '#/components/schemas/Image'
-          example:
-            featured:
-              - id: 1
-                filename: "featured.jpg"
-                width: 1200
-                height: 630
-            gallery:
-              - id: 2
-                filename: "gallery-1.jpg"
-                width: 800
-                height: 600
-
-    ContentStructureItem:
-      type: object
-      description: Represents a single heading in the content structure
-      properties:
-        title:
-          type: string
-          description: Heading text
-          example: "Installation"
-        level:
-          type: integer
-          description: Heading level (1-6)
-          example: 2
-        anchor:
-          type: string
-          description: Generated anchor ID for the heading
-          example: "installation"
-        position:
-          type: object
-          properties:
-            line:
-              type: integer
-              description: Line number where the heading appears
-              example: 15
-            offset:
-              type: integer
-              description: Character offset in the content
-              example: 450
-        children:
-          type: array
-          description: Nested headings under this one
-          items:
-            $ref: '#/components/schemas/ContentStructureItem'
-
-    FlatContentStructureItem:
-      type: object
-      description: A flattened representation of a heading in the content
-      properties:
-        title:
-          type: string
-          example: "Configuration Options"
-        level:
-          type: integer
-          example: 3
-        anchor:
-          type: string
-          example: "configuration-options"
-        parent_anchor:
-          type: string
-          description: Anchor ID of the parent heading
-          example: "configuration"
-        position:
-          type: object
-          properties:
-            line:
-              type: integer
-              example: 25
-            offset:
-              type: integer
-              example: 750
-
-    EntryDetail:
-      description: Extended entry data including navigation information
-      allOf:
-        - $ref: '#/components/schemas/Entry'
-        - type: object
-          properties:
-            hierarchy:
-              $ref: '#/components/schemas/HierarchyInfo'
-              description: Hierarchical navigation information
-            sequence:
-              $ref: '#/components/schemas/NavigationInfo'
-              description: Sequential navigation based on content structure
-            timeline:
-              $ref: '#/components/schemas/NavigationInfo'
-              description: Chronological navigation based on publication dates
 
     EntryListResponse:
       type: object
@@ -586,16 +467,25 @@ components:
           properties:
             current_page:
               type: integer
-              description: Current page number
               example: 1
             total_pages:
               type: integer
-              description: Total number of available pages
               example: 5
             per_page:
               type: integer
-              description: Number of items per page
               example: 15
+
+    EntryDetail:
+      allOf:
+        - $ref: '#/components/schemas/Entry'
+        - type: object
+          properties:
+            hierarchy:
+              $ref: '#/components/schemas/HierarchyInfo'
+            sequence:
+              $ref: '#/components/schemas/NavigationInfo'
+            timeline:
+              $ref: '#/components/schemas/NavigationInfo'
 
     Image:
       type: object
@@ -603,34 +493,24 @@ components:
       properties:
         id:
           type: integer
-          description: Unique identifier for the image
         extension:
           type: string
-          description: File extension (e.g., 'jpg', 'png')
           example: "jpg"
         filename:
           type: string
-          description: Original filename
           example: "featured.jpg"
         width:
           type: integer
-          description: Image width in pixels
           example: 1200
         height:
           type: integer
-          description: Image height in pixels
           example: 630
         thumbhash:
           type: string
-          description: Compact image preview hash
           example: "1QcSHQRnh493V4dIh4eXh1h4"
         meta:
           type: object
-          description: Additional image metadata
           additionalProperties: true
-          example:
-            alt: "Feature preview image"
-            caption: "Dashboard overview"
 
     ImageMetadata:
       type: object
@@ -638,27 +518,21 @@ components:
       properties:
         width:
           type: integer
-          description: Image width in pixels
           example: 1200
         height:
           type: integer
-          description: Image height in pixels
           example: 630
         mime_type:
           type: string
-          description: MIME type of the image
           example: "image/jpeg"
         size:
           type: integer
-          description: File size in bytes
           example: 123456
         filename:
           type: string
-          description: Original filename
           example: "featured.jpg"
         thumbhash:
           type: string
-          description: Compact image preview hash
           example: "1QcSHQRnh493V4dIh4eXh1h4"
 
     HierarchyResponse:
@@ -667,28 +541,22 @@ components:
       properties:
         data:
           type: array
-          description: Array of hierarchical nodes
           items:
             $ref: '#/components/schemas/HierarchyNode'
         meta:
           type: object
-          description: Metadata about the hierarchy
           properties:
             type:
               type: string
-              description: Content type
               example: "doc"
             root:
               type: string
-              description: Root path of the hierarchy
               example: "docs/getting-started"
             depth:
               type: integer
-              description: Maximum depth of the hierarchy
               example: 3
             total_nodes:
               type: integer
-              description: Total number of nodes in the hierarchy
               example: 12
 
     HierarchyNode:
@@ -697,50 +565,37 @@ components:
       properties:
         id:
           type: integer
-          description: Unique identifier for the entry
         title:
           type: string
-          description: Node title
           example: "Getting Started"
         slug:
           type: string
-          description: URL-friendly identifier
           example: "docs/getting-started"
         meta:
           type: object
-          description: Custom metadata for the node
           additionalProperties: true
-          example:
-            nav_order: 1
-            section: "guide"
         children:
           type: array
-          description: Child nodes in the hierarchy
           items:
             $ref: '#/components/schemas/HierarchyNode'
 
     HierarchyInfo:
       type: object
-      description: Navigation information about an entry's position in the hierarchy
       properties:
         ancestors:
           type: array
-          description: Parent entries up to the root
           items:
             $ref: '#/components/schemas/Entry'
         siblings:
           type: array
-          description: Entries at the same level
           items:
             $ref: '#/components/schemas/Entry'
         children:
           type: array
-          description: Direct child entries
           items:
             $ref: '#/components/schemas/Entry'
         parent:
           $ref: '#/components/schemas/Entry'
-          description: Immediate parent entry
 
     NavigationInfo:
       type: object
@@ -765,99 +620,11 @@ components:
               description: Total number of items in sequence
               example: 5
 
-    WebhookPayload:
-      type: object
-      description: GitHub webhook payload for repository events
-      required:
-        - repository
-      properties:
-        repository:
-          type: object
-          description: Information about the repository
-          required:
-            - name
-            - full_name
-          properties:
-            name:
-              type: string
-              description: Repository name
-              example: "docs-content"
-            full_name:
-              type: string
-              description: Full repository name including owner
-              example: "flatlayer/docs-content"
-            description:
-              type: string
-              description: Repository description
-              example: "Documentation content for Flatlayer"
-        ref:
-          type: string
-          description: The full Git ref that was pushed
-          example: "refs/heads/main"
-        before:
-          type: string
-          description: The SHA of the previous HEAD
-          example: "6113728f27ae82c7b1a177c8d03f9e96e0adf246"
-        after:
-          type: string
-          description: The SHA of the new HEAD
-          example: "0000000000000000000000000000000000000000"
-        created:
-          type: boolean
-          description: Whether this push created the ref
-        deleted:
-          type: boolean
-          description: Whether this push deleted the ref
-        forced:
-          type: boolean
-          description: Whether this push was a force push
-        commits:
-          type: array
-          description: Array of commit objects
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-                description: The commit SHA
-                example: "6113728f27ae82c7b1a177c8d03f9e96e0adf246"
-              message:
-                type: string
-                description: The commit message
-                example: "Update documentation structure"
-              added:
-                type: array
-                description: Files added in this commit
-                items:
-                  type: string
-                example: [ "docs/getting-started/installation.md" ]
-              removed:
-                type: array
-                description: Files removed in this commit
-                items:
-                  type: string
-                example: [ "docs/old-file.md" ]
-              modified:
-                type: array
-                description: Files modified in this commit
-                items:
-                  type: string
-                example: [ "docs/getting-started/index.md" ]
-
-    Error:
-      type: object
-      description: Error response
-      properties:
-        error:
-          type: string
-          description: Error message
-          example: "Entry not found"
-
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-security:
-  - BearerAuth: []
+      Error:
+        type: object
+        description: Error response
+        properties:
+          error:
+            type: string
+            description: Error message
+            example: "Entry not found"
