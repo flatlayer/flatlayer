@@ -11,7 +11,7 @@ The Field Selection API enables precise control over which fields are returned i
 Field selection is specified using a JSON array in the `fields` parameter:
 
 ```http
-GET /entry/post?fields=["id","title","slug"]
+GET /entries/post/list?fields=["id","title","slug"]
 ```
 
 Response:
@@ -53,7 +53,7 @@ Each element in the fields array can be:
 Access nested meta fields using dot notation:
 
 ```http
-GET /entry/post?fields=["meta.author","meta.category"]
+GET /entries/post/list?fields=["meta.author","meta.category"]
 ```
 
 Response:
@@ -74,7 +74,7 @@ Response:
 
 Select all image collections:
 ```http
-GET /entry/post?fields=["images"]
+GET /entries/post/list?fields=["images"]
 ```
 
 Response:
@@ -105,7 +105,7 @@ Response:
 
 Select specific collection:
 ```http
-GET /entry/post?fields=["images.featured"]
+GET /entries/post/list?fields=["images.featured"]
 ```
 
 Response:
@@ -136,7 +136,7 @@ Response:
 Use array syntax to specify field casting:
 
 ```http
-GET /entry/post?fields=[
+GET /entries/post/list?fields=[
     ["published_at", "date"],
     ["view_count", "integer"],
     ["is_featured", "boolean"]
@@ -156,7 +156,7 @@ GET /entry/post?fields=[
 
 Date casting:
 ```http
-GET /entry/post?fields=[["published_at", "date"]]
+GET /entries/post/list?fields=[["published_at", "date"]]
 ```
 Response:
 ```json
@@ -171,7 +171,7 @@ Response:
 
 Numeric casting:
 ```http
-GET /entry/post?fields=[["meta.view_count", "integer"]]
+GET /entries/post/list?fields=[["meta.view_count", "integer"]]
 ```
 Response:
 ```json
@@ -256,7 +256,7 @@ Status: 400 Bad Request
 
 ### Combined Fields with Casting
 ```http
-GET /entry/post?fields=[
+GET /entries/post/list?fields=[
     "id",
     "title",
     ["published_at", "date"],
@@ -269,7 +269,7 @@ GET /entry/post?fields=[
 
 ### With Filtering and Pagination
 ```http
-GET /entry/post?fields=[
+GET /entries/post/list?fields=[
     "title",
     ["published_at", "date"],
     "meta.category"

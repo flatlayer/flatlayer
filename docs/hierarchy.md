@@ -2,13 +2,12 @@
 
 ## Overview
 
-The Hierarchy endpoint provides access to hierarchical content structures in Flatlayer CMS. It enables navigation through nested content, retrieval of section structures, and finding specific nodes within content hierarchies.
+The Hierarchy endpoint provides access to hierarchical content structures in Flatlayer CMS. It enables navigation through nested content and retrieval of section structures.
 
 ## Base Endpoints
 
 ```http
-GET /hierarchy/{type}              # Get full hierarchy or section
-GET /hierarchy/{type}/{path}       # Find specific node and its ancestry
+GET /entries/{type}/hierarchy              # Get full hierarchy
 ```
 
 ## Hierarchy Listing
@@ -18,7 +17,7 @@ GET /hierarchy/{type}/{path}       # Find specific node and its ancestry
 Retrieve the complete hierarchy for a content type:
 
 ```http
-GET /hierarchy/doc
+GET /entries/doc/hierarchy
 ```
 
 Response:
@@ -58,7 +57,6 @@ Response:
     ],
     "meta": {
         "type": "doc",
-        "root": null,
         "depth": null,
         "total_nodes": 3
     }
@@ -67,22 +65,12 @@ Response:
 
 ### Query Parameters
 
-#### Root Path
-
-Limit hierarchy to a specific section:
-
-```http
-GET /hierarchy/doc?root=docs/getting-started
-```
-
-This returns only the subtree starting at the specified path.
-
 #### Depth Control
 
 Limit the depth of the returned hierarchy:
 
 ```http
-GET /hierarchy/doc?depth=2
+GET /entries/doc/hierarchy?depth=2
 ```
 
 The `depth` parameter accepts values 1-10 and controls how many levels deep the hierarchy goes.
@@ -92,13 +80,13 @@ The `depth` parameter accepts values 1-10 and controls how many levels deep the 
 Control which fields are included in the response:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","meta.nav_order"]
+GET /entries/doc/hierarchy?fields=["title","slug","meta.nav_order"]
 ```
 
 For child nodes, use `navigation_fields`:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","meta"]&navigation_fields=["title","slug"]
+GET /entries/doc/hierarchy?fields=["title","slug","meta"]&navigation_fields=["title","slug"]
 ```
 
 #### Sorting
@@ -106,56 +94,7 @@ GET /hierarchy/doc?fields=["title","slug","meta"]&navigation_fields=["title","sl
 Sort nodes at each level:
 
 ```http
-GET /hierarchy/doc?sort={"meta.nav_order":"asc","title":"asc"}
-```
-
-## Node Finding
-
-### Basic Node Lookup
-
-Find a specific node and its ancestry:
-
-```http
-GET /hierarchy/doc/docs/getting-started/installation
-```
-
-Response:
-```json
-{
-    "data": {
-        "id": 3,
-        "title": "Installation",
-        "slug": "docs/getting-started/installation",
-        "meta": {
-            "difficulty": "beginner"
-        }
-    },
-    "meta": {
-        "ancestry": [
-            {
-                "id": 1,
-                "title": "Documentation",
-                "slug": "docs",
-                "children": []
-            },
-            {
-                "id": 2,
-                "title": "Getting Started",
-                "slug": "docs/getting-started",
-                "children": []
-            }
-        ],
-        "depth": 2
-    }
-}
-```
-
-### Field Selection for Node Finding
-
-Control fields in both the node and its ancestry:
-
-```http
-GET /hierarchy/doc/docs/getting-started/installation?fields=["title","meta"]&navigation_fields=["title","slug"]
+GET /entries/doc/hierarchy?sort={"meta.nav_order":"asc","title":"asc"}
 ```
 
 ## Error Handling
@@ -166,15 +105,6 @@ Status: 404 Not Found
 
 {
     "error": "No repository configured for type: invalid"
-}
-```
-
-### Node Not Found
-```http
-Status: 404 Not Found
-
-{
-    "error": "Node not found"
 }
 ```
 
@@ -194,31 +124,15 @@ Status: 400 Bad Request
 Retrieve a complete navigation structure:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","meta.nav_order"]&sort={"meta.nav_order":"asc"}
+GET /entries/doc/hierarchy?fields=["title","slug","meta.nav_order"]&sort={"meta.nav_order":"asc"}
 ```
 
-### Section Overview
+### Documentation Navigation
 
-Get content structure for a specific section:
-
-```http
-GET /hierarchy/doc?root=docs/tutorials&depth=2&fields=["title","excerpt"]
-```
-
-### Breadcrumb Generation
-
-Find a node with its ancestry:
+Get content structure with document organization:
 
 ```http
-GET /hierarchy/doc/docs/getting-started/installation?fields=["title","slug"]
-```
-
-### Dynamic Navigation
-
-Get siblings and parent sections:
-
-```http
-GET /hierarchy/doc/docs/getting-started/installation?navigation_fields=["title","slug","meta.nav_order"]
+GET /entries/doc/hierarchy?fields=["title","excerpt"]
 ```
 
 ## Performance Considerations
@@ -235,8 +149,8 @@ GET /hierarchy/doc/docs/getting-started/installation?navigation_fields=["title",
 
 3. **Response Size**
     - Large hierarchies can be slow to generate
-    - Use root parameter to limit scope
     - Consider pagination for large sections
+    - Cache commonly requested hierarchies
 
 ## Best Practices
 
@@ -256,10 +170,11 @@ GET /hierarchy/doc/docs/getting-started/installation?navigation_fields=["title",
     - Cache commonly used hierarchies
     - Use appropriate fields for different contexts
 
-4. **Error Handling**
-    - Handle missing nodes gracefully
-    - Provide fallback navigation
-    - Validate paths before requests
+4. **Content Organization**
+    - Use meaningful heading hierarchy
+    - Keep related content together
+    - Use descriptive anchor IDs
+    - Maintain logical document flow
 
 ## Navigation Ordering
 
@@ -310,7 +225,7 @@ The hierarchy endpoint can be combined with content structure attributes to crea
 Include content structure in your hierarchy requests:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","content_structure"]
+GET /entries/doc/hierarchy?fields=["title","slug","content_structure"]
 ```
 
 Response:
@@ -352,7 +267,7 @@ Response:
 For simpler navigation, use the flat content structure:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","flat_content_structure"]
+GET /entries/doc/hierarchy?fields=["title","slug","flat_content_structure"]
 ```
 
 Response:
@@ -393,7 +308,7 @@ Response:
 Combine hierarchy and content structure to build comprehensive navigation:
 
 ```http
-GET /hierarchy/doc?fields=["title","slug","content_structure"]&root=docs/advanced&depth=2
+GET /entries/doc/hierarchy?fields=["title","slug","content_structure"]
 ```
 
 This allows you to build navigation systems that show both:
@@ -402,233 +317,6 @@ This allows you to build navigation systems that show both:
 
 Example navigation structure:
 
-```javascript
-// React component example
-const Navigation = ({ data }) => {
-  return (
-    <nav>
-      {data.map(section => (
-        <div key={section.slug}>
-          {/* Document-level navigation */}
-          <Link href={section.slug}>{section.title}</Link>
-          
-          {/* In-page section navigation */}
-          {section.content_structure?.map(heading => (
-            <div key={heading.anchor}>
-              <Link href={`${section.slug}#${heading.anchor}`}>
-                {heading.title}
-              </Link>
-              
-              {/* Second-level headings */}
-              <div className="ml-4">
-                {heading.children?.map(subheading => (
-                  <Link
-                    key={subheading.anchor}
-                    href={`${section.slug}#${subheading.anchor}`}
-                  >
-                    {subheading.title}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-          
-          {/* Child documents */}
-          <div className="ml-4">
-            {section.children?.map(child => (
-              <Link key={child.slug} href={child.slug}>
-                {child.title}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ))}
-    </nav>
-  );
-};
-```
-
-### Use Cases
-
-#### Full Documentation Navigation
-```http
-GET /hierarchy/doc?fields=["title","slug","content_structure","meta.nav_order"]&sort={"meta.nav_order":"asc"}
-```
-
-This provides everything needed for a complete documentation navigation system:
-- Section hierarchy
-- Page ordering
-- In-page headings
-- Deep linking anchors
-
-#### Section Overview Pages
-```http
-GET /hierarchy/doc?root=docs/guides&fields=["title","slug","excerpt","flat_content_structure"]
-```
-
-Perfect for creating overview pages that show:
-- All pages in a section
-- Quick links to subsections
-- Preview of each page's structure
-
-### Performance Tips
-
-1. **Selective Loading**
-    - Only request content structure when needed
-    - Use `flat_content_structure` for simpler navigation
-    - Cache navigation data when possible
-
-2. **Progressive Enhancement**
-    - Load document hierarchy first
-    - Load content structure on demand
-    - Use lazy loading for deep navigation
-
-3. **Field Selection**
-    - Request minimal fields for initial load
-    - Load content structure for active sections
-    - Use flat structure for search interfaces
-
-### Best Practices
-
-1. **Navigation Design**
-    - Keep navigation hierarchy shallow
-    - Use clear heading structure
-    - Maintain consistent heading levels
-    - Consider mobile navigation
-
-2. **Content Organization**
-    - Use meaningful heading hierarchy
-    - Keep related content together
-    - Use descriptive anchor IDs
-    - Maintain logical document flow
-
-3. **Implementation**
-    - Cache navigation data
-    - Implement progressive loading
-    - Handle missing content gracefully
-    - Provide fallback navigation
-
-## Examples
-
-### Building a Navigation Menu
-
-```http
-GET /hierarchy/doc?fields=["title","slug","meta.nav_order"]&sort={"meta.nav_order":"asc"}&depth=2
-```
-
-This provides a two-level deep menu structure:
-
-```json
-{
-    "data": [
-        {
-            "title": "Documentation",
-            "slug": "docs",
-            "meta": {
-                "nav_order": 1
-            },
-            "children": [
-                {
-                    "title": "Getting Started",
-                    "slug": "docs/getting-started",
-                    "meta": {
-                        "nav_order": 1
-                    }
-                },
-                {
-                    "title": "Advanced Topics",
-                    "slug": "docs/advanced",
-                    "meta": {
-                        "nav_order": 2
-                    }
-                }
-            ]
-        }
-    ]
-}
-```
-
-### Generating Breadcrumbs
-
-```http
-GET /hierarchy/doc/docs/getting-started/installation?fields=["title","slug"]
-```
-
-Use the ancestry data to build breadcrumbs:
-
-```json
-{
-    "data": {
-        "title": "Installation",
-        "slug": "docs/getting-started/installation"
-    },
-    "meta": {
-        "ancestry": [
-            {
-                "title": "Documentation",
-                "slug": "docs"
-            },
-            {
-                "title": "Getting Started",
-                "slug": "docs/getting-started"
-            }
-        ]
-    }
-}
-```
-
-### Section Landing Page
-
-Get a complete view of a section with metadata:
-
-```http
-GET /hierarchy/doc?root=docs/tutorials&fields=["title","excerpt","meta.difficulty","meta.duration"]
-```
-
-This endpoint provides powerful tools for working with hierarchical content structures while maintaining flexibility through its parameter system and efficient data retrieval through careful field selection.
-
-### Example: Full Documentation Browser
-
-```http
-GET /hierarchy/doc?fields=[
-    "title",
-    "slug",
-    "excerpt", 
-    "content_structure",
-    "meta.nav_order"
-]&depth=3
-```
-
-This provides all the data needed for a full documentation browser:
-
-```javascript
-// Type definitions
-/**
- * @typedef {Object} HierarchyNode
- * @property {string} title
- * @property {string} slug 
- * @property {Array<HierarchyNode>} children
- */
-
-/**
- * @typedef {Object} NavigationData
- * @property {Array<HierarchyNode>} data
- * @property {Object} meta
- */
-
-// Utility function
-export function findNode(nodes, path) {
-  for (const node of nodes) {
-    if (node.slug === path) return node;
-    if (node.children) {
-      const found = findNode(node.children, path);
-      if (found) return found;
-    }
-  }
-}
-```
-
-Component code:
 ```sveltehtml
 <script>
   import { onMount } from "svelte";
@@ -641,7 +329,7 @@ Component code:
   let currentNode;
 
   onMount(async () => {
-    const response = await client.get('/hierarchy/doc');
+    const response = await client.get('/entries/doc/hierarchy');
     hierarchy = response;
   });
 </script>

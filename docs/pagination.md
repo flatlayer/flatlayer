@@ -9,9 +9,9 @@ Flatlayer CMS provides a flexible and efficient pagination system for retrieving
 All list endpoints support pagination by default:
 
 ```http
-GET /entry/{type}
-GET /entry/batch/{type}
-GET /hierarchy/{type}
+GET /entries/{type}/list
+GET /entries/{type}/batch
+GET /entries/{type}/hierarchy
 ```
 
 ### Request Parameters
@@ -23,8 +23,8 @@ The following query parameters control pagination:
 
 Example requests:
 ```http
-GET /entry/post?page=2&per_page=20
-GET /entry/post?page=1&per_page=50&filter={"published_at":{"$lte":"2024-01-01"}}
+GET /entries/post/list?page=2&per_page=20
+GET /entries/post/list?page=1&per_page=50&filter={"published_at":{"$lte":"2024-01-01"}}
 ```
 
 ### Response Format
@@ -114,7 +114,7 @@ Status: 400 Bad Request
 You can combine pagination with field selection to control the response size:
 
 ```http
-GET /entry/post?page=1&per_page=20&fields=["title","slug","excerpt"]
+GET /entries/post/list?page=1&per_page=20&fields=["title","slug","excerpt"]
 ```
 
 Response:
@@ -140,7 +140,7 @@ Response:
 Pagination works seamlessly with the filtering system:
 
 ```http
-GET /entry/post?page=1&per_page=20&filter={"meta.category":"technology","published_at":{"$gte":"2024-01-01"}}
+GET /entries/post/list?page=1&per_page=20&filter={"meta.category":"technology","published_at":{"$gte":"2024-01-01"}}
 ```
 
 ### Search Results
@@ -148,7 +148,7 @@ GET /entry/post?page=1&per_page=20&filter={"meta.category":"technology","publish
 When using the search endpoint, results include relevance scores and maintain consistent pagination:
 
 ```http
-GET /entry/post?page=1&per_page=20&filter={"$search":"example query"}
+GET /entries/post/list?page=1&per_page=20&filter={"$search":"example query"}
 ```
 
 ## Implementation Details

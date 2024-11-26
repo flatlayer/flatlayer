@@ -7,7 +7,7 @@ Flatlayer's search system combines traditional filtering with AI-powered vector 
 ## Search Endpoint
 
 ```http
-GET /entry/{type}?filter={"$search":"query"}
+GET /entries/{type}/list?filter={"$search":"query"}
 ```
 
 ### Parameters
@@ -21,7 +21,7 @@ GET /entry/{type}?filter={"$search":"query"}
 ### Basic Search Query
 
 ```http
-GET /entry/doc?filter={"$search":"getting started with javascript"}
+GET /entries/doc/list?filter={"$search":"getting started with javascript"}
 ```
 
 Response:
@@ -48,7 +48,7 @@ Response:
 Search can be combined with other filters:
 
 ```http
-GET /entry/doc?filter={
+GET /entries/doc/list?filter={
     "$search": "async programming",
     "meta.difficulty": "beginner",
     "$tags": ["javascript"],
@@ -180,7 +180,7 @@ Search results maintain the standard entry response format with an additional `r
 The standard field selection system works with search results:
 
 ```http
-GET /entry/doc?filter={"$search":"javascript"}&fields=["title","excerpt","meta.author"]
+GET /entries/doc/list?filter={"$search":"javascript"}&fields=["title","excerpt","meta.author"]
 ```
 
 Response:

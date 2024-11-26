@@ -7,7 +7,7 @@ The Image Transformation API provides dynamic image processing capabilities thro
 ## Endpoint
 
 ```http
-GET /image/{id}.{extension}
+GET /images/{id}.{extension}
 ```
 
 ### Parameters
@@ -27,17 +27,17 @@ GET /image/{id}.{extension}
 
 Basic resize operation:
 ```http
-GET /image/123.jpg?w=800&h=600
+GET /images/123.jpg?w=800&h=600
 ```
 
 High quality transformation:
 ```http
-GET /image/123.webp?w=1200&h=800&q=95
+GET /images/123.webp?w=1200&h=800&q=95
 ```
 
 Format conversion:
 ```http
-GET /image/123.webp?w=1000
+GET /images/123.webp?w=1000
 ```
 
 ### Responses
@@ -88,7 +88,7 @@ Content-Type: application/json
 To retrieve image metadata without processing:
 
 ```http
-GET /image/{id}/metadata
+GET /images/{id}/metadata
 ```
 
 Response:
@@ -242,34 +242,34 @@ Content-Type: image/...
 
 Resize to specific dimensions:
 ```http
-GET /image/123.jpg?w=800&h=600
+GET /images/123.jpg?w=800&h=600
 ```
 
 High-quality WebP conversion:
 ```http
-GET /image/123.webp?w=1200&q=90
+GET /images/123.webp?w=1200&q=90
 ```
 
 Scale by width only:
 ```http
-GET /image/123.jpg?w=1000
+GET /images/123.jpg?w=1000
 ```
 
 ### Common Use Cases
 
 Thumbnail generation:
 ```http
-GET /image/123.jpg?w=150&h=150
+GET /images/123.jpg?w=150&h=150
 ```
 
 Responsive image source:
 ```http
-GET /image/123.webp?w=1200&q=80
+GET /images/123.webp?w=1200&q=80
 ```
 
 Preview generation:
 ```http
-GET /image/123.jpg?w=400&q=60
+GET /images/123.jpg?w=400&q=60
 ```
 
 This endpoint provides a flexible and powerful way to transform images dynamically while maintaining performance through effective caching and optimization strategies.

@@ -191,7 +191,7 @@ meta:
 Access your hierarchy programmatically:
 
 ```http
-GET /hierarchy/doc?root=docs&depth=2
+GET /entries/doc/hierarchy?root=docs&depth=2
 ```
 
 Response:

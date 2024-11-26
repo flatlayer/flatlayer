@@ -128,7 +128,7 @@ Command options:
 #### GitHub Webhook Integration
 
 1. Add webhook in GitHub repository settings:
-    - URL: `https://your-domain.com/webhook/{type}`
+    - URL: `https://your-domain.com/webhooks/{type}`
     - Content type: `application/json`
     - Secret: Your `GITHUB_WEBHOOK_SECRET` value
     - Events: Push event only
@@ -139,7 +139,7 @@ Command options:
 GITHUB_WEBHOOK_SECRET=your_secret
 
 # Repository configuration
-CONTENT_REPOSITORY_DOCS_WEBHOOK_URL=https://example.com/webhook/callback
+CONTENT_REPOSITORY_DOCS_WEBHOOK_URL=https://example.com/webhooks/callback
 CONTENT_REPOSITORY_DOCS_PULL=true
 ```
 

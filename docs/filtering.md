@@ -23,12 +23,12 @@ The filter parameter accepts a JSON object with various operators and conditions
 
 ### Simple Equality
 ```http
-GET /entry/post?filter={"type":"post"}
+GET /entries/post/list?filter={"type":"post"}
 ```
 
 ### Multiple Conditions
 ```http
-GET /entry/post?filter={"type":"post","status":"published"}
+GET /entries/post/list?filter={"type":"post","status":"published"}
 ```
 
 ## Comparison Operators
@@ -37,7 +37,7 @@ The following operators are supported:
 
 ### Numeric Comparisons
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.view_count": {
         "$gt": 1000,
         "$lte": 5000
@@ -54,7 +54,7 @@ Available operators:
 
 ### String Operations
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "title": {
         "$startsWith": "Getting",
         "$endsWith": "Guide"
@@ -72,7 +72,7 @@ Available operators:
 
 ### Array Operations
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.categories": {
         "$in": ["tech", "programming"]
     }
@@ -87,7 +87,7 @@ Available operators:
 
 ### Null Checks
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.review_date": {
         "$exists": false
     }
@@ -102,7 +102,7 @@ Available operators:
 
 ### AND Operations
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$and": [
         {
             "type": "post"
@@ -118,7 +118,7 @@ GET /entry/post?filter={
 
 ### OR Operations
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$or": [
         {
             "meta.category": "tech"
@@ -132,7 +132,7 @@ GET /entry/post?filter={
 
 ### Combined Operations
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$and": [
         {
             "type": "post"
@@ -155,14 +155,14 @@ GET /entry/post?filter={
 
 ### Simple Meta Field
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.author": "John Doe"
 }
 ```
 
 ### Nested Meta Fields
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.seo.keywords": {
         "$contains": "javascript"
     }
@@ -171,7 +171,7 @@ GET /entry/post?filter={
 
 ### Multiple Meta Conditions
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "meta.difficulty": "advanced",
     "meta.estimated_time": {
         "$lte": 60
@@ -183,14 +183,14 @@ GET /entry/post?filter={
 
 ### Filter by Tags
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$tags": ["programming", "javascript"]
 }
 ```
 
 ### Combined with Other Filters
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$tags": ["programming"],
     "meta.difficulty": "beginner"
 }
@@ -200,7 +200,7 @@ GET /entry/post?filter={
 
 ### Hierarchical Queries
 ```http
-GET /entry/doc?filter={
+GET /entries/doc/list?filter={
     "slug": {
         "$startsWith": "docs/getting-started"
     }
@@ -209,7 +209,7 @@ GET /entry/doc?filter={
 
 ### Relationship Filters
 ```http
-GET /entry/doc?filter={
+GET /entries/doc/list?filter={
     "$hierarchy": {
         "descendants": "docs/tutorials",
         "siblings": "docs/getting-started/installation"
@@ -227,14 +227,14 @@ Available path operators:
 
 ### Basic Search
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$search": "getting started with javascript"
 }
 ```
 
 ### Combined with Filters
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$search": "javascript tutorial",
     "meta.difficulty": "beginner",
     "$tags": ["programming"]
@@ -245,7 +245,7 @@ GET /entry/post?filter={
 
 ### Basic Sorting
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$order": {
         "published_at": "desc"
     }
@@ -254,7 +254,7 @@ GET /entry/post?filter={
 
 ### Multiple Fields
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$order": {
         "meta.category": "asc",
         "published_at": "desc"
@@ -313,7 +313,7 @@ Status: 400 Bad Request
 A complex query combining multiple filter types:
 
 ```http
-GET /entry/post?filter={
+GET /entries/post/list?filter={
     "$and": [
         {
             "type": "tutorial",
