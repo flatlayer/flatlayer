@@ -7,30 +7,62 @@ use App\Http\Controllers\ShowController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Routes follow a consistent pattern for entry operations:
+| - /entries/{type}/show : Root entry for type
+| - /entries/{type}/show/{path} : Specific entry
+| - /entries/{type}/list : List entries
+| - /entries/{type}/batch : Batch retrieve entries
+|
+*/
+
+// Health check
 Route::get('/', function () {
     return response()->json([
         'status' => 'OK',
+        'version' => '1.0',
     ]);
 });
 
-// Entry routes
-Route::get('/entry/{type}', [ListController::class, 'index'])->name('entry.list');
-Route::get('/entry/batch/{type}', [ShowController::class, 'batch'])->name('entry.batch');
-Route::get('/entry/{type}/{slug}', [ShowController::class, 'show'])
-    ->where('slug', '.*')
-    ->name('entry.show');
+// Content entries
+Route::prefix('entries')->name('entries.')->group(function () {
+    // List entries
+    Route::get('{type}/list', [ListController::class, 'index'])->name('list');
 
-// Hierarchy routes
-Route::get('/hierarchy/{type}', [HierarchyController::class, 'index'])->name('hierarchy.index');
-Route::get('/hierarchy/{type}/{path}', [HierarchyController::class, 'find'])
-    ->where('path', '.*')
-    ->name('hierarchy.find');
+    // Batch retrieve entries
+    Route::get('{type}/batch', [ShowController::class, 'batch'])->name('batch');
 
-// Image transform route
-Route::get('/image/{id}.{extension}', [ImageController::class, 'transform'])->name('image.transform');
-Route::get('/image/{id}/metadata', [ImageController::class, 'metadata'])->name('image.metadata');
+    // Show single entry (both root and specific paths)
+    Route::get('{type}/show/{path?}', [ShowController::class, 'show'])
+        ->where('path', '[a-zA-Z0-9\-_/]*')
+        ->name('show');
 
-// Webhook route
-Route::post('/webhook/{type}', [WebhookController::class, 'handle'])
-    ->middleware('throttle:10,1')
-    ->name('webhook.handle');
+    // Hierarchy routes
+    Route::get('{type}/hierarchy', [HierarchyController::class, 'index'])->name('hierarchy');
+
+    // Remove path filters in hierarchy until we fix groupByParent in ContentHierarchy class
+//    Route::get('{type}/hierarchy/{path}', [HierarchyController::class, 'find'])
+//        ->where('path', '[a-zA-Z0-9\-_/]*')
+//        ->name('hierarchy.find');
+});
+
+// Image management
+Route::prefix('images')->name('images.')->group(function () {
+    // Transform image
+    Route::get('{id}.{extension}', [ImageController::class, 'transform'])->name('transform');
+
+    // Get image metadata
+    Route::get('{id}/metadata', [ImageController::class, 'metadata'])->name('metadata');
+});
+
+// Webhooks
+Route::prefix('webhooks')->name('webhooks.')->group(function () {
+    // Handle repository webhooks
+    Route::post('{type}', [WebhookController::class, 'handle'])
+        ->middleware('throttle:10,1')
+        ->name('handle');
+});

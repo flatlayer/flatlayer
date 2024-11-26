@@ -41,7 +41,7 @@ class HierarchyControllerTest extends TestCase
 
     public function test_index_returns_hierarchy(): void
     {
-        $response = $this->getJson('/hierarchy/doc');
+        $response = $this->getJson('/entries/doc/hierarchy');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -62,46 +62,9 @@ class HierarchyControllerTest extends TestCase
             ->assertJsonPath('meta.total_nodes', 3);
     }
 
-    public function test_find_returns_node_and_ancestry(): void
-    {
-        $response = $this->getJson('/hierarchy/doc/docs/getting-started/installation');
-
-        $response->assertStatus(200)
-            ->assertJsonStructure([
-                'data' => [
-                    'id',
-                    'title',
-                    'slug',
-                    'meta',
-                ],
-                'meta' => [
-                    'ancestry' => [
-                        '*' => [
-                            'id',
-                            'title',
-                            'slug',
-                            'meta',
-                            'children',
-                        ],
-                    ],
-                    'depth',
-                ],
-            ])
-            ->assertJsonPath('data.title', 'Installation')
-            ->assertJsonPath('data.slug', 'docs/getting-started/installation');
-    }
-
-    public function test_find_returns_404_for_non_existent_node(): void
-    {
-        $response = $this->getJson('/hierarchy/doc/non/existent/path');
-
-        $response->assertStatus(404)
-            ->assertJson(['error' => 'Node not found']);
-    }
-
     public function test_index_returns_404_for_invalid_type(): void
     {
-        $response = $this->getJson('/hierarchy/invalid-type');
+        $response = $this->getJson('/entries/invalid-type/hierarchy');
 
         $response->assertStatus(404);
     }

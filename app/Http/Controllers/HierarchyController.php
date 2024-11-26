@@ -40,27 +40,24 @@ class HierarchyController extends Controller
     public function find(HierarchyRequest $request, string $type, string $path): JsonResponse
     {
         try {
-            $basePath = dirname($path);
-            $root = $basePath === '.' ? '' : $basePath;
-
             $hierarchy = $this->hierarchyService->buildHierarchy(
                 type: $type,
-                root: $root,
+                root: $path,  // Use the full path as the root
                 options: $request->getOptions()
             );
 
-            $node = $this->hierarchyService->findNode($hierarchy, $path);
-            if (! $node) {
+            // If no hierarchy was found for this root, it means the path doesn't exist
+            if (empty($hierarchy)) {
                 return response()->json(['error' => 'Node not found'], 404);
             }
 
-            $ancestry = $this->hierarchyService->getAncestry($hierarchy, $path);
-
             return response()->json([
-                'data' => $node,
+                'data' => $hierarchy,
                 'meta' => [
-                    'ancestry' => $ancestry,
-                    'depth' => count($ancestry),
+                    'type' => $type,
+                    'root' => $path,
+                    'depth' => $request->input('depth'),
+                    'total_nodes' => count($this->hierarchyService->flattenHierarchy($hierarchy)),
                 ],
             ]);
         } catch (\InvalidArgumentException $e) {

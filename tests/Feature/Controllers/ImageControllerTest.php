@@ -45,12 +45,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_returns_correct_dimensions_and_format()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'w' => 500,
-            'h' => 300,
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?w=500&h=300");
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/jpeg');
@@ -63,11 +58,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_supports_webp_format()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'webp',
-            'fm' => 'webp',
-        ]));
+        $response = $this->get("/images/{$this->image->id}.webp?fm=webp");
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/webp');
@@ -93,10 +84,7 @@ class ImageControllerTest extends TestCase
         ];
 
         foreach ($formats as $extension => $mimeType) {
-            $response = $this->get(route('image.transform', [
-                'id' => $this->image->id,
-                'extension' => $extension,
-            ]));
+            $response = $this->get("/images/{$this->image->id}.{$extension}");
 
             $response->assertStatus(200);
             $response->assertHeader('Content-Type', $mimeType);
@@ -106,18 +94,10 @@ class ImageControllerTest extends TestCase
     public function test_image_transform_respects_quality_parameter()
     {
         // Get high quality version
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'q' => 100,
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?q=100");
 
         // Get low quality version
-        $lowResponse = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'q' => 10,
-        ]));
+        $lowResponse = $this->get("/images/{$this->image->id}.jpg?q=10");
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'image/jpeg');
@@ -132,21 +112,13 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_returns_404_for_non_existent_image()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => 9999,
-            'extension' => 'jpg',
-        ]));
-
+        $response = $this->get("/images/9999.jpg");
         $response->assertStatus(404);
     }
 
     public function test_image_transform_handles_invalid_width_parameter()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'w' => 'invalid',
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?w=invalid");
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Invalid width parameter']);
@@ -154,11 +126,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_handles_invalid_height_parameter()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'h' => 'invalid',
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?h=invalid");
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Invalid height parameter']);
@@ -166,11 +134,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_handles_invalid_quality_parameter()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'q' => 'invalid',
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?q=invalid");
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Invalid quality parameter']);
@@ -178,11 +142,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_handles_out_of_range_quality_parameter()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'q' => 101,
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?q=101");
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Quality must be between 1 and 100']);
@@ -190,11 +150,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_transform_handles_invalid_format_parameter()
     {
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'fm' => 'invalid',
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?fm=invalid");
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Invalid format parameter']);
@@ -204,11 +160,7 @@ class ImageControllerTest extends TestCase
     {
         $maxWidth = config('flatlayer.images.max_width', 8192);
 
-        $response = $this->get(route('image.transform', [
-            'id' => $this->image->id,
-            'extension' => 'jpg',
-            'w' => $maxWidth + 1000,
-        ]));
+        $response = $this->get("/images/{$this->image->id}.jpg?w=".($maxWidth + 1000));
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'Requested width exceeds maximum allowed']);
@@ -224,11 +176,7 @@ class ImageControllerTest extends TestCase
         $maxWidth = config('flatlayer.images.max_width', 8192);
 
         // Request a height that would result in a width exceeding the maximum
-        $response = $this->get(route('image.transform', [
-            'id' => $image->id,
-            'extension' => 'jpg',
-            'h' => $maxHeight,
-        ]));
+        $response = $this->get("/images/{$image->id}.jpg?h={$maxHeight}");
 
         $response->assertStatus(400);
         $expectedWidth = (int) round($maxHeight * (4 / 3)); // Calculate expected width based on aspect ratio
@@ -248,33 +196,21 @@ class ImageControllerTest extends TestCase
         $square = $this->entry->addImage('square.jpg', 'square');
 
         // Test width-only transforms
-        $response = $this->get(route('image.transform', [
-            'id' => $landscape->id,
-            'extension' => 'jpg',
-            'w' => 400,
-        ]));
+        $response = $this->get("/images/{$landscape->id}.jpg?w=400");
 
         $resultImage = (new ImageManager(new Driver))->read($response->getContent());
         $this->assertEquals(400, $resultImage->width());
         $this->assertEquals(200, $resultImage->height()); // Maintains 2:1 ratio
 
         // Test height-only transforms
-        $response = $this->get(route('image.transform', [
-            'id' => $portrait->id,
-            'extension' => 'jpg',
-            'h' => 400,
-        ]));
+        $response = $this->get("/images/{$portrait->id}.jpg?h=400");
 
         $resultImage = (new ImageManager(new Driver))->read($response->getContent());
         $this->assertEquals(200, $resultImage->width());
         $this->assertEquals(400, $resultImage->height()); // Maintains 1:2 ratio
 
         // Test square image scaling
-        $response = $this->get(route('image.transform', [
-            'id' => $square->id,
-            'extension' => 'jpg',
-            'w' => 300,
-        ]));
+        $response = $this->get("/images/{$square->id}.jpg?w=300");
 
         $resultImage = (new ImageManager(new Driver))->read($response->getContent());
         $this->assertEquals(300, $resultImage->width());
@@ -283,9 +219,7 @@ class ImageControllerTest extends TestCase
 
     public function test_image_metadata_endpoint()
     {
-        $response = $this->get(route('image.metadata', [
-            'id' => $this->image->id,
-        ]));
+        $response = $this->get("/images/{$this->image->id}/metadata");
 
         $response->assertStatus(200)
             ->assertJsonStructure([

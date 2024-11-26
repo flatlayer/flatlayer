@@ -82,7 +82,7 @@ class BatchShowControllerTest extends TestCase
     public function test_can_retrieve_multiple_entries_by_paths()
     {
         $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -93,7 +93,7 @@ class BatchShowControllerTest extends TestCase
     public function test_batch_retrieval_with_nested_paths()
     {
         $paths = 'docs/tutorials,docs/tutorials/deployment/cloud';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -106,7 +106,7 @@ class BatchShowControllerTest extends TestCase
         $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
         $fields = json_encode(['title', 'slug']);
 
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}&fields={$fields}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}&fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -122,7 +122,7 @@ class BatchShowControllerTest extends TestCase
     public function test_returns_404_for_non_existent_paths()
     {
         $paths = 'docs/getting-started/installation,docs/nonexistent/path';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(404)
             ->assertJson(['error' => 'No items found for the specified type and slugs']);
@@ -131,7 +131,7 @@ class BatchShowControllerTest extends TestCase
     public function test_maintains_request_order()
     {
         $paths = 'docs/tutorials/advanced,docs/getting-started/installation,docs/tutorials/basic';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -143,7 +143,7 @@ class BatchShowControllerTest extends TestCase
     public function test_handles_duplicate_paths()
     {
         $paths = 'docs/getting-started/installation,docs/getting-started/installation';
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -152,10 +152,10 @@ class BatchShowControllerTest extends TestCase
 
     public function test_returns_400_for_invalid_path_format()
     {
-        $response = $this->getJson('/entry/batch/doc?slugs=docs/../../../etc/passwd');
+        $response = $this->getJson('/entries/doc/batch?slugs=docs/../../../etc/passwd');
         $response->assertStatus(400);
 
-        $response = $this->getJson('/entry/batch/doc?slugs=docs/%00/injection');
+        $response = $this->getJson('/entries/doc/batch?slugs=docs/%00/injection');
         $response->assertStatus(400);
     }
 
@@ -166,12 +166,20 @@ class BatchShowControllerTest extends TestCase
             'docs/tutorials/basic',
         ]);
 
-        $response = $this->getJson("/entry/batch/doc?slugs={$paths}");
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Cloud Deployment')
             ->assertJsonPath('data.1.title', 'Basic Tutorial');
+    }
+
+    public function test_batch_retrieval_without_slugs()
+    {
+        $response = $this->getJson("/entries/doc/batch");
+
+        $response->assertStatus(400)
+            ->assertJson(['error' => 'The slugs field is required.']);
     }
 
     public function test_validates_path_security()
@@ -185,8 +193,41 @@ class BatchShowControllerTest extends TestCase
         ];
 
         foreach ($maliciousPaths as $path) {
-            $response = $this->getJson("/entry/batch/doc?slugs={$path}");
+            $response = $this->getJson("/entries/doc/batch?slugs={$path}");
             $response->assertStatus(400);
         }
+    }
+
+    public function test_batch_show_with_nonexistent_type()
+    {
+        $paths = 'docs/getting-started/installation,docs/getting-started/configuration';
+        $response = $this->getJson("/entries/nonexistent/batch?slugs={$paths}");
+
+        $response->assertStatus(404)
+            ->assertJson(['error' => 'No items found for the specified type and slugs']);
+    }
+
+    public function test_batch_show_with_special_characters_in_slugs()
+    {
+        // Create test entries with special characters in slugs
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Special Characters Page',
+            'slug' => 'docs/special-characters',
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Underscore Page',
+            'slug' => 'docs/under_score',
+        ]);
+
+        $paths = 'docs/special-characters,docs/under_score';
+        $response = $this->getJson("/entries/doc/batch?slugs={$paths}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.title', 'Special Characters Page')
+            ->assertJsonPath('data.1.title', 'Underscore Page');
     }
 }

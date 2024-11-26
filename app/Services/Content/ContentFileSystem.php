@@ -21,7 +21,8 @@ class ContentFileSystem
     {
         // Get all markdown files and sort them naturally
         $files = collect($disk->allFiles())
-            ->filter(fn ($path) => pathinfo($path, PATHINFO_EXTENSION) === 'md')
+            ->filter(fn ($path) => !preg_match('/(^|\/)\.[^\/]+/', $path))
+            ->filter(fn ($path) => trim(pathinfo($path, PATHINFO_EXTENSION)) === 'md')
             ->sort(fn ($a, $b) => $this->compareFilePaths($a, $b));
 
         // Track slugs we've seen to detect conflicts
@@ -32,11 +33,11 @@ class ContentFileSystem
             $relativePath = $this->normalizePath($path);
             $slug = Path::toSlug($relativePath);
 
+            Log::debug("Processing file: {$relativePath} -> slug: {$slug}");
+
             // If we've already seen this slug, we have a conflict
             if (isset($seenSlugs[$slug])) {
-                // Log the conflict
-                Log::warning("Slug conflict detected: {$slug}. Files: {$seenSlugs[$slug]}, {$relativePath}");
-
+                Log::warning("Slug conflict detected: {$slug}. Previous file: {$seenSlugs[$slug]}, Current file: {$relativePath}");
                 continue;
             }
 

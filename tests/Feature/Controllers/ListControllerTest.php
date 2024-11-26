@@ -19,6 +19,7 @@ class ListControllerTest extends TestCase
 
     protected function setupHierarchicalContent()
     {
+        // Keeping the setup exactly the same as it creates the test data correctly
         // Create root level entries
         Entry::factory()->atPath('docs')->asIndex()->create([
             'title' => 'Documentation',
@@ -88,7 +89,7 @@ class ListControllerTest extends TestCase
             ]);
         }
 
-        $response = $this->getJson('/entry/doc');
+        $response = $this->getJson('/entries/doc/list');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -112,7 +113,7 @@ class ListControllerTest extends TestCase
             ]);
         }
 
-        $response = $this->getJson('/entry/doc?per_page=10');
+        $response = $this->getJson('/entries/doc/list?per_page=10');
 
         $response->assertStatus(200)
             ->assertJsonCount(10, 'data');
@@ -126,7 +127,7 @@ class ListControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Installation Guide'])
@@ -142,7 +143,7 @@ class ListControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Configuration'])
@@ -157,7 +158,7 @@ class ListControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Advanced Topics'])
@@ -172,7 +173,7 @@ class ListControllerTest extends TestCase
             'meta.difficulty' => 'advanced',
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Deployment Guide'])
@@ -188,7 +189,7 @@ class ListControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Installation Guide'])
@@ -207,7 +208,7 @@ class ListControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Installation Guide'])
@@ -217,7 +218,7 @@ class ListControllerTest extends TestCase
 
     public function test_index_returns_404_for_invalid_type()
     {
-        $response = $this->getJson('/entry/invalid-type');
+        $response = $this->getJson('/entries/invalid-type/list');
         $response->assertStatus(404);
     }
 
@@ -234,7 +235,7 @@ class ListControllerTest extends TestCase
             'slug' => ['$startsWith' => 'docs/getting-started'],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['title' => 'Tutorial'])
@@ -258,7 +259,7 @@ class ListControllerTest extends TestCase
         $fields = json_encode(['title', 'meta.version', 'meta.api.stability']);
         $filter = json_encode(['slug' => ['$startsWith' => 'docs/reference']]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}&fields={$fields}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}&fields={$fields}");
 
         $response->assertStatus(200)
             ->assertJsonStructure(['data' => [[
@@ -278,7 +279,7 @@ class ListControllerTest extends TestCase
             '$order' => ['slug' => 'asc'],
         ]);
 
-        $response = $this->getJson("/entry/doc?filter={$filter}");
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
 
         $data = $response->json('data');
         $slugs = collect($data)->pluck('slug')->values()->all();

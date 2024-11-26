@@ -10,6 +10,8 @@ use Illuminate\Support\Collection as SupportCollection;
 
 class ContentHierarchy
 {
+    private const MAX_ALLOWED_DEPTH = 10;
+
     public function __construct(
         protected readonly EntrySerializer $serializer
     ) {}
@@ -32,6 +34,7 @@ class ContentHierarchy
     {
         $query = Entry::where('type', $type);
 
+        // Add root path filtering if specified
         if ($root !== null) {
             $root = Path::toSlug($root);
             $query->where(function ($q) use ($root) {
@@ -40,22 +43,21 @@ class ContentHierarchy
             });
         }
 
+        // Get all entries
         $entries = $query->get();
-
-        // If filtering by root and no entries found, return empty array
-        if ($root !== null && $entries->isEmpty()) {
-            return [];
-        }
-
-        // Only throw if no entries found for the type at all
-        if ($root === null && $entries->isEmpty()) {
+        if ($entries->isEmpty()) {
+            if ($root !== null) {
+                return [];
+            }
             throw new \InvalidArgumentException("No entries found for type: {$type}");
         }
 
+        // Build hierarchy
         $grouped = $this->groupByParent($entries, $root);
         $rootEntries = $grouped->get('', collect());
+        $childGroups = $grouped->filter(fn($group, $key) => $key !== '');
 
-        return $this->buildNodes($rootEntries, $grouped, $options);
+        return $this->buildNodes($rootEntries, $childGroups, $options);
     }
 
     /**
@@ -74,18 +76,23 @@ class ContentHierarchy
      */
     protected function groupByParent(Collection $entries, ?string $root = null): SupportCollection
     {
-        if ($root === null) {
-            return $entries->groupBy(function ($entry) {
-                return Path::parent($entry->slug);
-            });
+        // For empty root, handle empty slug entry specially
+        if ($root === '') {
+            $groups = new SupportCollection();
+            $groups[''] = $entries->where('slug', '')->values();
+
+            // Group all other entries by parent
+            $nonRootGroups = $entries->where('slug', '!=', '')
+                ->groupBy(function ($entry) {
+                    return Path::parent($entry->slug);
+                });
+
+            return $groups->merge($nonRootGroups);
         }
 
-        return $entries->groupBy(function ($entry) use ($root) {
-            if ($entry->slug === $root) {
-                return '';
-            }
-
-            return $entry->slug === $root ? '' : Path::parent($entry->slug);
+        // For all other cases, just group by parent
+        return $entries->groupBy(function ($entry) {
+            return Path::parent($entry->slug);
         });
     }
 
@@ -104,40 +111,87 @@ class ContentHierarchy
         array $options,
         int $depth = 0
     ): array {
-        $maxDepth = $options['depth'] ?? null;
-        if ($maxDepth !== null && $depth >= $maxDepth) {
+        $maxDepth = min(
+            $options['depth'] ?? self::MAX_ALLOWED_DEPTH,
+            self::MAX_ALLOWED_DEPTH
+        );
+
+        if ($depth >= $maxDepth || $entries->isEmpty()) {
             return [];
         }
 
-        $nodes = $entries->map(function ($entry) use ($grouped, $options, $depth) {
-            // Use navigation_fields for child nodes if specified, otherwise use main fields
-            $fields = $depth === 0 ? ($options['fields'] ?? []) : ($options['navigation_fields'] ?? $options['fields'] ?? []);
-
-            // Create node using serializer for consistent field handling
-            $node = $this->serializer->toArray($entry, $fields);
-
-            // Process children if they exist
-            $children = $grouped->get($entry->slug, collect());
-            if ($children->isNotEmpty()) {
-                if (isset($options['sort'])) {
-                    foreach ($options['sort'] as $field => $direction) {
-                        $children = $children->sortBy($field, SORT_REGULAR, $direction === 'desc');
-                    }
-                }
-
-                $node['children'] = $this->buildNodes($children, $grouped, $options, $depth + 1);
-            }
-
-            return $node;
-        });
-
+        $entries = $this->sortByNavOrder($entries);
         if (isset($options['sort'])) {
-            foreach ($options['sort'] as $field => $direction) {
-                $nodes = $nodes->sortBy($field, SORT_REGULAR, $direction === 'desc');
-            }
+            $entries = $this->applySorting($entries, $options['sort']);
         }
 
-        return $nodes->values()->all();
+        $nodes = [];
+        foreach ($entries as $entry) {
+            $fields = $depth === 0
+                ? ($options['fields'] ?? [])
+                : ($options['navigation_fields'] ?? $options['fields'] ?? []);
+
+            $node = $this->serializer->toArray($entry, $fields);
+
+            if ($children = $grouped->get($entry->slug, collect())) {
+                $children = $children->filter(fn ($child) => $child->id !== $entry->id);
+                $children = $this->sortByNavOrder($children);
+                if (isset($options['sort'])) {
+                    $children = $this->applySorting($children, $options['sort']);
+                }
+
+                $childNodes = $this->buildNodes($children, $grouped, $options, $depth + 1);
+                if (!empty($childNodes)) {
+                    $node['children'] = $childNodes;
+                }
+            }
+
+            $nodes[] = $node;
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * Sort entries by nav_order meta field.
+     * Lower nav_order values come first, falling back to title for entries without nav_order.
+     */
+    protected function sortByNavOrder(SupportCollection $entries): SupportCollection
+    {
+        return $entries->sortBy(fn ($entry) => [
+            is_numeric($entry->meta['nav_order'] ?? null)
+                ? (int) $entry->meta['nav_order']
+                : PHP_FLOAT_MAX,
+            $entry->title
+        ]);
+    }
+
+    /**
+     * Apply additional custom sorting.
+     */
+    protected function applySorting(SupportCollection $entries, array $sort): SupportCollection
+    {
+        foreach ($sort as $field => $direction) {
+            $entries = $entries->sortBy(function ($entry) use ($field) {
+                if (str_starts_with($field, 'meta.')) {
+                    $key = substr($field, 5);
+                    $value = $entry->meta[$key] ?? null;
+
+                    // Handle numeric meta values consistently
+                    if (is_numeric($value)) {
+                        return (int) $value; // Cast to integer like nav_order
+                    }
+
+                    // Return high value for missing meta fields
+                    return $value ?? PHP_FLOAT_MAX;
+                }
+
+                // Handle direct model attributes
+                return $entry->$field ?? PHP_FLOAT_MAX;
+            }, SORT_REGULAR, $direction === 'desc');
+        }
+
+        return $entries;
     }
 
     /**

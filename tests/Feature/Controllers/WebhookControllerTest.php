@@ -35,7 +35,7 @@ class WebhookControllerTest extends TestCase
         $payload = ['repository' => ['name' => 'test-repo']];
 
         // Test with invalid signature
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->postJson('/webhooks/docs', $payload, [
             'X-Hub-Signature-256' => 'invalid_signature',
         ]);
 
@@ -45,7 +45,7 @@ class WebhookControllerTest extends TestCase
         // Test with valid signature
         $validSignature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->postJson('/webhooks/docs', $payload, [
             'X-Hub-Signature-256' => $validSignature,
         ]);
 
@@ -61,7 +61,7 @@ class WebhookControllerTest extends TestCase
         // Configure test webhook URL
         Config::set('flatlayer.sync.docs.webhook_url', 'https://example.com/webhook');
 
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->postJson('/webhooks/docs', $payload, [
             'X-Hub-Signature-256' => $signature,
         ]);
 
@@ -83,7 +83,7 @@ class WebhookControllerTest extends TestCase
         $payload = [];
         $signature = 'sha256='.hash_hmac('sha256', json_encode($payload), 'test_webhook_secret');
 
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->postJson('/webhooks/docs', $payload, [
             'X-Hub-Signature-256' => $signature,
         ]);
 
@@ -98,7 +98,7 @@ class WebhookControllerTest extends TestCase
 
         // Make 11 requests (throttle limit is 10 per minute)
         for ($i = 0; $i < 11; $i++) {
-            $response = $this->postJson('/webhook/docs', $payload, [
+            $response = $this->postJson('/webhooks/docs', $payload, [
                 'X-Hub-Signature-256' => $signature,
             ]);
 
@@ -114,7 +114,7 @@ class WebhookControllerTest extends TestCase
     {
         $payload = ['repository' => ['name' => 'test-repo']];
 
-        $response = $this->postJson('/webhook/docs', $payload, [
+        $response = $this->postJson('/webhooks/docs', $payload, [
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ]);
@@ -131,7 +131,7 @@ class WebhookControllerTest extends TestCase
         $response = $this->withHeaders([
             'Content-Type' => 'text/plain',
             'X-Hub-Signature-256' => $signature,
-        ])->post('/webhook/docs', ['invalid']);
+        ])->post('/webhooks/docs', ['invalid']);
 
         $response->assertStatus(400);
     }

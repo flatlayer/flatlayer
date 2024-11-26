@@ -24,11 +24,8 @@ class ShowController extends Controller
      *
      * @throws \Exception
      */
-    public function show(ShowRequest $request, string $type, string $slug): JsonResponse
+    public function show(ShowRequest $request, string $type, string $slug = ''): JsonResponse
     {
-        // Normalize the slug using Path class - this now strips any /index
-        $slug = Path::toSlug($slug);
-
         // Get the entry
         $contentItem = Entry::where('type', $type)
             ->where('slug', $slug)

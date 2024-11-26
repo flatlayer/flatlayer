@@ -51,10 +51,11 @@ class ShowRequest extends FormRequest
     {
         return [
             'slug' => [
-                'required',
+                'nullable',
                 'string',
                 'max:1024',
                 function ($attribute, $value, $fail) {
+                    $value = $value ?? '';
                     $sanitized = Path::toSlug($value);
                     if ($sanitized !== $value) {
                         $fail('Invalid path format.');
