@@ -4,6 +4,7 @@ namespace App\Services\Markdown;
 
 use App\Models\Entry;
 use App\Services\Media\MediaLibrary;
+use App\Support\Path;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -12,6 +13,8 @@ use Webuni\FrontMatter\FrontMatter;
 
 class MarkdownProcessor
 {
+    protected readonly MarkdownLinkProcessor $linkProcessor;
+
     /**
      * Default fields that can be extracted from front matter.
      */
@@ -25,17 +28,20 @@ class MarkdownProcessor
 
     public function __construct(
         protected readonly MediaLibrary $imageService,
-        protected readonly Filesystem $disk
-    ) {}
+        protected readonly Filesystem   $disk
+    )
+    {
+        $this->linkProcessor = new MarkdownLinkProcessor();
+    }
 
     /**
      * Process a markdown file and extract its content and metadata.
      *
-     * @param  string  $relativePath  The relative path to the markdown file within the disk
-     * @param  string  $type  The content type
-     * @param  string  $slug  The slug for the content
-     * @param  array  $fillable  Additional fillable fields
-     * @param  array  $options  Options for processing
+     * @param string $relativePath The relative path to the markdown file within the disk
+     * @param string $type The content type
+     * @param string $slug The slug for the content
+     * @param array $fillable Additional fillable fields
+     * @param array $options Options for processing
      * @return array{
      *     type: string,
      *     slug: string,
@@ -71,6 +77,9 @@ class MarkdownProcessor
 
         [$title, $markdownContent] = $this->extractTitleFromContent($markdownContent);
 
+        // Process internal links using the new processor
+        $markdownContent = $this->linkProcessor->processLinks($markdownContent);
+
         $processedData = $this->processFrontMatter(
             $data,
             array_unique([...$this->defaultFillable, ...$fillable]),
@@ -93,8 +102,8 @@ class MarkdownProcessor
     /**
      * Process front matter data into structured components.
      *
-     * @param  array  $data  The raw front matter data
-     * @param  array  $fillable  The fillable fields to extract as attributes
+     * @param array $data The raw front matter data
+     * @param array $fillable The fillable fields to extract as attributes
      * @return array{attributes: array, meta: array, images: array}
      */
     public function processFrontMatter(array $data, array $fillable = [], array $options = []): array
@@ -138,8 +147,8 @@ class MarkdownProcessor
     {
         foreach ($images as $collectionName => $imagePaths) {
             $paths = collect(Arr::wrap($imagePaths))
-                ->map(fn ($path) => $this->imageService->resolveMediaPath($path, $relativePath))
-                ->filter(fn ($path) => $this->disk->exists($path))
+                ->map(fn($path) => $this->imageService->resolveMediaPath($path, $relativePath))
+                ->filter(fn($path) => $this->disk->exists($path))
                 ->values();
 
             if ($paths->isNotEmpty()) {

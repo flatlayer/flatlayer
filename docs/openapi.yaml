@@ -290,7 +290,7 @@ paths:
             type: integer
             minimum: 1
             maximum: 100
-            default: 90
+            default: 80
           description: JPEG/WebP quality (1-100)
       responses:
         '200':
