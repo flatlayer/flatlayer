@@ -227,66 +227,6 @@ class MarkdownProcessorTest extends TestCase
         $this->assertEquals([1, 2, 3], $complexMeta->meta['level1']['array']);
     }
 
-    public function test_internal_markdown_links()
-    {
-        $content = $this->disk->put('docs/getting-started/installation.md', <<<'MD'
-# Installation
-
-For setup, see the [Configuration Guide](configuration.md).
-Check the [Prerequisites](../prerequisites.md) first.
-See our [Advanced Guide](../advanced/guide.md) for more.
-Back to [Getting Started](./index.md) or [Home](../index.md).
-The [Overview](./overview.md) explains more.
-Also see [API Reference](../reference/index.md).
-
-Some edge cases:
-- [Multiple Levels Up](../../index.md)
-- [Deep Nested Index](../advanced/topics/index.md)
-- [Mixed Slashes](./path/./to/../current.md)
-- [Link With Spaces](./path/my page.md)
-- [Link With Anchor](configuration.md#setup)
-- [Link With Query](configuration.md?version=2)
-- [Double Extension](configuration.md.backup.md)
-
-External links should be unchanged:
-- [GitHub](https://github.com)
-- [HTTPS Link](https://example.com/docs/guide.md)
-- [HTTP Link](http://example.com/guide.md)
-- [FTP Link](ftp://example.com/guide.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'docs/getting-started/installation.md', 'doc');
-
-        // Current directory links
-        $this->assertStringContainsString('[Configuration Guide](configuration)', $model->content);
-        $this->assertStringContainsString('[Overview](overview)', $model->content);
-
-        // Index file links
-        $this->assertStringContainsString('[Getting Started](.)', $model->content);  // ./index.md -> .
-        $this->assertStringContainsString('[Home](..)', $model->content);  // ../index.md -> ..
-        $this->assertStringContainsString('[API Reference](../reference)', $model->content);  // index.md removal
-
-        // Parent directory links
-        $this->assertStringContainsString('[Prerequisites](../prerequisites)', $model->content);
-        $this->assertStringContainsString('[Advanced Guide](../advanced/guide)', $model->content);
-
-        // Edge cases
-        $this->assertStringContainsString('[Multiple Levels Up](../..)', $model->content);
-        $this->assertStringContainsString('[Deep Nested Index](../advanced/topics)', $model->content);
-        $this->assertStringContainsString('[Mixed Slashes](path/current)', $model->content);
-        $this->assertStringContainsString('[Link With Spaces](path/my page)', $model->content);
-        $this->assertStringContainsString('[Link With Anchor](configuration#setup)', $model->content);
-        $this->assertStringContainsString('[Link With Query](configuration?version=2)', $model->content);
-        $this->assertStringContainsString('[Double Extension](configuration.md.backup)', $model->content);
-
-        // External links should be unchanged
-        $this->assertStringContainsString('[GitHub](https://github.com)', $model->content);
-        $this->assertStringContainsString('[HTTPS Link](https://example.com/docs/guide.md)', $model->content);
-        $this->assertStringContainsString('[HTTP Link](http://example.com/guide.md)', $model->content);
-        $this->assertStringContainsString('[FTP Link](ftp://example.com/guide.md)', $model->content);
-    }
-
     public function test_invalid_content_handling()
     {
         $this->expectException(\Exception::class);

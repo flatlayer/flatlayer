@@ -77,8 +77,8 @@ class MarkdownProcessor
 
         [$title, $markdownContent] = $this->extractTitleFromContent($markdownContent);
 
-        // Process internal links using the new processor
-        $markdownContent = $this->linkProcessor->processLinks($markdownContent);
+        // Process internal links using the new processor with path context
+        $markdownContent = $this->linkProcessor->processLinks($markdownContent, $relativePath);
 
         $processedData = $this->processFrontMatter(
             $data,

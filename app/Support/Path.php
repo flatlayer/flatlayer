@@ -59,8 +59,13 @@ class Path
                 return '';
             }
 
+            // For path segments starting with dots (e.g., "../" or "./"), preserve them
+            if (str_starts_with($segment, '.')) {
+                return $segment;
+            }
+
             // Replace invalid characters with dashes
-            $segment = preg_replace('/[^a-zA-Z0-9_.-]/', '-', $segment);
+            $segment = preg_replace('/[^a-zA-Z0-9_-]/', '-', $segment);
 
             // Collapse multiple dashes
             $segment = preg_replace('/-+/', '-', $segment);
