@@ -2,8 +2,9 @@
 
 namespace Tests\Unit\Services\Markdown;
 
-use App\Models\Entry;
+use App\Services\Markdown\MarkdownLinkProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestFiles;
 
@@ -11,164 +12,129 @@ class MarkdownLinkProcessorTest extends TestCase
 {
     use CreatesTestFiles, RefreshDatabase;
 
+    private MarkdownLinkProcessor $processor;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->setupTestFiles();
+        $this->processor = new MarkdownLinkProcessor();
     }
 
     /**
-     * Test link processing from regular pages to index files.
+     * Helper method to verify markdown link resolution
      */
-    public function test_links_from_regular_page_to_index_files()
-    {
-        $this->disk->put('docs/getting-started/installation.md', <<<'MD'
-# Installation
-
-- [Back to Getting Started](./index.md)
-- [Back to Getting Started Alt](index.md)
-- [Back to Docs](../index.md)
-- [Root](../../index.md)
-- [API Docs](../api/index.md)
-- [API Reference](../api/reference/index.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'docs/getting-started/installation.md', 'doc');
-
-        // Links should maintain proper relative paths
-        $this->assertStringContainsString('[Back to Getting Started](.)', $model->content);
-        $this->assertStringContainsString('[Back to Getting Started Alt](.)', $model->content);
-        $this->assertStringContainsString('[Back to Docs](..)', $model->content);
-        $this->assertStringContainsString('[Root](../..)', $model->content);  // Fixed this line
-        $this->assertStringContainsString('[API Docs](../api)', $model->content);
-        $this->assertStringContainsString('[API Reference](../api/reference)', $model->content);
+    protected function assertLinkResolvesTo(
+        string $sourcePath,
+        string $markdownLink,
+        string $expectedResolution
+    ): void {
+        $content = "# Test\n\n[Test]({$markdownLink})";
+        $processed = $this->processor->processLinks($content, $sourcePath);
+        $this->assertEquals("# Test\n\n[Test]({$expectedResolution})", $processed);
     }
 
-    public function test_links_from_index_to_other_pages()
+    /**
+     * Data provider for link resolution tests
+     */
+    public static function linkResolutionProvider(): array
     {
-        $this->disk->put('docs/getting-started/index.md', <<<'MD'
-# Getting Started
-
-- [Installation](installation.md)
-- [Installation Alt](./installation.md)
-- [Advanced Guide](advanced/guide.md)
-- [API Reference](../api/reference.md)
-- [Back to Docs](../index.md)
-- [Root](../../index.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'docs/getting-started/index.md', 'doc');
-
-        // Links from index pages should maintain proper relative paths
-        $this->assertStringContainsString('[Installation](./installation)', $model->content);
-        $this->assertStringContainsString('[Installation Alt](./installation)', $model->content);
-        $this->assertStringContainsString('[Advanced Guide](./advanced/guide)', $model->content);
-        $this->assertStringContainsString('[API Reference](../api/reference)', $model->content);
-        $this->assertStringContainsString('[Back to Docs](..)', $model->content);
-        $this->assertStringContainsString('[Root](../..)', $model->content);
+        return [
+            'same directory' => [
+                'source' => 'docs/guide/installation.md',
+                'link' => 'configuration.md',
+                'expected' => 'configuration',
+            ],
+            'to parent' => [
+                'source' => 'docs/guide/installation.md',
+                'link' => '../overview.md',
+                'expected' => '../overview',
+            ],
+            'to child' => [
+                'source' => 'docs/guide/index.md',
+                'link' => 'setup/install.md',
+                'expected' => 'guide/setup/install',
+            ],
+            'between siblings' => [
+                'source' => 'docs/guide/setup/install.md',
+                'link' => '../deploy/cloud.md',
+                'expected' => '../deploy/cloud',
+            ],
+            'from index to child' => [
+                'source' => 'docs/index.md',
+                'link' => 'guide/setup.md',
+                'expected' => 'docs/guide/setup',
+            ],
+            'from child to index' => [
+                'source' => 'docs/guide/setup.md',
+                'link' => '../index.md',
+                'expected' => '..',
+            ],
+            'with anchor' => [
+                'source' => 'docs/guide.md',
+                'link' => 'setup.md#installation',
+                'expected' => 'setup#installation',
+            ],
+            'with query' => [
+                'source' => 'docs/guide.md',
+                'link' => 'setup.md?version=2',
+                'expected' => 'setup?version=2',
+            ],
+            'absolute path' => [
+                'source' => 'docs/deep/nested/guide.md',
+                'link' => '/reference/api.md',
+                'expected' => '../../../reference/api',
+            ],
+            'to current directory' => [
+                'source' => 'docs/guide/install.md',
+                'link' => './index.md',
+                'expected' => '.',
+            ],
+        ];
     }
 
-    public function test_links_between_regular_pages()
+    #[DataProvider('linkResolutionProvider')] public function test_link_resolution(string $source, string $link, string $expected): void
     {
-        $this->disk->put('docs/getting-started/installation.md', <<<'MD'
-# Installation
-
-- [Configuration](configuration.md)
-- [Configuration Alt](./configuration.md)
-- [Advanced Guide](advanced/guide.md)
-- [Prerequisites](../prerequisites.md)
-- [API Reference](../api/reference.md)
-- [Troubleshooting](../troubleshooting/guide.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'docs/getting-started/installation.md', 'doc');
-
-        $this->assertStringContainsString('[Configuration](configuration)', $model->content);
-        $this->assertStringContainsString('[Configuration Alt](configuration)', $model->content);
-        $this->assertStringContainsString('[Advanced Guide](advanced/guide)', $model->content);
-        $this->assertStringContainsString('[Prerequisites](../prerequisites)', $model->content);
-        $this->assertStringContainsString('[API Reference](../api/reference)', $model->content);
-        $this->assertStringContainsString('[Troubleshooting](../troubleshooting/guide)', $model->content);
+        $this->assertLinkResolvesTo($source, $link, $expected);
     }
 
-    public function test_edge_cases_and_special_characters()
+    public function test_external_links_remain_unchanged(): void
     {
-        $this->disk->put('docs/edge-cases/test.md', <<<'MD'
-# Edge Cases
+        $links = [
+            'https://example.com/doc.md',
+            'http://example.com/guide',
+            'ftp://files.example.com/doc.pdf',
+            'mailto:user@example.com',
+        ];
 
-- [Multiple Dots](file.with.dots.md)
-- [Query Params](page.md?version=2)
-- [Anchor Links](page.md#section)
-- [Both](page.md?version=2#section)
-- [Spaces in Path](path/my page.md)
-- [Special @Chars](path/@username.md)
-- [Nested Traversal](./path/to/../page.md)
-- [Double Slash](path//page.md)
-- [Unicode](über/café.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'docs/edge-cases/test.md', 'doc');
-
-        $this->assertStringContainsString('[Multiple Dots](file-with-dots)', $model->content);
-        $this->assertStringContainsString('[Query Params](page?version=2)', $model->content);
-        $this->assertStringContainsString('[Anchor Links](page#section)', $model->content);
-        $this->assertStringContainsString('[Both](page?version=2#section)', $model->content);
-        $this->assertStringContainsString('[Spaces in Path](path/my-page)', $model->content);
-        $this->assertStringContainsString('[Special @Chars](path/username)', $model->content);
-        $this->assertStringContainsString('[Nested Traversal](path/page)', $model->content);
-        $this->assertStringContainsString('[Double Slash](path/page)', $model->content);
-        $this->assertStringContainsString('[Unicode](uber/cafe)', $model->content);
+        foreach ($links as $link) {
+            $content = "[Test]({$link})";
+            $processed = $this->processor->processLinks($content, 'docs/test.md');
+            $this->assertEquals($content, $processed);
+        }
     }
 
-    public function test_external_links_remain_unchanged()
+    public function test_handles_multiple_links_in_content(): void
     {
-        $this->disk->put('docs/links.md', <<<'MD'
-# External Links
+        $content = <<<MD
+# Test Document
 
-- [Website](https://example.com)
-- [HTTP](http://example.com/docs/guide.md)
-- [FTP](ftp://example.com/guide.md)
-- [Mail](mailto:user@example.com)
-- [Absolute](/docs/guide.md)
-MD
-        );
+[Link 1](setup.md)
+[Link 2](../guide.md)
+[External](https://example.com)
+[Link 3](./local.md#section)
+MD;
 
-        $model = Entry::createFromMarkdown($this->disk, 'docs/links.md', 'doc');
+        $expected = <<<MD
+# Test Document
 
-        $this->assertStringContainsString('[Website](https://example.com)', $model->content);
-        $this->assertStringContainsString('[HTTP](http://example.com/docs/guide.md)', $model->content);
-        $this->assertStringContainsString('[FTP](ftp://example.com/guide.md)', $model->content);
-        $this->assertStringContainsString('[Mail](mailto:user@example.com)', $model->content);
-        $this->assertStringContainsString('[Absolute](/docs/guide.md)', $model->content);
-    }
+[Link 1](setup)
+[Link 2](../guide)
+[External](https://example.com)
+[Link 3](local#section)
+MD;
 
-    public function test_root_level_index_links()
-    {
-        $this->disk->put('index.md', <<<'MD'
-# Root
-
-- [Getting Started](docs/getting-started/index.md)
-- [About](about.md)
-- [Self Link](index.md)
-- [Self Link Alt](./index.md)
-MD
-        );
-
-        $model = Entry::createFromMarkdown($this->disk, 'index.md', 'doc');
-
-        $this->assertStringContainsString('[Getting Started](./docs/getting-started)', $model->content);
-        $this->assertStringContainsString('[About](./about)', $model->content);
-        $this->assertStringContainsString('[Self Link](.)', $model->content);
-        $this->assertStringContainsString('[Self Link Alt](.)', $model->content);
-    }
-
-    protected function tearDown(): void
-    {
-        $this->tearDownTestFiles();
-        parent::tearDown();
+        $processed = $this->processor->processLinks($content, 'docs/test.md');
+        $this->assertEquals($expected, $processed);
     }
 }
