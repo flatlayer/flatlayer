@@ -40,6 +40,11 @@ class MarkdownLinkProcessorTest extends TestCase
     public static function linkResolutionProvider(): array
     {
         return [
+            'home_to_sub' => [
+                'source' => 'index.md',
+                'link' => 'getting-started/configuration.md',
+                'expected' => './getting-started/configuration',
+            ],
             'same directory' => [
                 'source' => 'docs/guide/installation.md',
                 'link' => 'configuration.md',
@@ -89,6 +94,11 @@ class MarkdownLinkProcessorTest extends TestCase
                 'source' => 'docs/guide/install.md',
                 'link' => './index.md',
                 'expected' => '.',
+            ],
+            'from base index' => [
+                'source' => 'overview.md',
+                'link' => 'guide/setup.md',
+                'expected' => 'guide/setup',
             ],
         ];
     }
