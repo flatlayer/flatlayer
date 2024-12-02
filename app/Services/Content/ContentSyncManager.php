@@ -148,23 +148,41 @@ class ContentSyncManager
      */
     protected function configureGitAuth(GitRepository $repo): void
     {
-        $authMethod = Config::get('flatlayer.git.auth_method', 'token');
+        $authMethod = Config::get('flatlayer.git.auth_method');
 
         try {
-            // Set commit identity
-            $repo->setIdentity(
-                Config::get('flatlayer.git.commit_name', 'Flatlayer CMS'),
-                Config::get('flatlayer.git.commit_email', 'cms@flatlayer.io')
-            );
+            // Only set identity if specifically configured
+            $commitName = Config::get('flatlayer.git.commit_name');
+            $commitEmail = Config::get('flatlayer.git.commit_email');
 
-            // Configure authentication
+            if ($commitName && $commitEmail) {
+                $repo->execute([
+                    'config', 'user.name', $commitName
+                ]);
+                $repo->execute([
+                    'config', 'user.email', $commitEmail
+                ]);
+            }
+
+            // If no auth method specified, skip authentication setup
+            if (!$authMethod) {
+                Log::info('No authentication method configured, assuming public repository');
+                return;
+            }
+
+            // Configure authentication if specified
             switch ($authMethod) {
                 case 'token':
                     $username = Config::get('flatlayer.git.username');
                     $token = Config::get('flatlayer.git.token');
 
                     if ($username && $token) {
-                        $repo->setAuthentication($username, $token);
+                        $repo->execute([
+                            'config', 'credential.username', $username
+                        ]);
+                        $repo->execute([
+                            'config', 'credential.helper', 'store'
+                        ]);
                         Log::info("Git authentication configured using token for user: {$username}");
                     }
                     break;
@@ -172,7 +190,9 @@ class ContentSyncManager
                 case 'ssh':
                     $sshKeyPath = Config::get('flatlayer.git.ssh_key_path');
                     if ($sshKeyPath && file_exists($sshKeyPath)) {
-                        $repo->setSSHKey($sshKeyPath);
+                        $repo->execute([
+                            'config', 'core.sshCommand', "ssh -i {$sshKeyPath}"
+                        ]);
                         Log::info('Git authentication configured using SSH key');
                     }
                     break;
