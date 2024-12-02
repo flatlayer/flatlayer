@@ -119,11 +119,8 @@ class ContentSyncManager
             $beforeHash = $repo->getLastCommitId()->toString();
             Log::info("Current commit hash before pull: {$beforeHash}");
 
-            // Get timeout for Git operations
-            $timeout = Config::get('flatlayer.git.timeout', 60);
-
-            // Pass timeout to pull command
-            $repo->pull(['timeout' => $timeout]);
+            // Execute simple pull command
+            $repo->execute(['pull']);
             Log::info('Pull completed successfully');
 
             $afterHash = $repo->getLastCommitId()->toString();
