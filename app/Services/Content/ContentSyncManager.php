@@ -301,6 +301,14 @@ class ContentSyncManager
             return true;
         }
 
+        // Compare images structure
+        $newImages = $newItem->images->groupBy('collection')->map->pluck('filename')->toArray();
+        $originalImages = $originalItem->images->groupBy('collection')->map->pluck('filename')->toArray();
+
+        if (json_encode($newImages) !== json_encode($originalImages)) {
+            return true;
+        }
+
         return false;
     }
 
