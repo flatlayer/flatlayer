@@ -291,8 +291,12 @@ class ContentLintService
      */
     protected function findSimilarContent(string $searchText, string $originalSlug): array
     {
-        // Use the injected search service instead of the static method
-        $results = $this->searchService->search($searchText, 3);
+        // Create a more comprehensive search text by combining the link text and path text
+        $pathText = $this->getSearchablePathText($originalSlug);
+        $combinedText = trim($searchText.' '.$pathText);
+
+        // Use the injected search service with combined text
+        $results = $this->searchService->search($combinedText, 3);
 
         return $results->map(function ($entry) use ($originalSlug) {
             // Calculate string similarity between slugs as a tiebreaker
@@ -304,6 +308,16 @@ class ContentLintService
                 'score' => ($entry->relevance + $slugSimilarity) / 2,
             ];
         })->sortByDesc('score')->values()->toArray();
+    }
+
+    /**
+     * Convert a path/slug into searchable text by removing extensions and replacing separators with spaces.
+     */
+    protected function getSearchablePathText(string $path): string
+    {
+        $path = preg_replace('/\.md$/', '', $path);
+        $text = str_replace(['/', '-'], ' ', $path);
+        return trim(preg_replace('/\s+/', ' ', $text));
     }
 
     /**
@@ -358,13 +372,15 @@ class ContentLintService
     }
 
     /**
-     * Check if a link is external.
+     * Check if a link is external or uses a URI scheme.
+     * Excludes Windows drive letters (e.g., C:) but catches all URI schemes.
      */
     protected function isExternalLink(string $link): bool
     {
-        return str_starts_with($link, 'http://') ||
-            str_starts_with($link, 'https://') ||
-            str_starts_with($link, '//');
+        // Match either:
+        // 1. anything followed by :// (standard protocol format)
+        // 2. anything followed by : that's not a single letter (to exclude Windows drive letters)
+        return preg_match('/(:\/\/|(?<![A-Za-z]:|^[A-Za-z]):)/', $link) === 1;
     }
 
     /**
