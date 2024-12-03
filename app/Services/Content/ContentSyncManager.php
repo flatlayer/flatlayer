@@ -245,16 +245,7 @@ class ContentSyncManager
                 } else {
                     // For existing items, check if we need to save
                     $originalItem = Entry::where('type', $type)->where('slug', $slug)->first();
-                    $needsUpdate = false;
-
-                    // Compare relevant fields
-                    $fieldsToCompare = ['title', 'content', 'excerpt', 'meta', 'published_at'];
-                    foreach ($fieldsToCompare as $field) {
-                        if ($item->$field != $originalItem->$field) {
-                            $needsUpdate = true;
-                            break;
-                        }
-                    }
+                    $needsUpdate = $this->hasChanges($item, $originalItem);
 
                     if ($needsUpdate) {
                         $item->save();
@@ -289,6 +280,28 @@ class ContentSyncManager
             'entries_unchanged' => $unchangedCount,
             'skipped' => false,
         ];
+    }
+
+    /**
+     * Check if an entry has changes compared to its original version.
+     */
+    protected function hasChanges(Entry $newItem, Entry $originalItem): bool
+    {
+        // Compare basic scalar fields
+        $scalarFields = ['title', 'content', 'excerpt', 'published_at'];
+        foreach ($scalarFields as $field) {
+            if ($newItem->$field !== $originalItem->$field) {
+                return true;
+            }
+        }
+
+        // Compare meta arrays using json_encode for deep comparison
+        // This ensures arrays are compared properly and handles nested structures
+        if (json_encode($newItem->meta) !== json_encode($originalItem->meta)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
