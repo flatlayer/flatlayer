@@ -410,8 +410,15 @@ class EntryFilter
      */
     protected function applyOrder(): void
     {
-        if (! empty($this->order)) {
+        if (!empty($this->order)) {
             foreach ($this->order as $field => $direction) {
+                // Convert MongoDB-style sort directions to 'asc'/'desc'
+                $direction = match ($direction) {
+                    1, 'asc' => 'asc',
+                    -1, 'desc' => 'desc',
+                    default => throw new InvalidFilterException("Invalid sort direction for field {$field}"),
+                };
+
                 $this->builder->orderBy($field, $direction);
             }
         }

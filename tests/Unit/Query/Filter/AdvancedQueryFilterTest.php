@@ -515,4 +515,53 @@ class AdvancedQueryFilterTest extends TestCase
         $sortedDates = $publishedDates->sortDesc()->values();
         $this->assertEquals($sortedDates->all(), $publishedDates->all());
     }
+
+    public function test_mongodb_style_sorting()
+    {
+        // Test both numeric and string sort directions
+        $sortCases = [
+            // Numeric sort directions
+            ['$sort' => ['title' => 1]], // ascending
+            ['$sort' => ['title' => -1]], // descending
+            // String sort directions
+            ['$sort' => ['title' => 'asc']],
+            ['$sort' => ['title' => 'desc']],
+            // Multiple fields
+            ['$sort' => ['type' => 1, 'title' => -1]],
+        ];
+
+        foreach ($sortCases as $filters) {
+            $query = Entry::query();
+            $filtered = (new EntryFilter($query, $filters))->apply();
+            $results = $filtered->get();
+
+            // Just verify we get results without errors
+            $this->assertNotEmpty($results);
+
+            // For ascending title sort, verify order
+            if ($filters['$sort']['title'] ?? null === 1) {
+                $titles = $results->pluck('title')->values();
+                $sortedTitles = $titles->sort()->values();
+                $this->assertEquals($sortedTitles->all(), $titles->all());
+            }
+            // For descending title sort, verify order
+            elseif ($filters['$sort']['title'] ?? null === -1) {
+                $titles = $results->pluck('title')->values();
+                $sortedTitles = $titles->sortDesc()->values();
+                $this->assertEquals($sortedTitles->all(), $titles->all());
+            }
+        }
+    }
+
+    public function test_invalid_sort_direction_throws_exception()
+    {
+        $this->expectException(\App\Query\Exceptions\InvalidFilterException::class);
+
+        $filters = [
+            '$sort' => ['title' => 'invalid']
+        ];
+
+        $query = Entry::query();
+        (new EntryFilter($query, $filters))->apply();
+    }
 }
