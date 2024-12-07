@@ -475,4 +475,44 @@ class AdvancedQueryFilterTest extends TestCase
         $this->assertTrue($results->pluck('title')->contains('Introduction to Python'));
         $this->assertFalse($results->pluck('title')->contains('PHP Tutorial'));
     }
+
+    public function test_basic_ordering()
+    {
+        $filters = [
+            '$order' => ['title' => 'asc']
+        ];
+
+        $query = Entry::query();
+        $filtered = (new EntryFilter($query, $filters))->apply();
+        $results = $filtered->get();
+
+        // Check ascending order by title
+        $titles = $results->pluck('title')->values();
+        $sortedTitles = $titles->sort()->values();
+        $this->assertEquals($sortedTitles->all(), $titles->all());
+
+        // Test descending order
+        $filters = [
+            '$order' => ['title' => 'desc']
+        ];
+
+        $filtered = (new EntryFilter($query, $filters))->apply();
+        $results = $filtered->get();
+
+        $titles = $results->pluck('title')->values();
+        $sortedTitles = $titles->sortDesc()->values();
+        $this->assertEquals($sortedTitles->all(), $titles->all());
+
+        // Test ordering by published_at
+        $filters = [
+            '$order' => ['published_at' => 'desc']
+        ];
+
+        $filtered = (new EntryFilter($query, $filters))->apply();
+        $results = $filtered->get();
+
+        $publishedDates = $results->pluck('published_at')->map(fn($date) => $date->timestamp)->values();
+        $sortedDates = $publishedDates->sortDesc()->values();
+        $this->assertEquals($sortedDates->all(), $publishedDates->all());
+    }
 }

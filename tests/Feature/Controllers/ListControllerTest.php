@@ -291,4 +291,57 @@ class ListControllerTest extends TestCase
             'Entries should be ordered by slug'
         );
     }
+
+    public function test_basic_field_sorting()
+    {
+        // Create test entries with specific titles to ensure sort order
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Zebra Guide',
+            'slug' => 'zebra',
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Aardvark Guide',
+            'slug' => 'aardvark',
+        ]);
+
+        Entry::factory()->create([
+            'type' => 'doc',
+            'title' => 'Bear Guide',
+            'slug' => 'bear',
+        ]);
+
+        // Test ascending order
+        $filter = json_encode([
+            '$order' => ['title' => 'asc']
+        ]);
+
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
+
+        $response->assertStatus(200);
+        $titles = collect($response->json('data'))->pluck('title')->values();
+
+        $this->assertEquals([
+            'Aardvark Guide',
+            'Bear Guide',
+            'Zebra Guide'
+        ], $titles->intersect(['Aardvark Guide', 'Bear Guide', 'Zebra Guide'])->values()->all());
+
+        // Test descending order
+        $filter = json_encode([
+            '$order' => ['title' => 'desc']
+        ]);
+
+        $response = $this->getJson("/entries/doc/list?filter={$filter}");
+
+        $response->assertStatus(200);
+        $titles = collect($response->json('data'))->pluck('title')->values();
+        $this->assertEquals([
+            'Zebra Guide',
+            'Bear Guide',
+            'Aardvark Guide'
+        ], $titles->intersect(['Aardvark Guide', 'Bear Guide', 'Zebra Guide'])->values()->all());
+    }
 }
