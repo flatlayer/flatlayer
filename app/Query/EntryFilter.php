@@ -33,10 +33,10 @@ class EntryFilter
      */
     public function __construct(Builder $builder, protected array $filters)
     {
-        $this->builder = $builder;
+        $this->builder = clone $builder;
         $this->search = $filters['$search'] ?? null;
-        $this->order = $filters['$order'] ?? [];
-        unset($this->filters['$search'], $this->filters['$order']);
+        $this->order = $filters['$order'] ?? $filters['$sort'] ?? [];
+        unset($this->filters['$search'], $this->filters['$order'], $this->filters['$sort']);
         $this->jsonQueryBuilder = $this->createJsonQueryBuilder();
     }
 

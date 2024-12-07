@@ -4,6 +4,8 @@ namespace Tests\Unit\Query\Filter;
 
 use App\Models\Entry;
 use App\Query\EntryFilter;
+use App\Query\Exceptions\InvalidFilterException;
+use App\Query\Exceptions\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -489,7 +491,9 @@ class AdvancedQueryFilterTest extends TestCase
         // Check ascending order by title
         $titles = $results->pluck('title')->values();
         $sortedTitles = $titles->sort()->values();
-        $this->assertEquals($sortedTitles->all(), $titles->all());
+
+        // Check that the titles are all the same
+        $this->assertEquals($sortedTitles->toJson(), $titles->toJson());
 
         // Test descending order
         $filters = [
@@ -501,7 +505,7 @@ class AdvancedQueryFilterTest extends TestCase
 
         $titles = $results->pluck('title')->values();
         $sortedTitles = $titles->sortDesc()->values();
-        $this->assertEquals($sortedTitles->all(), $titles->all());
+        $this->assertEquals($sortedTitles->toJson(), $titles->toJson());
 
         // Test ordering by published_at
         $filters = [
@@ -513,21 +517,27 @@ class AdvancedQueryFilterTest extends TestCase
 
         $publishedDates = $results->pluck('published_at')->map(fn($date) => $date->timestamp)->values();
         $sortedDates = $publishedDates->sortDesc()->values();
-        $this->assertEquals($sortedDates->all(), $publishedDates->all());
+        $this->assertEquals($sortedDates->toJson(), $publishedDates->toJson());
     }
 
     public function test_mongodb_style_sorting()
     {
-        // Test both numeric and string sort directions
+        // Test both syntax styles
         $sortCases = [
-            // Numeric sort directions
+            // Original $order syntax
+            ['$order' => ['title' => 'asc']],
+            ['$order' => ['title' => 'desc']],
+
+            // MongoDB $sort syntax
             ['$sort' => ['title' => 1]], // ascending
             ['$sort' => ['title' => -1]], // descending
-            // String sort directions
-            ['$sort' => ['title' => 'asc']],
-            ['$sort' => ['title' => 'desc']],
-            // Multiple fields
-            ['$sort' => ['type' => 1, 'title' => -1]],
+
+            // MongoDB numeric style with $order
+            ['$order' => ['title' => 1]],
+            ['$order' => ['title' => -1]],
+
+            // Multiple fields work with both
+            ['$order' => ['type' => 'asc', 'title' => 'desc']],
         ];
 
         foreach ($sortCases as $filters) {
@@ -535,33 +545,44 @@ class AdvancedQueryFilterTest extends TestCase
             $filtered = (new EntryFilter($query, $filters))->apply();
             $results = $filtered->get();
 
-            // Just verify we get results without errors
             $this->assertNotEmpty($results);
 
-            // For ascending title sort, verify order
-            if ($filters['$sort']['title'] ?? null === 1) {
-                $titles = $results->pluck('title')->values();
-                $sortedTitles = $titles->sort()->values();
-                $this->assertEquals($sortedTitles->all(), $titles->all());
-            }
-            // For descending title sort, verify order
-            elseif ($filters['$sort']['title'] ?? null === -1) {
-                $titles = $results->pluck('title')->values();
-                $sortedTitles = $titles->sortDesc()->values();
-                $this->assertEquals($sortedTitles->all(), $titles->all());
+            if (isset($filters['$order']['type'])) {
+                // For multi-field sort, first group by type then verify title order within each type
+                $groupedByType = $results->groupBy('type');
+                foreach ($groupedByType as $typeGroup) {
+                    $titles = $typeGroup->pluck('title')->values();
+                    $sortedTitles = $titles->sortDesc()->values();
+                    $this->assertEquals($sortedTitles->toJson(), $titles->toJson());
+                }
+            } else {
+                // Single field sort logic remains the same
+                if (isset($filters['$sort']['title']) && $filters['$sort']['title'] === 1 ||
+                    isset($filters['$order']['title']) && in_array($filters['$order']['title'], [1, 'asc'])) {
+                    $titles = $results->pluck('title')->values();
+                    $sortedTitles = $titles->sort()->values();
+                    $this->assertEquals($sortedTitles->toJson(), $titles->toJson());
+                }
+                elseif (isset($filters['$sort']['title']) && $filters['$sort']['title'] === -1 ||
+                    isset($filters['$order']['title']) && in_array($filters['$order']['title'], [-1, 'desc'])) {
+                    $titles = $results->pluck('title')->values();
+                    $sortedTitles = $titles->sortDesc()->values();
+                    $this->assertEquals($sortedTitles->toJson(), $titles->toJson());
+                }
             }
         }
     }
 
     public function test_invalid_sort_direction_throws_exception()
     {
-        $this->expectException(\App\Query\Exceptions\InvalidFilterException::class);
+        try {
+            $filters = ['$sort' => ['title' => 'invalid']];
+            $query = Entry::query();
+            (new EntryFilter($query, $filters))->apply();
 
-        $filters = [
-            '$sort' => ['title' => 'invalid']
-        ];
-
-        $query = Entry::query();
-        (new EntryFilter($query, $filters))->apply();
+            $this->fail('Expected exception not thrown');
+        } catch (QueryException $e) {
+            $this->assertInstanceOf(InvalidFilterException::class, $e->getOriginalException());
+        }
     }
 }
